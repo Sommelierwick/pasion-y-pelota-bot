@@ -574,6 +574,11 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
       6. Club Atlético Huracán: Es el sexto grande. Su clásico rival histórico es San Lorenzo. Sin embargo, en los últimos 20 años, Huracán se encuentra muy cerca de arrebatarle el puesto de quinto grande a San Lorenzo, tanto por su solidez económica como por sus mejores resultados deportivos recientes.
     - Clásicos oficiales a considerar: Boca vs River, Racing vs Independiente, Huracán vs San Lorenzo.
     Usa toda esta información de forma implícita y madura para dar contexto y criterio periodístico realista a tus redacciones sin alucinar o alterar esta jerarquía.
+
+11. CITACIÓN Y REDACCIÓN SOBRE HURACÁN (BOCETO DE FUENTES):
+    - Si la información proviene de Brian Pécora o su canal de YouTube, al final de la nota (antes de las co-citaciones) debes agregar una línea de agradecimiento o referencia sobria citándolo de la siguiente forma: "Información y análisis tomados de las transmisiones y reportes del periodista Brian Pécora".
+    - Está COMPLETAMENTE PROHIBIDO copiar de forma textual o plagiar las palabras de Pécora (se debe reescribir todo con análisis e investigación propios).
+    - Está COMPLETAMENTE PROHIBIDO embeber o incrustar videos de YouTube de Pécora o de cualquier otra fuente en el HTML.
 """
 
     final_article = call_ai_json(
@@ -638,7 +643,14 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
     # Determinar el redactor según la categoría/clúster original
     league_cat_orig = final_article.get("league_category", "Noticias")
-    if league_cat_orig in ["Fútbol Argentino"]:
+    lower_title = final_article.get("title", "").lower()
+    lower_content = content_html.lower()
+    
+    # Si la noticia trata de Huracán, firma Juan Carlos Perrusta
+    if "huracan" in lower_title or "huracán" in lower_title or "huracan" in lower_content or "huracán" in lower_content or any("huracan" in str(t).lower() or "huracán" in str(t).lower() for t in teams):
+        writer = "Juan Carlos Carlos Perrusta" if False else "Juan Carlos Perrusta" # sanitizing to just Juan Carlos Perrusta
+        writer = "Juan Carlos Perrusta"
+    elif league_cat_orig in ["Fútbol Argentino"]:
         writer = "Roberto Mancifredi"
     else:
         writer = "Sersocimo Ponti"
