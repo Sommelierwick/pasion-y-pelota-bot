@@ -41,36 +41,90 @@ def run_async(coro):
     else:
         return asyncio.run(coro)
 
+def clean_schema_for_gemini(schema_dict: dict) -> dict:
+    """Filtra y limpia un esquema JSON de Pydantic para adaptarlo a la API de Gemini."""
+    allowed_keys = {"type", "properties", "required", "items", "description", "enum"}
+    cleaned = {}
+    for k, v in schema_dict.items():
+        if k in allowed_keys:
+            if k == "properties" and isinstance(v, dict):
+                cleaned[k] = {prop_name: clean_schema_for_gemini(prop_val) for prop_name, prop_val in v.items()}
+            elif k == "items" and isinstance(v, dict):
+                cleaned[k] = clean_schema_for_gemini(v)
+            else:
+                if k == "type" and isinstance(v, str):
+                    type_mapping = {
+                        "string": "STRING",
+                        "integer": "INTEGER",
+                        "number": "NUMBER",
+                        "boolean": "BOOLEAN",
+                        "array": "ARRAY",
+                        "object": "OBJECT"
+                    }
+                    cleaned[k] = type_mapping.get(v.lower(), v.upper())
+                else:
+                    cleaned[k] = v
+    return cleaned
+
 def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
-    """Intenta llamar a Gemini para obtener JSON estructurado usando el SDK."""
-    if not HAS_ANTIGRAVITY:
-        logger.warning("Google Antigravity SDK no está disponible en este entorno. Se usará el respaldo de Groq.")
+    """Intenta llamar a Gemini para obtener JSON estructurado usando solicitudes HTTP directas."""
+    if not config.GEMINI_API_KEYS:
+        logger.warning("No hay claves de Gemini configuradas.")
         return {}
-    try:
+        
+    num_keys = len(config.GEMINI_API_KEYS)
+    import time
+    for attempt in range(num_keys * 2):
         api_key = config.get_active_key()
         if not api_key:
-            logger.error("No se encontró clave de API de Gemini configurada.")
-            return {}
+            logger.error("No se pudo obtener una clave activa de Gemini.")
+            config.rotate_key()
+            continue
+            
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
         
-        async def _call():
-            cfg = LocalAgentConfig(
-                api_key=api_key,
-                system_instructions=system_instruction,
-                response_schema=schema
-            )
-            async with Agent(config=cfg) as agent:
-                resp = await agent.chat(prompt)
-                res = await resp.structured_output()
-                if res and hasattr(res, 'model_dump'):
-                    return res.model_dump()
-                elif isinstance(res, dict):
-                    return res
-                return {}
-                
-        return run_async(_call())
-    except Exception as e:
-        logger.error(f"Error en call_gemini_json: {e}")
-        return {}
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "systemInstruction": {
+                "parts": [{"text": system_instruction}]
+            }
+        }
+        
+        if schema:
+            raw_schema = schema.model_json_schema()
+            gemini_schema = clean_schema_for_gemini(raw_schema)
+            payload["generationConfig"] = {
+                "responseMimeType": "application/json",
+                "responseSchema": gemini_schema
+            }
+            
+        try:
+            logger.info(f"Intentando Gemini HTTP (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
+            response = requests.post(url, json=payload, headers=headers, timeout=45)
+            
+            if response.status_code == 200:
+                result = response.json()
+                try:
+                    content = result["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(content)
+                except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
+                    logger.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
+                    return {}
+            elif response.status_code == 429:
+                logger.warning(f"Gemini Rate Limit (429) detectado en EditorJefe. Rotando clave...")
+                config.rotate_key()
+                time.sleep(2)
+            else:
+                logger.error(f"Error de Gemini HTTP ({response.status_code}): {response.text}")
+                config.rotate_key()
+        except Exception as e:
+            logger.error(f"Excepción al llamar a Gemini HTTP: {e}")
+            config.rotate_key()
+            
+    return {}
 
 def call_groq_json(prompt: str, system_instruction: str, model: str = "llama-3.1-8b-instant") -> dict:
     """Función auxiliar para llamar a la API de Groq y obtener una respuesta JSON estructurada."""

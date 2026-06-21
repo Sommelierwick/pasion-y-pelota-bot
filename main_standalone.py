@@ -143,6 +143,103 @@ def call_groq(prompt: str, system_instruction: str, response_schema=None, model=
             logging.error(f"Excepción al llamar Groq: {e}")
     return None
 
+def clean_schema_for_gemini(schema_dict: dict) -> dict:
+    """Filtra y limpia un esquema JSON de Pydantic para adaptarlo a la API de Gemini."""
+    allowed_keys = {"type", "properties", "required", "items", "description", "enum"}
+    cleaned = {}
+    for k, v in schema_dict.items():
+        if k in allowed_keys:
+            if k == "properties" and isinstance(v, dict):
+                cleaned[k] = {prop_name: clean_schema_for_gemini(prop_val) for prop_name, prop_val in v.items()}
+            elif k == "items" and isinstance(v, dict):
+                cleaned[k] = clean_schema_for_gemini(v)
+            else:
+                if k == "type" and isinstance(v, str):
+                    type_mapping = {
+                        "string": "STRING",
+                        "integer": "INTEGER",
+                        "number": "NUMBER",
+                        "boolean": "BOOLEAN",
+                        "array": "ARRAY",
+                        "object": "OBJECT"
+                    }
+                    cleaned[k] = type_mapping.get(v.lower(), v.upper())
+                else:
+                    cleaned[k] = v
+    return cleaned
+
+def call_gemini_http(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
+    """Llama a la API de Gemini mediante solicitudes HTTP directas rotando claves en caso de error 429."""
+    if not config.GEMINI_API_KEYS:
+        logging.warning("No hay claves de Gemini configuradas. Saltando a Groq.")
+        return None
+        
+    num_keys = len(config.GEMINI_API_KEYS)
+    import time
+    for attempt in range(num_keys * 2):
+        api_key = config.get_active_key()
+        if not api_key:
+            logging.error("No se pudo obtener una clave activa de Gemini.")
+            config.rotate_key()
+            continue
+            
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+        
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "systemInstruction": {
+                "parts": [{"text": system_instruction}]
+            }
+        }
+        
+        if response_schema:
+            raw_schema = response_schema.model_json_schema()
+            gemini_schema = clean_schema_for_gemini(raw_schema)
+            payload["generationConfig"] = {
+                "responseMimeType": "application/json",
+                "responseSchema": gemini_schema
+            }
+            
+        try:
+            logging.info(f"Intentando Gemini HTTP (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
+            response = requests.post(url, json=payload, headers=headers, timeout=45)
+            
+            if response.status_code == 200:
+                result = response.json()
+                try:
+                    content = result["candidates"][0]["content"]["parts"][0]["text"]
+                    if response_schema:
+                        return json.loads(content)
+                    return {"text": content}
+                except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
+                    logging.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
+                    return None
+            elif response.status_code == 429:
+                logging.warning(f"Gemini Rate Limit (429) detectado. Rotando clave...")
+                config.rotate_key()
+                time.sleep(2)
+            else:
+                logging.error(f"Error de Gemini HTTP ({response.status_code}): {response.text}")
+                config.rotate_key()
+        except Exception as e:
+            logging.error(f"Excepción al llamar a Gemini HTTP: {e}")
+            config.rotate_key()
+            
+    return None
+
+def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
+    """Motor híbrido principal: Intenta Gemini primero (con rotación). Si falla, recurre a Groq."""
+    res = call_gemini_http(prompt, system_instruction, response_schema)
+    if res:
+        logging.info("Respuesta obtenida con éxito usando Gemini.")
+        return res
+        
+    logging.warning("Fallo en todas las claves de Gemini. Recurriendo a Groq como respaldo...")
+    return call_groq(prompt, system_instruction, response_schema)
+
 # =============================================================================
 # 4. Flujo Principal del Pipeline
 # =============================================================================
@@ -234,11 +331,10 @@ Asigna 'priority_score' del 1 (altísima) al 10 (baja).
 
     import time
     time.sleep(3)
-    selected_news = call_groq(
+    selected_news = call_ai_json(
         prompt=f"Analiza estas noticias y selecciona la más importante según la jerarquía de clústeres SEO:\n{candidates_text}",
         system_instruction=OJEADOR_SYSTEM,
-        response_schema=NewsDetails,
-        model="llama-3.1-8b-instant"
+        response_schema=NewsDetails
     )
 
     if not selected_news or not selected_news.get("has_relevant_news"):
@@ -353,7 +449,7 @@ Si no hay datos exactos disponibles, usa estimaciones razonables basadas en el c
 de la noticia y el clúster. NO inventes cifras extremas.
 """
 
-    enriched_data = call_groq(
+    enriched_data = call_ai_json(
         prompt=(
             f"Noticia a enriquecer:\n"
             f"Protagonista: {player_name}\n"
@@ -365,8 +461,7 @@ de la noticia y el clúster. NO inventes cifras extremas.
             f"Contexto tabla de posiciones:\n{promiedos_raw[:1500]}"
         ),
         system_instruction=DOCUMENTALISTA_SYSTEM,
-        response_schema=EnrichedNews,
-        model="llama-3.1-8b-instant"
+        response_schema=EnrichedNews
     )
 
     if not enriched_data:
@@ -470,7 +565,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    - 500-700 palabras totales.
 """
 
-    final_article = call_groq(
+    final_article = call_ai_json(
         prompt=(
             f"Redacta el artículo definitivo para el clúster SEO '{seo_cluster_name}':\n"
             f"Protagonista: {enriched_data.get('player')}\n"
