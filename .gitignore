@@ -5,3 +5,5 @@ pipeline.log
 .DS_Store
 *.zip
 *.log
+local_scheduler.py
+
