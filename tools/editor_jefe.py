@@ -1,0 +1,315 @@
+import os
+import requests
+import json
+import logging
+from requests.auth import HTTPBasicAuth
+from tools.promiedos import fetch_promiedos_page, fetch_mundial_complete_data
+import config
+
+logger = logging.getLogger(__name__)
+
+import pydantic
+from typing import List, Optional
+try:
+    from google.antigravity import Agent, LocalAgentConfig
+    HAS_ANTIGRAVITY = True
+except ImportError:
+    HAS_ANTIGRAVITY = False
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+class ApprovedData(pydantic.BaseModel):
+    approved: bool = pydantic.Field(description="Verdadero si la noticia es aprobada")
+    rejection_reason: str = pydantic.Field(description="Razón detallada de la desaprobación si aplica")
+    corrected_category: str = pydantic.Field(description="Categoría corregida de WordPress")
+
+class WidgetData(pydantic.BaseModel):
+    live_scores: str = pydantic.Field(description="HTML string de los marcadores en vivo")
+    upcoming_matches: str = pydantic.Field(description="HTML string de los partidos programados")
+    semaforo: str = pydantic.Field(description="HTML string del semáforo deportivo")
+
+def run_async(coro):
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(asyncio.run, coro)
+            return future.result()
+    else:
+        return asyncio.run(coro)
+
+def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
+    """Intenta llamar a Gemini para obtener JSON estructurado usando el SDK."""
+    if not HAS_ANTIGRAVITY:
+        logger.warning("Google Antigravity SDK no está disponible en este entorno. Se usará el respaldo de Groq.")
+        return {}
+    try:
+        api_key = config.get_active_key()
+        if not api_key:
+            logger.error("No se encontró clave de API de Gemini configurada.")
+            return {}
+        
+        async def _call():
+            cfg = LocalAgentConfig(
+                api_key=api_key,
+                system_instructions=system_instruction,
+                response_schema=schema
+            )
+            async with Agent(config=cfg) as agent:
+                resp = await agent.chat(prompt)
+                res = await resp.structured_output()
+                if res and hasattr(res, 'model_dump'):
+                    return res.model_dump()
+                elif isinstance(res, dict):
+                    return res
+                return {}
+                
+        return run_async(_call())
+    except Exception as e:
+        logger.error(f"Error en call_gemini_json: {e}")
+        return {}
+
+def call_groq_json(prompt: str, system_instruction: str, model: str = "llama-3.1-8b-instant") -> dict:
+    """Función auxiliar para llamar a la API de Groq y obtener una respuesta JSON estructurada."""
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        logger.error("No se encontró la variable GROQ_API_KEY en el entorno.")
+        return {}
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"}
+    }
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"]
+                return json.loads(content)
+            elif response.status_code == 429:
+                logger.warning(f"Groq Rate Limit (429) detectado en EditorJefe ({model}): {response.text}. Reintentando en 15 segundos... (Intento {attempt + 1}/{max_retries})")
+                time.sleep(15)
+                continue
+            else:
+                logger.error(f"Error de API de Groq: {response.status_code} - {response.text}")
+        except Exception as e:
+            logger.error(f"Excepción al llamar a Groq: {e}")
+    return {}
+
+class EditorJefe:
+    def __init__(self):
+        self.wp_url = config.WP_URL.rstrip('/')
+        self.auth = HTTPBasicAuth(config.WP_USER, config.WP_PASSWORD)
+
+    def review_news(self, news_headline: str, news_details: str, seo_cluster: str, source_url: str, fact_check_results: str = "") -> dict:
+        """
+        Revisa la noticia candidata seleccionada por el Ojeador para validar que cumple el plan.
+        """
+        system_instruction = """
+Eres "El Editor Jefe", periodista deportivo y fact-checker de fútbol y F1 para un portal deportivo panamericano.
+Tu rol es asegurar que CUALQUIER noticia cumpla estrictamente con el plan y sea verídica.
+
+Reglas Editoriales Estrictas:
+1. LIGAS PERMITIDAS: Solo MLS, Brasileirão, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Copa Libertadores y Copa Mundial 2026.
+   - CUALQUIER otra liga (ej: Liga Turca, Superliga turca, Griega, Escocesa, Saudí, etc.) está TERMINANTEMENTE PROHIBIDA. Si la noticia trata de un traspaso a/desde un club de estas ligas prohibidas (como Fenerbahçe, Galatasaray, Al-Nassr, etc.), debes desaprobarla.
+2. ENTIDADES PROHIBIDAS: Miguel Almirón está completamente prohibido en cualquier contexto en el Mundial 2026 o en la tapa. Si se le menciona o si la noticia lo involucra, debes desaprobar.
+3. EXCEPCIÓN MESSI/ARGENTINA: Se permite cualquier noticia sobre Messi o Selección Argentina. Sin embargo, NUNCA deben categorizarse bajo "MLS" ni bajo "Fútbol Argentino" (para evitar mezclar la temática de la liga local); si provienen de Inter Miami, MLS o Selección Argentina, debes corregir la categoría a "Mundial 2026".
+4. FÓRMULA 1 (F1): Solo se habla de Franco Colapinto, Alpine y Mercedes F1, Hamilton y Verstappen.
+5. REGLA DE ORO DE FÚTBOL ARGENTINO: Si la noticia corresponde a "Fútbol Argentino" (clúster "lpf_argentina" o categoría "Fútbol Argentino"), DEBES desaprobarla si el tema NO es estrictamente el mercado de pases (fichajes, rumores, renovaciones, salidas, llegadas) o clubes inhibidos por la FIFA (sanciones, deudas e inhibiciones oficiales de la FIFA para incorporar). No se permite ningún otro tema general de la liga local (crónicas de partidos, resultados, polémicas locales, etc.).
+6. FAKE NEWS / FACT-CHECK: Compara la noticia candidata con los resultados de búsqueda web (Fact-Checking) provistos. Si la noticia no se encuentra reportada por medios confiables y certificados (ej: Marca, Olé, ESPN, etc.), o si figura como desmentida o como un rumor falso de cuentas no verificadas, debes desaprobarla devolviendo "approved": false. Todo debe ser confirmado, ya que son noticias serias.
+
+Devuelve un JSON con exactamente estos campos:
+{
+  "approved": bool,
+  "rejection_reason": "razón detallada si es desaprobada (en español)",
+  "corrected_category": "categoría WP corregida (Mundial 2026 | F1 | MLS | Brasileirão | Fútbol Argentino | Liga MX | Champions League | Copa Libertadores | Premier League | LaLiga | Serie A | otra)"
+}
+"""
+        prompt = f"""
+Noticia a evaluar:
+Titular: {news_headline}
+Detalles: {news_details}
+Clúster SEO: {seo_cluster}
+Fuente original: {source_url}
+
+Resultados de búsqueda para verificación de hechos (Fact-Checking):
+{fact_check_results}
+        """
+        res = call_gemini_json(prompt, system_instruction, ApprovedData)
+        if not res:
+            logger.info("Falló Gemini en review_news, usando Groq como respaldo...")
+            res = call_groq_json(prompt, system_instruction, model="llama-3.1-8b-instant")
+        # Reglas Editoriales Estrictas:
+        # 1. LIGAS PERMITIDAS: Solo MLS, Brasileirão, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Copa Libertadores y Copa Mundial 2026.
+        # 2. ENTIDADES PROHIBIDAS: Miguel Almirón está completamente prohibido en cualquier contexto en el Mundial 2026 o en la tapa.
+        # 3. EXCEPCIÓN MESSI/ARGENTINA: Se permite cualquier noticia sobre Messi o Selección Argentina. NUNCA deben categorizarse bajo "MLS" o "Fútbol Argentino".
+        
+        # Forzar aprobación y re-categorización para Messi/Argentina
+        lower_headline = news_headline.lower()
+        lower_details = str(news_details).lower()
+        if "messi" in lower_headline or "messi" in lower_details or "argentina" in lower_headline or "argentina" in lower_details:
+            res["approved"] = True
+            if res.get("corrected_category") in ["MLS", "Fútbol Argentino"] or seo_cluster in ["mls", "lpf_argentina"]:
+                res["corrected_category"] = "Mundial 2026"
+        return res
+
+    def update_widgets_and_banners(self) -> bool:
+        """
+        Lee datos reales del Mundial en Promiedos y actualiza dinámicamente las marquesinas, el Semáforo y el fixture.
+        """
+        logger.info("El Editor Jefe está recopilando datos reales de la Copa del Mundo 2026 desde Promiedos...")
+        
+        # Obtener los datos legibles para Groq
+        promiedos_html = fetch_promiedos_page("mundial")
+        
+        # Obtener datos estructurados para la página de Fixture
+        mundial_data = fetch_mundial_complete_data()
+
+        # Obtener artículos recientes desde la REST API de WordPress para el Semáforo Deportivo
+        posts_list_str = ""
+        try:
+            posts_url = f"{self.wp_url}/wp-json/wp/v2/posts"
+            logger.info("Consultando artículos publicados en WordPress para el Semáforo...")
+            resp_posts = requests.get(posts_url, params={"per_page": 15, "_fields": "id,title,link,categories,excerpt"}, auth=self.auth, timeout=15)
+            if resp_posts.status_code == 200:
+                posts_data = resp_posts.json()
+                
+                # Obtener categorías para mapear nombres
+                cats_url = f"{self.wp_url}/wp-json/wp/v2/categories"
+                resp_cats = requests.get(cats_url, params={"per_page": 100, "_fields": "id,name"}, auth=self.auth, timeout=15)
+                cat_map = {}
+                if resp_cats.status_code == 200:
+                    for c in resp_cats.json():
+                        cat_map[c["id"]] = c["name"]
+                
+                posts_formatted = []
+                import re
+                for p in posts_data:
+                    p_id = p.get("id")
+                    title = p.get("title", {}).get("rendered", "")
+                    link = p.get("link", "")
+                    cat_ids = p.get("categories", [])
+                    cat_name = cat_map.get(cat_ids[0], "Deportes") if cat_ids else "Deportes"
+                    excerpt = p.get("excerpt", {}).get("rendered", "")
+                    excerpt_clean = re.sub('<[^<]+?>', '', excerpt).strip()[:100]
+                    posts_formatted.append(f"- ID: {p_id} | Título: '{title}' | Categoría: '{cat_name}' | Link: {link} | Resumen: {excerpt_clean}")
+                
+                posts_list_str = "\n".join(posts_formatted)
+                logger.info(f"Se encontraron {len(posts_formatted)} artículos para alimentar el Semáforo.")
+            else:
+                logger.error(f"Error al obtener artículos para el Semáforo (HTTP {resp_posts.status_code})")
+        except Exception as e:
+            logger.error(f"Excepción al obtener artículos para el Semáforo: {e}")
+        
+        from datetime import datetime
+        import pytz
+        tz = pytz.timezone('America/Argentina/Buenos_Aires')
+        now = datetime.now(tz)
+        current_time_str = now.strftime('%H:%M hs')
+        months_es = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
+            7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+        }
+        current_date_str = f"{now.day} de {months_es[now.month]} de {now.year}"
+
+        games_json_str = json.dumps(mundial_data.get("games", []), indent=2, ensure_ascii=False)
+        system_instruction = """
+Eres "El Editor Jefe", periodista experto en deportes. Debes armar el HTML de las marquesinas (tickers) y del Semáforo Deportivo para la web usando los partidos del Mundial en formato JSON y la lista de artículos publicados.
+La fecha actual de la simulación es {SIMULATION_DATE}, {SIMULATION_TIME} (Mundial de la FIFA 2026 en curso).
+""".replace("{SIMULATION_DATE}", current_date_str).replace("{SIMULATION_TIME}", current_time_str) + """
+
+Debes generar tres piezas de HTML para WordPress:
+1. "live_scores": Un string conteniendo los elementos <div class="score-item">...</div> para la marquesina superior de partidos ya finalizados o en juego del día (cuyo horario de inicio ya pasó).
+   - Debes usar los partidos reales del Mundial 2026 que figuran en el JSON, extrayendo cuidadosamente sus goles actuales y estado (ej: si "home_goals" y "away_goals" están presentes, úsalos. Si el partido está "En Progreso" o similar, pon su estado real). NUNCA uses guiones vacíos '- - -' si los goles ya están disponibles en el JSON.
+   - Duplica los ítems para el loop continuo.
+   - Si no los encuentras en el JSON, usa exactamente estos reales de hoy (20 de Junio):
+     - Turquía 0 - 1 Paraguay (Finalizado)
+     - Países Bajos 5 - 1 Suecia (Finalizado)
+     - Alemania 2 - 1 Costa de Marfil (Finalizado)
+
+2. "upcoming_matches": Un string conteniendo los elementos <div class="score-item">...</div> para la marquesina inferior de partidos programados o por jugar en el futuro.
+   - ESTRICTAMENTE PROHIBIDO: NO uses estilos inline como style="..." ni style="background-color: ..." en NINGUNA etiqueta HTML (tampoco en class="score-item"), ya que la hoja de estilos externa se encarga del diseño y los colores de contraste.
+   - Usa los encuentros reales programados del Mundial que figuren en el JSON.
+   - Dado que Alemania vs. Costa de Marfil ya se está jugando (comenzó a las 17:00 hs), NO debe aparecer en partidos programados (upcoming_matches), sino en marcadores en vivo (live_scores) con sus goles correspondientes.
+   - Duplica los ítems para el loop continuo.
+   - Si no los encuentras en el JSON, usa exactamente estos próximos partidos:
+     - Ecuador vs. Curazao (20 Jun 21:00 hs)
+     - España vs. Arabia Saudita (21 Jun 13:00 hs)
+     - Argentina vs. Austria (22 Jun 14:00 hs)
+
+3. "semaforo": HTML del Semáforo Deportivo lateral.
+   - Debe contener exactamente tres bloques wrapped en enlaces (tag <a>) apuntando a los artículos reales correspondientes a los 3 semáforos, con clase "semaforo-link":
+     <a href="{link_real}" class="semaforo-link">
+       <div class="semaforo-item {color}">
+         <span class="semaforo-dot">{emoji}</span>
+         <div class="semaforo-content">
+           <strong>{categoria_del_post}:</strong> {texto_breve_del_semaforo}
+         </div>
+       </div>
+     </a>
+   - Colores a generar:
+     - verde: Para un artículo de éxito, victoria, Lionel Messi, Selección Argentina o gran expectativa.
+     - amarillo: Para un artículo neutral, rumores de fichajes/mercado de pases o F1.
+     - rojo: Para un artículo de deudas/crisis económica de clubes, lesiones graves o inhibiciones de la FIFA.
+   - Selecciona exactamente 3 artículos reales de la "LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL" para mapear cada uno a un color.
+   - El texto explicativo de cada ítem del semáforo debe ser muy corto, llamativo y adaptado a lo que dice el artículo seleccionado (máximo 15-20 palabras).
+   - NUNCA uses Miguel Almirón en ningún contexto.
+   - Si por alguna razón no hay suficientes artículos en la lista, puedes usar enlaces simulados a '/#', pero prioriza siempre la lista de artículos reales.
+
+Devuelve un JSON con exactamente estos campos:
+{
+  "live_scores": "HTML string",
+  "upcoming_matches": "HTML string",
+  "semaforo": "HTML string"
+}
+"""
+        prompt = f"""
+Partidos del Mundial (JSON):
+{games_json_str}
+
+LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el semáforo):
+{posts_list_str}
+"""
+        res = call_gemini_json(prompt, system_instruction, WidgetData)
+        if not res or "live_scores" not in res:
+            logger.info("Falló Gemini en update_widgets_and_banners, usando Groq como respaldo...")
+            res = call_groq_json(prompt, system_instruction, model="llama-3.1-8b-instant")
+        if not res or "live_scores" not in res:
+            logger.error("Error al generar marcadores dinámicos con los modelos.")
+            return False
+
+        # Sanitizar backslashes escapados de las respuestas HTML de los LLMs
+        for field in ["live_scores", "upcoming_matches", "semaforo"]:
+            if field in res and isinstance(res[field], str):
+                res[field] = res[field].replace('\\"', '"').replace('\\/', '/')
+
+        # Agregar el mundial_data al JSON para subir
+        res["mundial_data"] = mundial_data
+
+        # Subir los datos generados a WordPress
+        update_url = f"{self.wp_url}/wp-json/ppelota/v1/update-data"
+        try:
+            logger.info("Enviando actualización de marquesinas, semáforo y fixture del Mundial a la API de WordPress...")
+            resp = requests.post(update_url, json=res, auth=self.auth, timeout=20)
+            if resp.status_code == 200:
+                logger.info("✅ Marquesinas, Semáforo y Fixture actualizados dinámicamente en WordPress.")
+                return True
+            else:
+                logger.error(f"Error al actualizar marquesinas ({resp.status_code}): {resp.text}")
+        except Exception as e:
+            logger.error(f"Excepción al actualizar marquesinas vía REST API: {e}")
+        return False

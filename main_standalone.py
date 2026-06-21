@@ -1,0 +1,657 @@
+"""
+main_standalone.py — Pipeline completo de Pasión y Pelota
+Usa la API de Groq (Llama-3.3-70b) como motor de IA.
+No requiere google-antigravity instalado.
+"""
+
+import asyncio
+import json
+import os
+import sys
+import logging
+import argparse
+import pydantic
+import requests
+from typing import List, Optional
+
+# Importaciones de nuestras herramientas locales
+import config
+from tools.scraper import monitor_all_sources
+from tools.promiedos import fetch_promiedos_page, search_backup_stats, search_web_for_verification
+from tools.wordpress import WordPressPublisher
+from tools.cleanup import cleanup_old_posts
+from tools.images import get_football_image
+
+# Configuración de logs
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("pipeline.log", encoding="utf-8")
+    ]
+)
+
+# =============================================================================
+# 1. Modelos de Datos Estructurados (Pydantic)
+# =============================================================================
+
+class NewsDetails(pydantic.BaseModel):
+    has_relevant_news: bool = pydantic.Field(description="Verdadero si hay una noticia relevante.")
+    player: str = pydantic.Field(default="", description="Nombre completo del jugador o protagonista principal.")
+    teams_involved: List[str] = pydantic.Field(default_factory=list, description="Equipos involucrados. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
+    monetary_figures: str = pydantic.Field(default="", description="Cifras de dinero. 'No especificado' si no hay.")
+    source: str = pydantic.Field(default="", description="Fuente original de la noticia.")
+    headline: str = pydantic.Field(default="", description="Titular corto en español.")
+    details: List[str] = pydantic.Field(default_factory=list, description="Viñetas con datos clave. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
+    seo_cluster: str = pydantic.Field(default="", description="Clúster SEO: mundial_2026|mls|brasileirao|lpf_argentina|liga_mx|champions|libertadores|premier|laliga|serie_a")
+    priority_score: int = pydantic.Field(default=5, description="Prioridad del 1 (máxima) al 10 (mínima) según clúster semántico")
+
+class EnrichedNews(pydantic.BaseModel):
+    player: str = pydantic.Field(description="Nombre del jugador o protagonista principal.")
+    teams_involved: List[str] = pydantic.Field(description="Equipos involucrados. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
+    market_value: str = pydantic.Field(description="Valor de mercado Transfermarkt aproximado.")
+    stats_table_markdown: str = pydantic.Field(description="Tabla Markdown con estadísticas: goles, asistencias, partidos, xG si disponible.")
+    team_history_fact: str = pydantic.Field(description="Dato histórico o estadístico sorprendente de los equipos.")
+    original_headline: str = pydantic.Field(description="Titular original de la noticia.")
+    original_details: List[str] = pydantic.Field(description="Detalles originales del Ojeador. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
+    lsi_keywords: List[str] = pydantic.Field(default_factory=list, description="2-3 keywords LSI del clúster para integrar naturalmente en el artículo. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
+    seo_cluster: str = pydantic.Field(default="", description="Clúster SEO heredado del Ojeador")
+
+class Article(pydantic.BaseModel):
+    title: str = pydantic.Field(description="Título H1: clickbait honesto con jugador/equipo + dato estadístico o contexto.")
+    content_html: str = pydantic.Field(description="Cuerpo en HTML limpio, 500-700 palabras, con H2, párrafos cortos, tabla HTML de estadísticas.")
+    tags: List[str] = pydantic.Field(description="4-7 etiquetas: jugador, equipos, liga, tipo de noticia, competición.")
+    league_category: str = pydantic.Field(description="Categoría WP: 'LaLiga'|'Premier League'|'Brasileirão'|'Fútbol Argentino'|'MLS'|'Liga MX'|'Champions League'|'Copa Libertadores'|'Mundial 2026'|otra")
+    meta_description: str = pydantic.Field(default="", description="Meta descripción SEO de 140-155 caracteres con keyword principal.")
+
+# =============================================================================
+# 2. Base de Datos Local de Control de Duplicados
+# =============================================================================
+
+def load_database():
+    if not os.path.exists(config.DATABASE_FILE):
+        return {"published_urls": [], "published_titles": []}
+    try:
+        with open(config.DATABASE_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Error al cargar base de datos: {e}")
+        return {"published_urls": [], "published_titles": []}
+
+def save_database(db):
+    try:
+        with open(config.DATABASE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(db, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        logging.error(f"Error al guardar base de datos: {e}")
+
+# =============================================================================
+# 3. Motor de IA: API de Groq
+# =============================================================================
+
+def call_groq(prompt: str, system_instruction: str, response_schema=None, model="llama-3.1-8b-instant") -> Optional[dict]:
+    """Llama a la API de Groq y devuelve la respuesta estructurada o texto plano."""
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        logging.error("ERROR: No se configuró GROQ_API_KEY en el archivo .env")
+        return None
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    }
+
+    if response_schema:
+        schema_fields = response_schema.__annotations__
+        prompt += (
+            f"\n\nResponde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: "
+            f"{list(schema_fields.keys())}. Sin introducción, sin bloques markdown, solo el JSON puro."
+        )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3
+    }
+
+    if response_schema:
+        payload["response_format"] = {"type": "json_object"}
+
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                if response_schema:
+                    return json.loads(content)
+                return content
+            elif response.status_code == 429:
+                logging.warning(f"Groq Rate Limit (429) detectado. Reintentando en 15 segundos... (Intento {attempt + 1}/{max_retries})")
+                time.sleep(15)
+                continue
+            else:
+                logging.error(f"Error de Groq ({response.status_code}): {response.text}")
+        except Exception as e:
+            logging.error(f"Excepción al llamar Groq: {e}")
+    return None
+
+# =============================================================================
+# 4. Flujo Principal del Pipeline
+# =============================================================================
+
+def run_pipeline():
+    logging.info("=" * 70)
+    logging.info("INICIANDO PIPELINE DE REDACCIÓN VIRTUAL — PASIÓN Y PELOTA")
+    logging.info("=" * 70)
+
+    # --- PASO -1: Actualizar marquesinas y widgets con Editor Jefe ---
+    try:
+        from tools.editor_jefe import EditorJefe
+        editor = EditorJefe()
+        editor.update_widgets_and_banners()
+    except Exception as e:
+        logging.error(f"Error al actualizar marquesinas y semáforo al inicio: {e}")
+
+    # --- PASO 0: Limpieza automática de posts viejos ---
+    try:
+        cleanup_old_posts(max_age_days=3, dry_run=False)
+    except Exception as e:
+        logging.error(f"Error al limpiar posts viejos: {e}")
+
+    db = load_database()
+
+    # --- PASO 1: Obtener noticias recientes de todas las fuentes ---
+    logging.info("Paso 1: Monitoreando fuentes de noticias...")
+    raw_news = monitor_all_sources()
+    if not raw_news:
+        logging.info("No se encontraron noticias. Fin del proceso.")
+        return
+
+    # Filtrar duplicados ya publicados
+    new_candidates = [
+        item for item in raw_news
+        if item.get("link", "") not in db["published_urls"]
+        and item.get("title", "") not in db["published_titles"]
+    ]
+
+    if not new_candidates:
+        logging.info("Todas las noticias ya fueron procesadas. Fin del proceso.")
+        return
+
+    logging.info(f"Candidatos nuevos a evaluar: {len(new_candidates)}")
+
+    # Preparar texto de candidatos para el Ojeador
+    candidates_text = ""
+    for idx, cand in enumerate(new_candidates[:6]):
+        candidates_text += f"\n--- Candidato {idx+1} ---\n"
+        candidates_text += f"Título: {cand['title']}\n"
+        candidates_text += f"Fuente: {cand['source']} ({cand['link']})\n"
+        candidates_text += f"Resumen: {cand['summary']}\n"
+
+    # ─── AGENTE 1: EL OJEADOR ─────────────────────────────────────────────────
+    logging.info("Agente 1 — El Ojeador: Analizando candidatos con estrategia de nodos semánticos...")
+
+    OJEADOR_SYSTEM = """
+Eres 'El Ojeador', editor jefe de un portal deportivo panamericano con estrategia SEO avanzada.
+
+Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTAMENTE con estas reglas:
+
+⚠️ REGLA DE LAS LIGAS DE CLUBES Y FÚTBOL ARGENTINO:
+- Para cualquier noticia de ligas o copas de clubes (MLS, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Libertadores, etc. - EXCEPTUANDO el Brasileirão que tiene cobertura total de partidos), ÚNICAMENTE se permite hablar de:
+  1. MERCADO DE PASES (fichajes, rumores de traspaso, renovaciones, salidas, llegadas de jugadores o técnicos).
+  2. CLUBES INHIBIDOS POR LA FIFA (sanciones, deudas e inhibiciones oficiales de la FIFA que les impidan incorporar jugadores).
+- REGLA DE ORO DE FÚTBOL ARGENTINO: En la categoría y temática de "Fútbol Argentino" (lpf_argentina), TODAS las notas sin excepción deben ser sobre el mercado de pases (fichajes, rumores de pases, salidas, llegadas) o sobre clubes inhibidos por la FIFA (sanciones, deudas e inhibiciones oficiales de la FIFA). No se permite ninguna otra temática (como partidos del torneo local, rendimiento deportivo, crónicas de la liga local, etc.).
+- Ignora CUALQUIER otra noticia de ligas de clubes (resultados de partidos regulares, crónicas de partidos, tablas de posiciones locales, polémicas locales, etc.) que no esté ligada a un fichaje, traspaso o inhibición de la FIFA.
+
+🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE CUALQUIER NOTICIA GENERAL/DEPORTIVA/DE CRÓNICAS DE PARTIDOS):
+1. LIONEL MESSI: Se acepta cualquier noticia sobre él (goles, partidos, récords en Inter Miami, lesiones, rendimiento, etc.).
+2. SELECCIÓN ARGENTINA: Se permite cobertura total de su desempeño, partidos, resultados, previas, tácticas, convocatorias y noticias en general.
+3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales.
+4. FÓRMULA 1 (F1): Se permite cobertura completa de carreras, resultados, clasificaciones y rumores de escuderías. Se debe hablar prioritariamente sobre Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen, etc.
+5. BRASILEIRÃO (FÚTBOL DE BRASIL): Dado que el torneo está en juego, se permite cobertura total de partidos, resultados, crónicas de encuentros, tablas de posiciones y noticias de los clubes brasileños (Flamengo, Palmeiras, São Paulo, etc.), no limitándose únicamente a mercado de pases.
+
+⚠️ DIRECTIVA DE REESCRITURA:
+- Toda noticia seleccionada que provenga de los portales scrapeados debe ser reescrita por completo (cambiando drásticamente el vocabulario y estructura de las oraciones) e incorporando más datos estadísticos profundos y curiosidades históricas para superar la calidad del artículo original y evitar cualquier tipo de plagio o copia directa.
+
+🏆 JERARQUÍA DE PRIORIDAD DE SELECCIÓN (Selecciona la más importante de esta lista):
+1. Lionel Messi / Selección Argentina / Copa Mundial 2026 / Fórmula 1 (F1) (Mercedes, Alpine, Colapinto) (Máxima prioridad absoluta de la portada).
+2. Brasileirão (crónicas de partidos, resultados y noticias de clubes brasileños).
+3. Mercado de pases de la MLS (Inter Miami CF, LAFC, etc.).
+4. Mercado de pases de la Liga Profesional Argentina (Boca, River, Racing) y clubes inhibidos por FIFA.
+5. Mercado de pases de la Liga MX o Europa (Premier League, LaLiga, etc.).
+
+Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion, mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
+Asigna 'priority_score' del 1 (altísima) al 10 (baja).
+"""
+
+    import time
+    time.sleep(3)
+    selected_news = call_groq(
+        prompt=f"Analiza estas noticias y selecciona la más importante según la jerarquía de clústeres SEO:\n{candidates_text}",
+        system_instruction=OJEADOR_SYSTEM,
+        response_schema=NewsDetails,
+        model="llama-3.1-8b-instant"
+    )
+
+    if not selected_news or not selected_news.get("has_relevant_news"):
+        logging.info("El Ojeador determinó que no hay noticias relevantes esta tanda. Proceso cancelado.")
+        return
+
+    seo_cluster = selected_news.get("seo_cluster", "global")
+    priority    = selected_news.get("priority_score", 5)
+    logging.info(f"✅ Ojeador seleccionó [{seo_cluster.upper()}] (prioridad {priority}/10): {selected_news.get('player')} — {selected_news.get('headline')}")
+
+    # ─── AGENTE DE ORQUESTACIÓN: EL EDITOR JEFE con Fact-Checking ─────────────
+    logging.info("Aguardando 6 segundos para enfriar TPM antes de llamar al Editor Jefe...")
+    time.sleep(6)
+    
+    headline = selected_news.get("headline", "")
+    details_str = ", ".join(selected_news.get("details", []))
+    player = selected_news.get("player", "")
+    teams = selected_news.get("teams_involved", [])
+    
+    # Generar consulta de búsqueda para verificar veracidad (Fact-Checking)
+    fact_check_query = f'"{headline}"' if headline else ""
+    if not fact_check_query and player:
+        fact_check_query = f'"{player}"'
+        if teams:
+            fact_check_query += f' "{teams[0]}"'
+    if not fact_check_query:
+        fact_check_query = f"{headline} {details_str}"[:100]
+        
+    logging.info(f"Iniciando verificación de veracidad (Fact-Checking) para: '{fact_check_query}'...")
+    fact_check_results = search_web_for_verification(fact_check_query)
+    
+    logging.info("Agente de Orquestación — El Editor Jefe: Validando noticia candidata...")
+    from tools.editor_jefe import EditorJefe
+    editor = EditorJefe()
+    
+    review = editor.review_news(
+        news_headline=headline,
+        news_details=details_str,
+        seo_cluster=seo_cluster,
+        source_url=selected_news.get("source", ""),
+        fact_check_results=fact_check_results
+    )
+    
+    if not review.get("approved"):
+        logging.warning(f"❌ El Editor Jefe desaprobó la noticia. Razón: {review.get('rejection_reason')}")
+        logging.info("Flujo abortado por control editorial.")
+        return
+        
+    logging.info("✅ El Editor Jefe aprobó la noticia.")
+    suggested_category_override = review.get("corrected_category")
+
+    # ─── AGENTE 2: EL DOCUMENTALISTA ─────────────────────────────────────────
+    logging.info("Aguardando 12 segundos para enfriar TPM antes de llamar al Documentalista...")
+    time.sleep(12)
+    logging.info("Agente 2 — El Documentalista: Enriqueciendo datos con estadísticas...")
+
+    player_name = selected_news.get("player", "")
+    teams       = selected_news.get("teams_involved", [])
+
+    # Obtener keywords LSI del clúster correspondiente
+    cluster_data = config.SEO_CLUSTERS.get(seo_cluster, {})
+    lsi_terms    = cluster_data.get("lsi_keywords", [])
+    cluster_lsi_hint = "LSI keywords a integrar: " + ", ".join(lsi_terms[:4]) if lsi_terms else ""
+
+    # Búsqueda de estadísticas específica por clúster
+    if seo_cluster in ["messi_seleccion"]:
+        stats_query = f"{player_name} estadísticas goles asistencias partidos Lionel Messi Selección Argentina"
+    elif seo_cluster in ["f1"]:
+        stats_query = f"{player_name} f1 posiciones carrera resultados formula 1 Franco Colapinto"
+    elif seo_cluster in ["brasileirao"]:
+        stats_query = f"{player_name} estadísticas Brasileirão 2026 goles xG Transfermarkt"
+    elif seo_cluster in ["mls"]:
+        stats_query = f"{player_name} MLS stats 2026 goals assists designated player salary cap"
+    elif seo_cluster in ["mundial_2026"]:
+        stats_query = f"{player_name} Mundial 2026 estadísticas goles clasificación"
+    elif seo_cluster in ["lpf_argentina"]:
+        stats_query = f"{player_name} Liga Profesional Argentina 2026 goles tabla promedios descenso"
+    elif seo_cluster in ["liga_mx"]:
+        stats_query = f"{player_name} Liga MX 2026 estadísticas goles liguilla"
+    elif seo_cluster in ["premier"]:
+        stats_query = f"{player_name} Premier League 2026 stats xG goals assists"
+    elif seo_cluster in ["champions"]:
+        stats_query = f"{player_name} Champions League 2026 estadísticas tabla clasificación"
+    else:
+        stats_query = f"{player_name} estadísticas 2025 2026 goles asistencias xG valor Transfermarkt"
+
+    stats_raw     = search_backup_stats(stats_query)
+    promiedos_raw = fetch_promiedos_page(seo_cluster)
+
+    DOCUMENTALISTA_SYSTEM = f"""
+Eres 'El Documentalista', analista de datos del fútbol panamericano para un portal SEO.
+
+CLÚSTER SEO ACTIVO: {seo_cluster.upper()}
+{cluster_lsi_hint}
+
+Tu tarea es enriquecer la noticia con datos CONCRETOS y VERIFICABLES:
+
+1. ESTADÍSTICAS del protagonista: goles, asistencias, partidos jugados, xG (goles esperados),
+   minutos en cancha. Si son datos de equipo: posición en tabla, goles a favor/en contra.
+
+2. VALOR DE MERCADO: Cifra aproximada según Transfermarkt (ej: "€85 millones").
+
+3. DATO HISTÓRICO SORPRENDENTE: Un hecho estadístico o récord notable de los equipos/
+   competición involucrados que añada profundidad al artículo.
+
+4. LSI KEYWORDS: Devuelve 2-3 términos de búsqueda del clúster {seo_cluster} que se
+   puedan integrar NATURALMENTE en el artículo (no como lista, integradas en párrafos).
+
+5. TABLA MARKDOWN clara con columnas: Temporada | Goles | Asistencias | Partidos | xG
+
+Si no hay datos exactos disponibles, usa estimaciones razonables basadas en el contexto
+de la noticia y el clúster. NO inventes cifras extremas.
+"""
+
+    enriched_data = call_groq(
+        prompt=(
+            f"Noticia a enriquecer:\n"
+            f"Protagonista: {player_name}\n"
+            f"Equipos: {', '.join(teams)}\n"
+            f"Clúster: {seo_cluster}\n"
+            f"Titular: {selected_news.get('headline')}\n"
+            f"Detalles: {selected_news.get('details')}\n\n"
+            f"Datos estadísticos encontrados:\n{stats_raw[:3000]}\n\n"
+            f"Contexto tabla de posiciones:\n{promiedos_raw[:1500]}"
+        ),
+        system_instruction=DOCUMENTALISTA_SYSTEM,
+        response_schema=EnrichedNews,
+        model="llama-3.1-8b-instant"
+    )
+
+    if not enriched_data:
+        logging.error("El Documentalista falló al enriquecer. Abortando.")
+        return
+
+    # Propagar el clúster al dato enriquecido
+    enriched_data["seo_cluster"] = seo_cluster
+
+    logging.info(f"✅ Documentalista completó enriquecimiento de {enriched_data.get('player')} [{seo_cluster}]")
+
+    # ─── AGENTE 3: EL REDACTOR SEO ────────────────────────────────────────────
+    logging.info("Aguardando 12 segundos para enfriar TPM antes de llamar al Redactor SEO...")
+    time.sleep(12)
+    logging.info("Agente 3 — El Redactor SEO: Redactando artículo con estrategia panamericana...")
+
+    lsi_to_integrate = enriched_data.get("lsi_keywords", [])
+    seo_cluster_name = enriched_data.get("seo_cluster", "global")
+
+    # Mapeo clúster → categoría WordPress
+    CLUSTER_TO_CATEGORY = {
+        "messi_seleccion": "Mundial 2026",
+        "f1":            "F1",
+        "mundial_2026":  "Mundial 2026",
+        "mls":           "MLS",
+        "brasileirao":   "Brasileirão",
+        "lpf_argentina": "Fútbol Argentino",
+        "liga_mx":       "Liga MX",
+        "champions":     "Champions League",
+        "libertadores":  "Copa Libertadores",
+        "premier":       "Premier League",
+        "laliga":        "LaLiga",
+        "serie_a":       "Serie A",
+    }
+    suggested_category = suggested_category_override or CLUSTER_TO_CATEGORY.get(seo_cluster_name, "Noticias")
+
+    REDACTOR_SYSTEM = """
+Eres 'El Redactor SEO', periodista deportivo panamericano con dominio de Google y SEO técnico.
+Escribes para una audiencia de Argentina, México, Colombia, USA hispanic y Brasil (español neutro).
+
+REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
+
+1. ESTRATEGIA GEO Y SEMÁNTICA (CO-CITACIÓN EN PIE DE NOTA):
+   - Está COMPLETAMENTE PROHIBIDO mencionar en el cuerpo del artículo (en los párrafos o títulos) la fuente, medio o diario de donde proviene la noticia original, así como a sus autores o periodistas. No uses frases como "Según Diario Olé...", "De acuerdo a lo reportado por Marca...", ni nada similar. Presenta la información redactada de forma 100% autónoma como análisis propio del portal.
+   - MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano):
+   <h3>Estrategia GEO y Semántica - Co-citaciones</h3>
+   <p>Para facilitar la ingesta de datos crudos por parte de agentes y la manipulación manual de URLs (Copy-Paste) en bases de datos, a continuación se expone la estructura de co-citación con los enlaces expuestos en texto plano de las fuentes deportivas certificadas de la prensa de habla hispana, funcionando como un agregador periodístico Tier 1 con criterios de E-E-A-T fútbol internacional:</p>
+   <ul>
+     <li>Diario Marca: https://www.marca.com/</li>
+     <li>Diario AS: https://as.com/</li>
+     <li>Mundo Deportivo: https://www.mundodeportivo.com/</li>
+     <li>Diario Olé (Argentina): https://www.ole.com.ar/</li>
+     <li>TyC Sports Web (Argentina): https://www.tycsports.com/</li>
+     <li>Diario Récord (México): https://www.record.com.mx/</li>
+     <li>MedioTiempo (México): https://www.mediotiempo.com/</li>
+   </ul>
+
+2. LSI Y CONTEXTO SEMÁNTICO:
+   Debes integrar de manera completamente natural y fluida dentro de los párrafos del artículo estos términos LSI contextuales:
+   - "Fuentes deportivas certificadas"
+   - "Prensa de habla hispana"
+   - "Agregador periodístico Tier 1"
+   - "E-E-A-T fútbol internacional"
+
+3. REESCRITURA 100% ORIGINAL (SIN PLAGIOS NI COPIAS DIRECTAS):
+   - TODAS LAS NOTAS DEBEN SER REESCRITAS POR COMPLETO. Está terminantemente prohibido usar las mismas frases, giros lingüísticos o estructura de oraciones que la noticia original o los portales de origen.
+   - El tono debe ser formal, de periodismo de análisis deportivo premium y opinión experta.
+
+4. CONTROL ESTRICTO DE INFORMACIÓN (NO ALUCINAR NI INVENTAR):
+   - NO SE DEBE INVENTAR INFORMACIÓN NUEVA NI ALUCINAR hechos que no estén explícitamente presentes en los datos de entrada o estadísticas oficiales de Promiedos. Sé 100% fiel a los hechos reales.
+
+5. TÍTULO H1: Clickbait honesto. Debe incluir:
+   - Nombre del jugador, piloto o equipo protagonista.
+   - Un dato estadístico o hecho concreto (goles, xG, valor de mercado, puntos en campeonato F1, posición de carrera).
+   - Pregunta retórica O consecuencia impactante.
+   Ejemplo: "Franco Colapinto sorprende a Williams: ¿Tiene el ritmo para ganar su primer punto F1?"
+
+6. ESTRUCTURA HTML OBLIGATORIA:
+   <h2>Contexto táctico y estadístico</h2>  → datos xG, forma reciente, clasificación, o tiempos/posiciones de F1.
+   <h2>Impacto en la clasificación/campeonato</h2> → consecuencias reales en la tabla o el campeonato de escuderías.
+   <h2>¿Qué viene ahora?</h2> → proyección del próximo partido o gran premio de F1.
+
+7. TABLA HTML DE ESTADÍSTICAS (OBLIGATORIA):
+   - Para Fútbol: Columnas relevantes: Temporada, Competición, Goles, Asistencias, Partidos, xG.
+   - Para Fórmula 1 (F1): Columnas relevantes: Gran Premio / Escudería, Posición Final, Puntos Obtenidos, Vueltas Rápidas, etc.
+   - Usar <table>, <thead> y <tbody>. Estilos inline mínimos y limpios.
+
+8. EVITAR ABSOLUTAMENTE:
+   - Biografías estáticas ("Nacido en...")
+   - "En este artículo veremos..."
+   - "En conclusión..."
+   - Párrafos de más de 4 líneas
+   - Información de relleno.
+
+9. CAMPOS DEL JSON:
+   - content_html: HTML limpio SIN <html>, <head>, <body>, <article>
+   - league_category: Mundial 2026 | F1 | MLS | Brasileirão | Fútbol Argentino | Liga MX |
+     Champions League | Copa Libertadores | Premier League | LaLiga | Serie A | otra
+   - tags: 4-7 tags (jugador/piloto, escudería/equipos, liga/GP, tipo de noticia).
+   - meta_description: 140-155 caracteres, con la palabra clave principal al inicio.
+   - 500-700 palabras totales.
+"""
+
+    final_article = call_groq(
+        prompt=(
+            f"Redacta el artículo definitivo para el clúster SEO '{seo_cluster_name}':\n"
+            f"Protagonista: {enriched_data.get('player')}\n"
+            f"Equipos: {', '.join(enriched_data.get('teams_involved', []))}\n"
+            f"Noticia original: {enriched_data.get('original_details')}\n"
+            f"Estadísticas (tabla): {enriched_data.get('stats_table_markdown')}\n"
+            f"Valor de mercado: {enriched_data.get('market_value')}\n"
+            f"Dato histórico sorprendente: {enriched_data.get('team_history_fact')}\n"
+            f"LSI keywords a integrar naturalmente: {', '.join(lsi_to_integrate)}\n"
+            f"Categoría WP sugerida: {suggested_category}"
+        ),
+        system_instruction=REDACTOR_SYSTEM,
+        response_schema=Article
+    )
+
+    if not final_article:
+        logging.error("El Redactor SEO falló. Abortando.")
+        return
+
+    logging.info(f"✅ Artículo redactado: '{final_article.get('title')}'")
+
+    # --- PROCESO DE MONETIZACIÓN: Afiliados ---
+    content_html = final_article.get("content_html", "")
+    affiliate_inserted = False
+
+    for team, html_code in config.AFFILIATE_LINKS.items():
+        if team != "generico" and team in content_html.lower():
+            logging.info(f"Equipo '{team}' detectado. Insertando enlace de afiliado.")
+            content_html += f"\n\n{html_code}"
+            affiliate_inserted = True
+            break
+
+    if not affiliate_inserted:
+        content_html += f"\n\n{config.AFFILIATE_LINKS['generico']}"
+
+    # --- AGENTE 4: EL PUBLICADOR ---
+    logging.info("Agente 4 — El Publicador: Publicando en WordPress...")
+    publisher = WordPressPublisher()
+
+    # Obtener imagen real de fútbol (Wikimedia Commons) con citación
+    player_name_raw = enriched_data.get("player", "futbol")
+    team_name = teams[0] if teams else None
+    
+    img_data = get_football_image(player_name_raw, team_name)
+    image_url = img_data.get("url")
+    citation = img_data.get("citation", "")
+    
+    # Asegurar que player_name sea un string para el nombre de archivo
+    if isinstance(player_name_raw, list):
+        player_name_str = player_name_raw[0] if player_name_raw else "futbol"
+    else:
+        player_name_str = str(player_name_raw)
+    
+    logging.info(f"Subiendo imagen de portada real desde Wikimedia: {image_url}")
+    featured_image_id = publisher.upload_featured_image(
+        image_url=image_url,
+        filename=f"{player_name_str.replace(' ', '_').lower()}_portada.jpg"
+    )
+
+    # Determinar el redactor según la categoría/clúster original
+    league_cat_orig = final_article.get("league_category", "Noticias")
+    if league_cat_orig in ["Fútbol Argentino"]:
+        writer = "Roberto Mancifredi"
+    else:
+        writer = "Sersocimo Ponti"
+
+    # Mapear y expandir categorías
+    categories_list = []
+    if isinstance(league_cat_orig, list):
+        categories_list = list(league_cat_orig)
+    elif isinstance(league_cat_orig, str):
+        categories_list = [league_cat_orig]
+    else:
+        categories_list = ["Noticias"]
+
+    lower_title = final_article.get("title", "").lower()
+    lower_content = content_html.lower()
+
+    # Reglas dinámicas de multi-categorización
+    # 1. Messi -> Mundial 2026 y MLS
+    if "messi" in lower_title or "messi" in lower_content or "inter miami" in lower_title or "inter miami" in lower_content:
+        if "Mundial 2026" not in categories_list:
+            categories_list.append("Mundial 2026")
+        if "MLS" not in categories_list:
+            categories_list.append("MLS")
+
+    # 2. Selección Argentina o jugadores argentinos en el Mundial -> Mundial 2026 y Fútbol Argentino
+    if "argentina" in lower_title or "argentina" in lower_content:
+        if "Mundial 2026" in categories_list and "Fútbol Argentino" not in categories_list:
+            categories_list.append("Fútbol Argentino")
+
+    # 3. Copa Libertadores con equipos argentinos -> Copa Libertadores y Fútbol Argentino
+    if "libertadores" in lower_content:
+        if any(x in lower_title or x in lower_content for x in ["boca", "river", "racing", "san lorenzo", "talleres", "estudiantes", "independiente"]):
+            if "Copa Libertadores" not in categories_list:
+                categories_list.append("Copa Libertadores")
+            if "Fútbol Argentino" not in categories_list:
+                categories_list.append("Fútbol Argentino")
+
+    # 4. Premier League con jugadores argentinos/estrellas de la liga -> Premier League y Fútbol Argentino
+    if "premier league" in lower_content or "premier" in lower_content:
+        if any(x in lower_title or x in lower_content for x in ["hincapié", "valencia", "alvarez", "mac allister", "enzo", "garnacho", "martínez"]):
+            if "Premier League" not in categories_list:
+                categories_list.append("Premier League")
+
+    # Agregar la citación al final del cuerpo del artículo
+    if citation:
+        content_html += f'\n\n<p style="font-size: 11px; color: #777; text-align: right; margin-top: 20px; font-style: italic;">{citation}</p>'
+
+    # Firmar la nota físicamente
+    content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por {writer}</strong></p>'
+
+    wp_post = publisher.publish_post(
+        title=final_article.get("title"),
+        content=content_html,
+        league_category=categories_list,
+        tags=final_article.get("tags", []),
+        status="publish",
+        featured_image_id=featured_image_id,
+        seo_desc=final_article.get("meta_description"),
+        writer=writer
+    )
+
+    if wp_post:
+        logging.info(f"🎉 ¡POST PUBLICADO EN WORDPRESS EXITOSAMENTE!")
+        logging.info(f"   Link: {wp_post.get('link')}")
+
+        # Guardar en base de datos anti-duplicados
+        source_link = ""
+        for item in new_candidates:
+            if (selected_news.get("player", "").lower() in item.get("title", "").lower()
+                    or selected_news.get("headline", "").lower() in item.get("title", "").lower()):
+                source_link = item.get("link", "")
+                break
+
+        db["published_titles"].append(final_article.get("title"))
+        db["published_urls"].append(source_link or wp_post.get("link", ""))
+        save_database(db)
+        logging.info("Base de datos anti-duplicados actualizada.")
+    else:
+        logging.error("No se pudo publicar en WordPress.")
+
+# =============================================================================
+# 5. Modo Loop (cada 1 hora)
+# =============================================================================
+
+def loop_mode():
+    logging.info("Modo Loop activado. El pipeline correrá cada 1 hora. Presioná Ctrl+C para salir.")
+    import time
+    while True:
+        try:
+            run_pipeline()
+        except Exception as e:
+            logging.error(f"Error en el pipeline: {e}")
+        logging.info("Esperando 1 hora para la próxima revisión...")
+        time.sleep(3600)
+
+# =============================================================================
+# 6. Punto de Entrada
+# =============================================================================
+
+def main():
+    parser = argparse.ArgumentParser(description="Redacción Virtual Automatizada — Pasión y Pelota (Standalone)")
+    parser.add_argument("--loop", action="store_true", help="Modo Loop: corre cada 1 hora continuamente.")
+    parser.add_argument("--mode", choices=["publish", "widgets", "cleanup"], default="publish", help="Modo de ejecución: publish (scrapear y publicar), widgets (actualizar marquesinas y fixture), cleanup (limpieza de notas viejas)")
+    args = parser.parse_args()
+
+    if args.mode == "widgets":
+        logging.info("EJECUTANDO MODO WIDGETS (Marquesinas, Semáforo y Fixture)...")
+        from tools.editor_jefe import EditorJefe
+        editor = EditorJefe()
+        editor.update_widgets_and_banners()
+    elif args.mode == "cleanup":
+        logging.info("EJECUTANDO MODO CLEANUP (Depuración de notas viejas)...")
+        from tools.cleanup import cleanup_old_posts
+        cleanup_old_posts(max_age_days=3, dry_run=False)
+    else:
+        if args.loop:
+            loop_mode()
+        else:
+            run_pipeline()
+
+if __name__ == "__main__":
+    main()
