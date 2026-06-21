@@ -579,6 +579,14 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     - Si la información proviene de Brian Pécora o su canal de YouTube, al final de la nota (antes de las co-citaciones) debes agregar una línea de agradecimiento o referencia sobria citándolo de la siguiente forma: "Información y análisis tomados de las transmisiones y reportes del periodista Brian Pécora".
     - Está COMPLETAMENTE PROHIBIDO copiar de forma textual o plagiar las palabras de Pécora (se debe reescribir todo con análisis e investigación propios).
     - Está COMPLETAMENTE PROHIBIDO embeber o incrustar videos de YouTube de Pécora o de cualquier otra fuente en el HTML.
+
+12. CARLOS FOUR Y COBERTURA DE SAN LORENZO:
+    - Las noticias sobre San Lorenzo de Almagro deben ser firmadas por Carlos Four. Este redactor debe seguir activamente los problemas financieros de San Lorenzo (deudas, crisis económica, inhibiciones oficiales de la FIFA, transferencias dudosas o malas ventas, etc.).
+    - Si la información proviene de los periodistas y YouTubers Agustín Muzzupappa (Muzzu) o Pablo Lafourcade, se les debe citar sobriamente al final de la nota de forma similar a la de Huracán.
+
+13. REGLA LEGAL DE "CONDICIONAL PERIODÍSTICO" (MANDATORIO PARA TODOS LOS REDACTORES):
+    - **SI NO SE CITA LA FUENTE:** En cualquier artículo o análisis deportivo donde se mencionen rumores, acusaciones de deudas, crisis financieras, inhibiciones judiciales/FIFA, sospechas de mal manejo o ventas deficientes de jugadores, y **NO se cite la procedencia o fuente de la información**, es OBLIGATORIO utilizar el "condicional periodístico" (verbos como *habría*, *sería*, *estaría*, *tendría*, *estaría vinculado*, *estaría inhabilitado*) para proteger legalmente al portal contra demandas por difamación. Ejemplo: "El club tendría una deuda millonaria" en lugar de "El club tiene una deuda millonaria".
+    - **SI SÍ SE CITA LA FUENTE:** Si el artículo cita de dónde se tomó la información, no se debe abusar del condicional periodístico, se debe escribir con asertividad y claridad. Específicamente para las notas de San Lorenzo, si la fuente está citada pero la redacción abusa del condicional, debes realizar una crítica editorial implícita al medio o periodista original por "no jugarse con la información" o faltar al compromiso informativo.
 """
 
     final_article = call_ai_json(
@@ -646,10 +654,11 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     lower_title = final_article.get("title", "").lower()
     lower_content = content_html.lower()
     
-    # Si la noticia trata de Huracán, firma Juan Carlos Perrusta
+    # Si la noticia trata de Huracán, firma Juan Carlos Perrusta; si trata de San Lorenzo, Carlos Four
     if "huracan" in lower_title or "huracán" in lower_title or "huracan" in lower_content or "huracán" in lower_content or any("huracan" in str(t).lower() or "huracán" in str(t).lower() for t in teams):
-        writer = "Juan Carlos Carlos Perrusta" if False else "Juan Carlos Perrusta" # sanitizing to just Juan Carlos Perrusta
         writer = "Juan Carlos Perrusta"
+    elif "san lorenzo" in lower_title or "san lorenzo" in lower_content or any("san lorenzo" in str(t).lower() for t in teams):
+        writer = "Carlos Four"
     elif league_cat_orig in ["Fútbol Argentino"]:
         writer = "Roberto Mancifredi"
     else:

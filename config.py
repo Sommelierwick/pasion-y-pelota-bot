@@ -58,6 +58,8 @@ RSS_FEEDS = {
         "https://www.ole.com.ar/rss/futbol/",
         "https://www.infobae.com/arc/outboundfeeds/rss/category/deportes/",
         "https://www.youtube.com/feeds/videos.xml?channel_id=UC-ty00L1Av_avCNT_xw5vNQ",
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCz0rrWiG04BiDlypa6Smnww",
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UCxH0xKKAiiRBju9itDt47yg",
     ],
 
     # CLÚSTER 4 — Liga MX (Tráfico cruzado USA/México)
@@ -110,6 +112,8 @@ JOURNALISTS_TO_MONITOR = [
     {"name": "Germán García Grova", "handle": "GerGarciaGrova",  "region": "argentina"},
     {"name": "César Luis Merlo",    "handle": "CLMerlo",         "region": "sudamerica"},
     {"name": "Brian Pécora",        "handle": "BrianEPecora",    "region": "argentina"},
+    {"name": "Agustín Muzzu",       "handle": "AgustinMuzzu",    "region": "argentina"},
+    {"name": "Pablo Lafourcade",    "handle": "PabloLafourcade", "region": "argentina"},
     # Brasil
     {"name": "Jorge Nicola",        "handle": "jorgenicola",     "region": "brasil"},
     # México / MLS
