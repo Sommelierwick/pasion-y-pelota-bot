@@ -57,6 +57,7 @@ RSS_FEEDS = {
         "https://www.ole.com.ar/rss/futbol-primera-division/",
         "https://www.ole.com.ar/rss/futbol/",
         "https://www.infobae.com/arc/outboundfeeds/rss/category/deportes/",
+        "https://www.youtube.com/feeds/videos.xml?channel_id=UC-ty00L1Av_avCNT_xw5vNQ",
     ],
 
     # CLÚSTER 4 — Liga MX (Tráfico cruzado USA/México)
@@ -108,6 +109,7 @@ JOURNALISTS_TO_MONITOR = [
     {"name": "Gastón Edul",         "handle": "gastonedul",      "region": "argentina"},
     {"name": "Germán García Grova", "handle": "GerGarciaGrova",  "region": "argentina"},
     {"name": "César Luis Merlo",    "handle": "CLMerlo",         "region": "sudamerica"},
+    {"name": "Brian Pécora",        "handle": "BrianEPecora",    "region": "argentina"},
     # Brasil
     {"name": "Jorge Nicola",        "handle": "jorgenicola",     "region": "brasil"},
     # México / MLS
