@@ -311,7 +311,7 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE CUALQUIER NOTICIA GENERAL/DEPORTIVA/DE CRÓNICAS DE PARTIDOS):
 1. LIONEL MESSI: Se acepta cualquier noticia sobre él (goles, partidos, récords en Inter Miami, lesiones, rendimiento, etc.).
 2. SELECCIÓN ARGENTINA: Se permite cobertura total de su desempeño, partidos, resultados, previas, tácticas, convocatorias y noticias en general.
-3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales.
+3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México).
 4. FÓRMULA 1 (F1): Se permite cobertura completa de carreras, resultados, clasificaciones y rumores de escuderías. Se debe hablar prioritariamente sobre Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen, etc.
 5. BRASILEIRÃO (FÚTBOL DE BRASIL): Dado que el torneo está en juego, se permite cobertura total de partidos, resultados, crónicas de encuentros, tablas de posiciones y noticias de los clubes brasileños (Flamengo, Palmeiras, São Paulo, etc.), no limitándose únicamente a mercado de pases.
 
@@ -563,6 +563,17 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    - tags: 4-7 tags (jugador/piloto, escudería/equipos, liga/GP, tipo de noticia).
    - meta_description: 140-155 caracteres, con la palabra clave principal al inicio.
    - 500-700 palabras totales.
+
+10. CONTEXTO HISTÓRICO Y JERARQUÍA DEL FÚTBOL ARGENTINO (MANDATORIO):
+    Al redactar cualquier nota o análisis sobre clubes o mercado de pases del fútbol argentino, debes tener en cuenta y respetar estrictamente esta jerarquía y contexto institucional:
+    - Los 6 clubes grandes de Argentina están ordenados de la siguiente manera:
+      1 y 2. Boca Juniors y River Plate: Comparten el primer lugar en popularidad y relevancia histórica. Son clásicos rivales directos (Superclásico).
+      3. Independiente: Es el tercer grande. Su clásico rival histórico es Racing Club de Avellaneda.
+      4. Racing Club de Avellaneda: Es el cuarto grande. Su clásico rival histórico es Independiente.
+      5. San Lorenzo: Históricamente ocupa el quinto lugar de los clubes grandes. Su clásico rival histórico es Huracán.
+      6. Club Atlético Huracán: Es el sexto grande. Su clásico rival histórico es San Lorenzo. Sin embargo, en los últimos 20 años, Huracán se encuentra muy cerca de arrebatarle el puesto de quinto grande a San Lorenzo, tanto por su solidez económica como por sus mejores resultados deportivos recientes.
+    - Clásicos oficiales a considerar: Boca vs River, Racing vs Independiente, Huracán vs San Lorenzo.
+    Usa toda esta información de forma implícita y madura para dar contexto y criterio periodístico realista a tus redacciones sin alucinar o alterar esta jerarquía.
 """
 
     final_article = call_ai_json(
