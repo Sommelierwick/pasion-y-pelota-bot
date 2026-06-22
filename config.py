@@ -21,9 +21,9 @@ def rotate_key():
     logging.info(f"Rotando API Key de Gemini (Index: {ACTIVE_KEY_INDEX % len(GEMINI_API_KEYS)})")
 
 # ─── Credenciales de WordPress ───────────────────────────────────────────────
-WP_URL      = os.getenv("WP_URL", "https://pasionypelota.com")
-WP_USER     = os.getenv("WP_USER", "elrojobruno@gmail.com")
-WP_PASSWORD = os.getenv("WP_PASSWORD")
+WP_URL      = os.getenv("WP_URL", "https://pasionypelota.com").strip()
+WP_USER     = os.getenv("WP_USER", "elrojobruno@gmail.com").strip()
+WP_PASSWORD = (os.getenv("WP_PASSWORD") or "").strip()
 
 # ─── Canales RSS por clúster semántico ──────────────────────────────────────
 # Prioridad SEO: Messi/Selección >= Mundial 2026 > MLS > Brasileirão > LPF Argentina > Liga MX
