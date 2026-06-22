@@ -1,6 +1,7 @@
 import requests
 import logging
 import io
+import os
 from typing import List, Optional
 from requests.auth import HTTPBasicAuth
 import config
@@ -26,16 +27,28 @@ class WordPressPublisher:
         }
 
     def upload_featured_image(self, image_url: str, filename: str = "portada.jpg") -> Optional[int]:
-        """Descarga una imagen desde una URL y la sube a la Media Library de WordPress.
+        """Descarga una imagen desde una URL o lee un archivo local, y la sube a la Media Library de WordPress.
         Devuelve el ID del media attachment, o None si falla."""
         try:
-            headers_get = {
-                "User-Agent": "PasionYPelotaBot/1.0 (contact: elrojobruno@gmail.com) Python-requests/2.31.0"
-            }
-            img_response = requests.get(image_url, headers=headers_get, timeout=15)
-            if img_response.status_code != 200:
-                logging.error(f"No se pudo descargar la imagen de portada: {image_url} (HTTP {img_response.status_code})")
-                return None
+            is_local = not image_url.startswith(("http://", "https://"))
+            if not is_local:
+                headers_get = {
+                    "User-Agent": "PasionYPelotaBot/1.0 (contact: elrojobruno@gmail.com) Python-requests/2.31.0"
+                }
+                img_response = requests.get(image_url, headers=headers_get, timeout=15)
+                if img_response.status_code != 200:
+                    logging.error(f"No se pudo descargar la imagen de portada: {image_url} (HTTP {img_response.status_code})")
+                    return None
+                img_content = img_response.content
+            else:
+                local_path = image_url
+                if local_path.startswith("file://"):
+                    local_path = local_path.replace("file://", "", 1)
+                if not os.path.exists(local_path):
+                    logging.error(f"No se encontró el archivo de imagen local: {local_path}")
+                    return None
+                with open(local_path, "rb") as f:
+                    img_content = f.read()
 
             media_url = f"{self.url}/media"
             headers = {
@@ -44,13 +57,19 @@ class WordPressPublisher:
             }
             upload_response = requests.post(
                 media_url,
-                data=img_response.content,
+                data=img_content,
                 headers=headers,
                 auth=self.auth
             )
             if upload_response.status_code in [200, 201]:
                 media_id = upload_response.json().get("id")
                 logging.info(f"Imagen de portada subida con éxito (ID: {media_id})")
+                if is_local:
+                    try:
+                        os.remove(local_path)
+                        logging.info(f"Archivo de imagen local temporal eliminado: {local_path}")
+                    except Exception as e:
+                        logging.warning(f"No se pudo eliminar el archivo local temporal {local_path}: {e}")
                 return media_id
             else:
                 logging.error(f"Error al subir imagen ({upload_response.status_code}): {upload_response.text[:200]}")

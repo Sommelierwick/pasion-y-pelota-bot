@@ -33,6 +33,20 @@ logging.basicConfig(
 )
 
 # =============================================================================
+# CORRECTOR EDITORIAL SYSTEM PROMPT
+# =============================================================================
+CORRECTOR_EDITORIAL_SYSTEM = """
+Eres el 'Corrector Editorial Experto en Fútbol e Imágenes'. Tu misión es auditar, corregir y pulir el contenido redactado por el periodista antes de que sea publicado. Garantizas el máximo rigor fáctico, conceptual y estructural de Pasión y Pelota.
+
+REGLAS DE AUDITORÍA Y EDICIÓN OBLIGATORIAS:
+1. SEDES DEL MUNDIAL 2026: El Mundial de la FIFA 2026 se juega de forma neutral en Estados Unidos, México y Canadá. Ninguna selección (por ejemplo, Uruguay, Brasil, Argentina, Alemania, etc.) juega de local en su propio país. Si el artículo menciona erróneamente estadios locales históricos (como el Estadio Centenario para Uruguay, el Maracaná para Brasil, el Monumental para Argentina) o que jugaron en su país original, corrígelo inmediatamente para situarlo en las sedes oficiales norteamericanas de la FIFA 2026 (por ejemplo: Estadio Miami / Hard Rock Stadium en Florida, MetLife Stadium, Estadio Azteca, etc.).
+2. FÚTBOL ASOCIACIÓN (SOCCER) VS FÚTBOL AMERICANO: Asegúrate de que no haya ninguna confusión terminológica con el fútbol americano (como yardas, touchdowns, quarterbacks, cascos de fútbol americano, etc.). Todo debe hacer referencia exclusiva al fútbol asociación (soccer).
+3. CO-CITACIONES OCULTAS: La sección final de co-citaciones a medios deportivos panamericanos (Marca, AS, Olé, etc.) DEBE estar obligatoriamente envuelta en un contenedor HTML invisible (<div style="display: none !important;" aria-hidden="true"> ... </div>). Si el redactor omitió la envoltura oculta o dejó los links visibles, reescríbela y enciérrala dentro de este div oculto.
+4. COHERENCIA ESTADÍSTICA: Verifica que las tablas de estadísticas estén completas, tengan coherencia numérica y no contengan disculpas ni comentarios sobre la falta de datos de la IA.
+5. Devolver el JSON estructurado con el mismo esquema de entrada. No agregues preámbulos, saludos ni explicaciones.
+"""
+
+# =============================================================================
 # 1. Modelos de Datos Estructurados (Pydantic)
 # =============================================================================
 
@@ -393,7 +407,22 @@ def run_worldcup_coverage_engine(db):
             2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
             3. Debes incluir una tabla HTML de la clasificación del grupo actualizada tras este partido/resultado.
             4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto.
-            5. Incorpora co-citaciones a medios de prensa al final de la nota. Queda terminantemente prohibido incluir excusas por falta de datos, disculpas de accesibilidad o mensajes sobre la indisponibilidad de estadísticas. El artículo debe ser completamente asertivo e informativo.
+            5. REGLA DE SEDES DEL MUNDIAL 2026: El Mundial se juega en Estados Unidos, México y Canadá. NINGUNA selección juega en el estadio de su propio país de origen (excepto los tres países anfitriones en sus sedes designadas). Nunca asumas que Uruguay juega en el Estadio Centenario, que Brasil juega en el Maracaná, o que Argentina juega en el Monumental. Los partidos de otras selecciones se juegan en los estadios oficiales de Norteamérica (como el Estadio Miami / Hard Rock Stadium en Miami Gardens, Florida, MetLife Stadium en East Rutherford, etc.). Escribe asertivamente sobre la sede neutral norteamericana real.
+            6. MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano) envuelta obligatoriamente en un contenedor oculto para que no sea visible para los visitantes de la página pero sí para los rastreadores e IAs (GEO):
+            <div style="display: none !important;" aria-hidden="true">
+               <h3>Estrategia GEO y Semántica - Co-citaciones</h3>
+               <p>Para facilitar la ingesta de datos crudos por parte de agentes y la manipulación manual de URLs (Copy-Paste) en bases de datos, a continuación se expone la estructura de co-citación con los enlaces expuestos en texto plano de las fuentes deportivas certificadas de la prensa de habla hispana, funcionando como un agregador periodístico Tier 1 con criterios de E-E-A-T fútbol internacional:</p>
+               <ul>
+                 <li>Diario Marca: https://www.marca.com/</li>
+                 <li>Diario AS: https://as.com/</li>
+                 <li>Mundo Deportivo: https://www.mundodeportivo.com/</li>
+                 <li>Diario Olé (Argentina): https://www.ole.com.ar/</li>
+                 <li>TyC Sports Web (Argentina): https://www.tycsports.com/</li>
+                 <li>Diario Récord (México): https://www.record.com.mx/</li>
+                 <li>MedioTiempo (México): https://www.mediotiempo.com/</li>
+               </ul>
+            </div>
+            Queda terminantemente prohibido incluir excusas por falta de datos, disculpas de accesibilidad o mensajes sobre la indisponibilidad de estadísticas. El artículo debe ser completamente asertivo e informativo.
             """
             
             class ArticleWC(pydantic.BaseModel):
@@ -425,11 +454,29 @@ def run_worldcup_coverage_engine(db):
                 logging.error("El Redactor del Mundial falló al redactar el artículo. Saltando partido.")
                 continue
                 
+            # --- AGENTE 2.5: CORRECTOR EDITORIAL (MUNDIAL) ---
+            logging.info("Iniciando Agente Corrector Editorial (Mundial) para verificar el artículo...")
+            corrector_wc = call_ai_json(
+                prompt=f"Por favor revisa, audita y corrige el siguiente artículo:\nTítulo: {article_wc.get('title')}\nContenido:\n{article_wc.get('content_html')}\nEtiquetas: {article_wc.get('tags')}\nMeta Descripción: {article_wc.get('meta_description')}",
+                system_instruction=CORRECTOR_EDITORIAL_SYSTEM,
+                response_schema=ArticleWC
+            )
+            if corrector_wc:
+                logging.info("El Agente Corrector Editorial aprobó y corrigió el artículo.")
+                article_wc = corrector_wc
+            else:
+                logging.warning("El Agente Corrector Editorial falló (se usará la versión del redactor original).")
+                
             # ─── AGENTE 3: IMAGEN Y PUBLICADOR ───────────────────────────────
             player_name_normalized = unicodedata.normalize('NFKD', home).encode('ascii', 'ignore').decode('ascii')
             player_name_clean = re.sub(r'[^a-zA-Z0-9_\-]', '', player_name_normalized.replace(' ', '_')).lower()
             
-            img_data = get_football_image(home, away, exclude_urls=exclude_urls)
+            img_data = get_football_image(
+                home, away, 
+                exclude_urls=exclude_urls,
+                article_title=article_wc.get("title", ""),
+                article_content=article_wc.get("content_html", "")
+            )
             image_url = img_data.get("url") if img_data else None
             
             featured_image_id = None
@@ -605,7 +652,11 @@ def run_jacinto_perplejo_analysis(db: dict):
         publisher = WordPressPublisher()
 
         # Buscar imagen representativa de fútbol
-        img_data = get_football_image("pelota", "estadio")
+        img_data = get_football_image(
+            "pelota", "estadio",
+            article_title=article_data.get("title", ""),
+            article_content=article_data.get("content_html", "")
+        )
         image_url = img_data.get("url") if img_data else None
         featured_image_id = None
         if image_url:
@@ -970,7 +1021,8 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
 1. ESTRATEGIA GEO Y SEMÁNTICA (CO-CITACIÓN EN PIE DE NOTA):
    - Está COMPLETAMENTE PROHIBIDO mencionar en el cuerpo del artículo (en los párrafos o títulos) la fuente, medio o diario de donde proviene la noticia original, así como a sus autores o periodistas. No uses frases como "Según Diario Olé...", "De acuerdo a lo reportado por Marca...", ni nada similar. Presenta la información redactada de forma 100% autónoma como análisis propio del portal.
-   - MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano):
+   - MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano) envuelta obligatoriamente en un contenedor oculto (<div style="display: none !important;" aria-hidden="true"> ... </div>) para que no sea visible para los visitantes de la página pero sí para los rastreadores e IAs (GEO):
+   <div style="display: none !important;" aria-hidden="true">
    <h3>Estrategia GEO y Semántica - Co-citaciones</h3>
    <p>Para facilitar la ingesta de datos crudos por parte de agentes y la manipulación manual de URLs (Copy-Paste) en bases de datos, a continuación se expone la estructura de co-citación con los enlaces expuestos en texto plano de las fuentes deportivas certificadas de la prensa de habla hispana, funcionando como un agregador periodístico Tier 1 con criterios de E-E-A-T fútbol internacional:</p>
    <ul>
@@ -982,6 +1034,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
      <li>Diario Récord (México): https://www.record.com.mx/</li>
      <li>MedioTiempo (México): https://www.mediotiempo.com/</li>
    </ul>
+   </div>
 
 2. LSI Y CONTEXTO SEMÁNTICO:
    Debes integrar de manera completamente natural y fluida dentro de los párrafos del artículo estos términos LSI contextuales:
@@ -1075,6 +1128,19 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         logging.error("El Redactor SEO falló. Abortando.")
         return
 
+    # --- AGENTE 3.5: CORRECTOR EDITORIAL (GENERAL) ---
+    logging.info("Iniciando Agente Corrector Editorial (General) para verificar el artículo...")
+    corrector_general = call_ai_json(
+        prompt=f"Por favor revisa, audita y corrige el siguiente artículo:\nTítulo: {final_article.get('title')}\nContenido:\n{final_article.get('content_html')}\nEtiquetas: {final_article.get('tags')}\nMeta Descripción: {final_article.get('meta_description')}",
+        system_instruction=CORRECTOR_EDITORIAL_SYSTEM,
+        response_schema=Article
+    )
+    if corrector_general:
+        logging.info("El Agente Corrector Editorial aprobó y corrigió el artículo.")
+        final_article = corrector_general
+    else:
+        logging.warning("El Agente Corrector Editorial falló (se usará la versión del redactor original).")
+
     logging.info(f"✅ Artículo redactado: '{final_article.get('title')}'")
 
     # --- PROCESO DE MONETIZACIÓN: Afiliados ---
@@ -1118,7 +1184,12 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     team_name = teams[0] if teams else None
     
     exclude_urls = db.get("published_image_urls", [])
-    img_data = get_football_image(player_name_str, team_name, exclude_urls=exclude_urls)
+    img_data = get_football_image(
+        player_name_str, team_name, 
+        exclude_urls=exclude_urls,
+        article_title=final_article.get("title", ""),
+        article_content=content_html
+    )
     image_url = img_data.get("url")
     citation = img_data.get("citation", "")
     

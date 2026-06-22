@@ -68,7 +68,15 @@
     "https://upload.wikimedia.org/wikipedia/commons/8/8c/Argentina_1-1_Ecuador_-_Copa_Am%C3%A9rica_2024_-_Entonaci%C3%B3n_del_himno.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/2/2c/Football-PSG-Caen.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/3/35/Soccer_Portugal.png",
-    "https://upload.wikimedia.org/wikipedia/commons/2/23/Weldon_Humble%2C_American_football_lineman%2C_on_a_1951_football_card.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/2/23/Weldon_Humble%2C_American_football_lineman%2C_on_a_1951_football_card.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/e/ef/FWC_2018_-_Round_of_16_-_COL_v_ENG_-_Team_England_penalty_shootout.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/b/be/Football_Colombia.png",
+    "https://upload.wikimedia.org/wikipedia/commons/1/11/Soccer_Mexico.png",
+    "https://upload.wikimedia.org/wikipedia/commons/7/70/Starting_XI_USMNT_v_Belgium_Mar_28_2026-10.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/c/cb/Leo_bemis_soccer_coach.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/5/50/Wm-oly-de-cr.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/3/35/USNS_Comfort_Soccer-Volleyball_Tournament_in_Manta%2C_Ecuador_%289175170%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/8/82/Spanish_girl_at_Las_Fallas_%28Valencia_Spain_Spring_Festival%29_2013.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
@@ -85,11 +93,13 @@
     ],
     "México_vs_Corea_del_Sur": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Estados_Unidos_vs_Australia": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Escocia_vs_Marruecos": [
       "previa",
@@ -97,20 +107,24 @@
     ],
     "Brasil_vs_Haití": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Turquía_vs_Paraguay": [
       "previa",
       "durante"
     ],
     "Alemania_vs_Costa_de_Marfil": [
-      "previa"
+      "previa",
+      "durante"
     ],
     "Ecuador_vs_Curazao": [
-      "previa"
+      "previa",
+      "durante"
     ],
     "España_vs_Arabia_Saudita": [
-      "previa"
+      "previa",
+      "durante"
     ],
     "Bélgica_vs_Irán": [
       "previa"
@@ -125,6 +139,12 @@
       "previa"
     ],
     "Portugal_vs_Uzbekistán": [
+      "previa"
+    ],
+    "Inglaterra_vs_Ghana": [
+      "previa"
+    ],
+    "Colombia_vs_RD_Congo": [
       "previa"
     ]
   },
