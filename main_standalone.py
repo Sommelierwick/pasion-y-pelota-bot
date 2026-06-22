@@ -197,7 +197,7 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
             config.rotate_key()
             continue
             
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         
         payload = {

@@ -285,7 +285,7 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         b64_data = base64.b64encode(optimized_bytes).decode("utf-8")
 
         # Llamar a la API Multimodal de Gemini
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         
         prompt = f"""
@@ -373,7 +373,7 @@ def generate_image_prompt_via_llm(title: str, content: str = "") -> str:
         logger.warning("No hay API Key activa de Gemini para generar el prompt.")
         return ""
         
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     
     prompt_payload = f"""

@@ -73,7 +73,7 @@ No agregues preámbulos ni explicaciones fuera del JSON."""
             config.rotate_key()
             continue
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         payload = {
             "system_instruction": {"parts": [{"text": CORRECTOR_EDITORIAL_SYSTEM}]},
