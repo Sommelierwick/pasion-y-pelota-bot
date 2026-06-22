@@ -81,7 +81,7 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
             config.rotate_key()
             continue
             
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         
         payload = {
@@ -223,6 +223,145 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
                 res["corrected_category"] = "Mundial 2026"
         return res
 
+    def calculate_projected_brackets(self, mundial_data: dict) -> list:
+        groups = mundial_data.get("groups", [])
+        if not groups:
+            return []
+            
+        # 1. Obtener ganadores y segundos de grupo
+        qualifiers = {}
+        for g in groups:
+            g_name = g.get("name", "Grupo")
+            g_letter = g_name.replace("Grupo ", "").strip()
+            if g_letter not in ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']:
+                continue
+            teams = g.get("teams", [])
+            
+            t1 = teams[0] if len(teams) >= 1 else {"name": f"1º {g_letter}", "colors": {}}
+            t2 = teams[1] if len(teams) >= 2 else {"name": f"2º {g_letter}", "colors": {}}
+            t3 = teams[2] if len(teams) >= 3 else {"name": f"3º {g_letter}", "colors": {}}
+            
+            qualifiers[g_letter] = {
+                "winner": {
+                    "name": t1.get("name", f"1º {g_letter}"),
+                    "colors": t1.get("colors", {})
+                },
+                "runner_up": {
+                    "name": t2.get("name", f"2º {g_letter}"),
+                    "colors": t2.get("colors", {})
+                },
+                "third": {
+                    "name": t3.get("name", f"3º {g_letter}"),
+                    "colors": t3.get("colors", {}),
+                    "pts": int(t3.get("pts", 0)) if str(t3.get("pts", "")).isdigit() else 0,
+                    "ratio": int(t3.get("ratio", 0)) if str(t3.get("ratio", "")).replace("-","").isdigit() else 0,
+                    "goals": t3.get("goals", "0:0")
+                }
+            }
+            
+        # 2. Obtener y rankear a los mejores terceros
+        third_teams = []
+        for g_letter, q in qualifiers.items():
+            t3 = q["third"]
+            goals_str = t3["goals"]
+            gf = 0
+            if ":" in goals_str:
+                parts = goals_str.split(":")
+                gf = int(parts[0]) if parts[0].isdigit() else 0
+            
+            third_teams.append({
+                "group": g_letter,
+                "name": t3["name"],
+                "pts": t3["pts"],
+                "dg": t3["ratio"],
+                "gf": gf,
+                "colors": t3["colors"]
+            })
+            
+        # Ordenar terceros por pts, dg (diferencia gol), gf (goles favor)
+        third_teams.sort(key=lambda x: (x["pts"], x["dg"], x["gf"]), reverse=True)
+        top_8_thirds = third_teams[:8]
+        
+        # 3. Resolver emparejamiento usando backtracking solver
+        allowed = {
+            'E': ['A', 'B', 'C', 'D', 'F'],
+            'I': ['C', 'D', 'F', 'G', 'H'],
+            'A': ['C', 'E', 'F', 'H', 'I'],
+            'L': ['E', 'H', 'I', 'J', 'K'],
+            'D': ['B', 'E', 'F', 'I', 'J'],
+            'G': ['A', 'E', 'H', 'I', 'J'],
+            'B': ['E', 'F', 'G', 'I', 'J'],
+            'K': ['D', 'E', 'I', 'J', 'L']
+        }
+        
+        matching = {}
+        used_thirds = set()
+        winners_list = ['E', 'I', 'A', 'L', 'D', 'G', 'B', 'K']
+        
+        def backtrack(winner_idx):
+            if winner_idx == len(winners_list):
+                return True
+            w_letter = winners_list[winner_idx]
+            for t in top_8_thirds:
+                t_letter = t["group"]
+                if t_letter not in used_thirds:
+                    if t_letter in allowed[w_letter] and t_letter != w_letter:
+                        matching[w_letter] = (t["name"], t["colors"], f"3º {t_letter}")
+                        used_thirds.add(t_letter)
+                        if backtrack(winner_idx + 1):
+                            return True
+                        used_thirds.remove(t_letter)
+                        del matching[w_letter]
+            return False
+            
+        if not backtrack(0):
+            # Fallback simple
+            logger.warning("No se pudo hallar matching perfecto de FIFA. Aplicando fallback de descarte.")
+            for w_letter in winners_list:
+                for t in top_8_thirds:
+                    t_letter = t["group"]
+                    if t_letter not in used_thirds and t_letter != w_letter:
+                        matching[w_letter] = (t["name"], t["colors"], f"3º {t_letter}")
+                        used_thirds.add(t_letter)
+                        break
+                        
+        # 4. Estructurar los 16 partidos de la ronda de 32 (Dieciseisavos)
+        projected = []
+        
+        match_configs = [
+            {"num": 73, "home": qualifiers['A']['runner_up']['name'], "home_label": "2º A", "home_colors": qualifiers['A']['runner_up']['colors'], "away": qualifiers['B']['runner_up']['name'], "away_label": "2º B", "away_colors": qualifiers['B']['runner_up']['colors'], "date": "28 de Junio", "venue": "Los Angeles Stadium"},
+            {"num": 74, "home": qualifiers['E']['winner']['name'], "home_label": "1º E", "home_colors": qualifiers['E']['winner']['colors'], "away": matching.get('E', ('Por definir', {}, '3º A/B/C/D/F'))[0], "away_label": matching.get('E', ('Por definir', {}, '3º A/B/C/D/F'))[2], "away_colors": matching.get('E', ('Por definir', {}, '3º A/B/C/D/F'))[1], "date": "29 de Junio", "venue": "Boston Stadium"},
+            {"num": 75, "home": qualifiers['F']['winner']['name'], "home_label": "1º F", "home_colors": qualifiers['F']['winner']['colors'], "away": qualifiers['C']['runner_up']['name'], "away_label": "2º C", "away_colors": qualifiers['C']['runner_up']['colors'], "date": "29 de Junio", "venue": "Estadio Monterrey"},
+            {"num": 76, "home": qualifiers['C']['winner']['name'], "home_label": "1º C", "home_colors": qualifiers['C']['winner']['colors'], "away": qualifiers['F']['runner_up']['name'], "away_label": "2º F", "away_colors": qualifiers['F']['runner_up']['colors'], "date": "29 de Junio", "venue": "Houston Stadium"},
+            {"num": 77, "home": qualifiers['I']['winner']['name'], "home_label": "1º I", "home_colors": qualifiers['I']['winner']['colors'], "away": matching.get('I', ('Por definir', {}, '3º C/D/F/G/H'))[0], "away_label": matching.get('I', ('Por definir', {}, '3º C/D/F/G/H'))[2], "away_colors": matching.get('I', ('Por definir', {}, '3º C/D/F/G/H'))[1], "date": "30 de Junio", "venue": "New York/New Jersey Stadium"},
+            {"num": 78, "home": qualifiers['E']['runner_up']['name'], "home_label": "2º E", "home_colors": qualifiers['E']['runner_up']['colors'], "away": qualifiers['I']['runner_up']['name'], "away_label": "2º I", "away_colors": qualifiers['I']['runner_up']['colors'], "date": "30 de Junio", "venue": "Dallas Stadium"},
+            {"num": 79, "home": qualifiers['A']['winner']['name'], "home_label": "1º A", "home_colors": qualifiers['A']['winner']['colors'], "away": matching.get('A', ('Por definir', {}, '3º C/E/F/H/I'))[0], "away_label": matching.get('A', ('Por definir', {}, '3º C/E/F/H/I'))[2], "away_colors": matching.get('A', ('Por definir', {}, '3º C/E/F/H/I'))[1], "date": "30 de Junio", "venue": "Estadio Azteca, CDMX"},
+            {"num": 80, "home": qualifiers['L']['winner']['name'], "home_label": "1º L", "home_colors": qualifiers['L']['winner']['colors'], "away": matching.get('L', ('Por definir', {}, '3º E/H/I/J/K'))[0], "away_label": matching.get('L', ('Por definir', {}, '3º E/H/I/J/K'))[2], "away_colors": matching.get('L', ('Por definir', {}, '3º E/H/I/J/K'))[1], "date": "1 de Julio", "venue": "Atlanta Stadium"},
+            {"num": 81, "home": qualifiers['D']['winner']['name'], "home_label": "1º D", "home_colors": qualifiers['D']['winner']['colors'], "away": matching.get('D', ('Por definir', {}, '3º B/E/F/I/J'))[0], "away_label": matching.get('D', ('Por definir', {}, '3º B/E/F/I/J'))[2], "away_colors": matching.get('D', ('Por definir', {}, '3º B/E/F/I/J'))[1], "date": "1 de Julio", "venue": "San Francisco Bay Area Stadium"},
+            {"num": 82, "home": qualifiers['G']['winner']['name'], "home_label": "1º G", "home_colors": qualifiers['G']['winner']['colors'], "away": matching.get('G', ('Por definir', {}, '3º A/E/H/I/J'))[0], "away_label": matching.get('G', ('Por definir', {}, '3º A/E/H/I/J'))[2], "away_colors": matching.get('G', ('Por definir', {}, '3º A/E/H/I/J'))[1], "date": "1 de Julio", "venue": "Seattle Stadium"},
+            {"num": 83, "home": qualifiers['K']['runner_up']['name'], "home_label": "2º K", "home_colors": qualifiers['K']['runner_up']['colors'], "away": qualifiers['L']['runner_up']['name'], "away_label": "2º L", "away_colors": qualifiers['L']['runner_up']['colors'], "date": "2 de Julio", "venue": "Toronto Stadium"},
+            {"num": 84, "home": qualifiers['H']['winner']['name'], "home_label": "1º H", "home_colors": qualifiers['H']['winner']['colors'], "away": qualifiers['J']['runner_up']['name'], "away_label": "2º J", "away_colors": qualifiers['J']['runner_up']['colors'], "date": "2 de Julio", "venue": "Los Angeles Stadium"},
+            {"num": 85, "home": qualifiers['B']['winner']['name'], "home_label": "1º B", "home_colors": qualifiers['B']['winner']['colors'], "away": matching.get('B', ('Por definir', {}, '3º E/F/G/I/J'))[0], "away_label": matching.get('B', ('Por definir', {}, '3º E/F/G/I/J'))[2], "away_colors": matching.get('B', ('Por definir', {}, '3º E/F/G/I/J'))[1], "date": "2 de Julio", "venue": "BC Place, Vancouver"},
+            {"num": 86, "home": qualifiers['J']['winner']['name'], "home_label": "1º J", "home_colors": qualifiers['J']['winner']['colors'], "away": qualifiers['H']['runner_up']['name'], "away_label": "2º H", "away_colors": qualifiers['H']['runner_up']['colors'], "date": "3 de Julio", "venue": "Miami Stadium"},
+            {"num": 87, "home": qualifiers['K']['winner']['name'], "home_label": "1º K", "home_colors": qualifiers['K']['winner']['colors'], "away": matching.get('K', ('Por definir', {}, '3º D/E/I/J/L'))[0], "away_label": matching.get('K', ('Por definir', {}, '3º D/E/I/J/L'))[2], "away_colors": matching.get('K', ('Por definir', {}, '3º D/E/I/J/L'))[1], "date": "3 de Julio", "venue": "Kansas City Stadium"},
+            {"num": 88, "home": qualifiers['D']['runner_up']['name'], "home_label": "2º D", "home_colors": qualifiers['D']['runner_up']['colors'], "away": qualifiers['G']['runner_up']['name'], "away_label": "2º G", "away_colors": qualifiers['G']['runner_up']['colors'], "date": "3 de Julio", "venue": "Dallas Stadium"},
+        ]
+        
+        projected = []
+        for c in match_configs:
+            projected.append({
+                "match_num": c["num"],
+                "home": c["home"],
+                "home_label": c["home_label"],
+                "home_colors": c["home_colors"],
+                "away": c["away"],
+                "away_label": c["away_label"],
+                "away_colors": c["away_colors"],
+                "date": c["date"],
+                "venue": c["venue"]
+            })
+        return projected
+
     def update_widgets_and_banners(self) -> bool:
         """
         Lee datos reales del Mundial en Promiedos y actualiza dinámicamente las marquesinas, el Semáforo y el fixture.
@@ -355,6 +494,15 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
 
         # Agregar el mundial_data al JSON para subir
         res["mundial_data"] = mundial_data
+        
+        # Calcular los cruces proyectados de dieciseisavos (Ronda de 32)
+        projected_brackets = []
+        try:
+            projected_brackets = self.calculate_projected_brackets(mundial_data)
+            logger.info("Cruces proyectados del Mundial calculados con éxito.")
+        except Exception as pe:
+            logger.error(f"Error al calcular los cruces proyectados: {pe}")
+        res["projected_brackets"] = projected_brackets
 
         # Subir los datos generados a WordPress
         update_url = f"{self.wp_url}/wp-json/ppelota/v1/update-data"

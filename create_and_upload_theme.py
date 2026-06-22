@@ -1193,6 +1193,25 @@ img {
   color: #000;
 }
 
+.cta-button-secondary {
+  display: inline-block;
+  background: linear-gradient(135deg, #ffaa00 0%, #cc7700 100%);
+  color: #111;
+  font-weight: 800;
+  font-size: 14px;
+  padding: 12px 24px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 170, 0, 0.4);
+}
+
+.cta-button-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 170, 0, 0.6);
+  color: #000;
+}
+
 /* FIXTURE WIDGET AND PAGE TEMPLATE */
 .hero-fixture-widget {
   background: #1a1a1a;
@@ -1789,6 +1808,9 @@ function ppelota_update_data_callback($request) {
   if (isset($params['mundial_data'])) {
     update_option('ppelota_mundial_data', json_encode($params['mundial_data']));
   }
+  if (isset($params['projected_brackets'])) {
+    update_option('ppelota_projected_brackets', json_encode($params['projected_brackets']));
+  }
   return new WP_REST_Response(['status' => 'success'], 200);
 }
 
@@ -2304,7 +2326,10 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
       <span class="volanta badge-gold">🏆 COPA MUNDIAL FIFA 2026</span>
       <h2>FIXTURE COMPLETO, POSICIONES Y BRACKETS EN VIVO</h2>
       <p class="hero-desc">Seguí minuto a minuto los resultados de los grupos, tablas de posiciones de las 12 zonas y toda la fase final rumbo al campeonato mundial.</p>
-      <a href="<?php echo esc_url(home_url('/fixture-mundial-2026')); ?>" class="cta-button-hero">Ver Fixture Completo y Posiciones →</a>
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a href="<?php echo esc_url(home_url('/fixture-mundial-2026')); ?>" class="cta-button-hero">Ver Fixture y Posiciones →</a>
+        <a href="<?php echo esc_url(home_url('/fixture-mundial-2026?tab=tab-eliminatorias')); ?>" class="cta-button-secondary">🔮 Simulador de Cruces Hoy →</a>
+      </div>
     </div>
   </div>
   
@@ -2458,6 +2483,19 @@ get_header();
 
       <!-- TAB 1: POSICIONES -->
       <div id="tab-posiciones" class="fixture-tab-content active">
+        <!-- Prominent Banner for projected brackets -->
+        <div class="simulation-banner-card" style="background: linear-gradient(135deg, rgba(255, 170, 0, 0.12) 0%, rgba(204, 119, 0, 0.04) 100%); border: 1px solid rgba(255, 170, 0, 0.4); border-radius: 8px; padding: 18px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+          <div style="flex: 1; min-width: 285px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <span style="background: #ffaa00; color: #111; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 3px; text-transform: uppercase;">🔮 EXCLUSIVO</span>
+              <h4 style="color: #ffaa00; margin: 0; font-size: 16px; font-weight: 700; font-family: 'Roboto Condensed', sans-serif;">PROYECCIÓN MATEMÁTICA: CRUCES DE 16AVOS AL INSTANTE</h4>
+            </div>
+            <p style="color: #ccc; margin: 0; font-size: 13px; line-height: 1.45;">Simulación en vivo de los cruces de la fase final calculados en tiempo real según el reglamento oficial de la FIFA (incluyendo los 8 mejores terceros) a medida que cambian los resultados.</p>
+          </div>
+          <div>
+            <button class="cta-sim-btn" onclick="openFixtureTab(event, 'tab-eliminatorias')" style="background: linear-gradient(135deg, #ffaa00 0%, #cc7700 100%); color: #111; border: none; font-weight: 800; font-size: 13px; font-family: 'Roboto Condensed', sans-serif; cursor: pointer; padding: 11px 22px; border-radius: 6px; box-shadow: 0 4px 12px rgba(255, 170, 0, 0.35); transition: all 0.25s ease; text-transform: uppercase;">Ver Simulador de Cruces Hoy →</button>
+          </div>
+        </div>
         <?php if($data && !empty($data['groups'])): ?>
           <div class="groups-grid">
             <?php foreach($data['groups'] as $group): ?>
@@ -2555,6 +2593,53 @@ get_header();
 
       <!-- TAB 3: ELIMINATORIAS -->
       <div id="tab-eliminatorias" class="fixture-tab-content">
+        <?php
+        $proj_raw = get_option('ppelota_projected_brackets');
+        $proj_brackets = $proj_raw ? json_decode($proj_raw, true) : null;
+        if (!empty($proj_brackets)):
+        ?>
+          <div class="projected-section" style="margin-bottom: 40px; border-bottom: 2px solid #2d2d2d; padding-bottom: 30px;">
+            <h2 class="section-title" style="color: #ffaa00; margin-bottom: 5px;">🔮 Proyección Matemática: Cruces Proyectados Hoy</h2>
+            <p class="description" style="color: #aaa; font-size: 13px; margin-bottom: 20px; font-style: italic;">
+              Simulación en tiempo real basada en la tabla de posiciones actual de los grupos y las reglas oficiales de emparejamiento de la FIFA (incluyendo los 8 mejores terceros). Se actualiza automáticamente con el correr de los partidos.
+            </p>
+            <div class="bracket-matches-grid">
+              <?php foreach($proj_brackets as $match): 
+                $p0 = $match['home'] ?? 'Por definir';
+                $p1 = $match['away'] ?? 'Por definir';
+                $l0 = $match['home_label'] ?? '';
+                $l1 = $match['away_label'] ?? '';
+                $c0 = $match['home_colors']['color'] ?? '#333';
+                $c1 = $match['away_colors']['color'] ?? '#333';
+              ?>
+                <div class="bracket-match-card" style="border-left: 4px solid #ffaa00;">
+                  <div style="font-size: 10px; color: #ffaa00; margin-bottom: 8px; font-weight: bold; text-transform: uppercase;">Partido <?php echo esc_html($match['match_num']); ?></div>
+                  
+                  <div class="bracket-team">
+                    <span class="team-color-badge" style="background: <?php echo esc_attr($c0); ?>;"></span>
+                    <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p0); ?></span>
+                    <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l0); ?></span>
+                  </div>
+                  
+                  <div class="bracket-vs-divider">VS</div>
+                  
+                  <div class="bracket-team">
+                    <span class="team-color-badge" style="background: <?php echo esc_attr($c1); ?>;"></span>
+                    <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p1); ?></span>
+                    <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l1); ?></span>
+                  </div>
+                  
+                  <div style="font-size: 9px; color: #777; margin-top: 8px; border-top: 1px solid #2d2d2d; padding-top: 6px; display: flex; justify-content: space-between;">
+                    <span>📅 <?php echo esc_html($match['date']); ?></span>
+                    <span>📍 <?php echo esc_html($match['venue']); ?></span>
+                  </div>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        <?php endif; ?>
+
+        <h2 class="section-title">⚔️ Llaves Oficiales de la FIFA</h2>
         <?php if($data && !empty($data['brackets'])): ?>
           <div class="brackets-container">
             <?php foreach($data['brackets'] as $stage): ?>
@@ -2607,8 +2692,29 @@ function openFixtureTab(evt, tabName) {
     tablinks[i].classList.remove("active");
   }
   document.getElementById(tabName).classList.add("active");
-  evt.currentTarget.classList.add("active");
+  
+  // Find the button with onclick containing the tabName and make it active!
+  var targetBtn = null;
+  for (i = 0; i < tablinks.length; i++) {
+    if (tablinks[i].getAttribute('onclick') && tablinks[i].getAttribute('onclick').includes(tabName)) {
+      tablinks[i].classList.add("active");
+    }
+  }
+  if (evt && evt.currentTarget) {
+    evt.currentTarget.classList.add("active");
+  }
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const tabParam = urlParams.get('tab');
+  if (tabParam && document.getElementById(tabParam)) {
+    openFixtureTab(null, tabParam);
+    setTimeout(function() {
+      document.querySelector('.fixture-tabs').scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }
+});
 </script>
 <?php get_footer(); ?>
 """)
