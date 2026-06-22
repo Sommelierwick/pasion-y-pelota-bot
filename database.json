@@ -150,7 +150,19 @@
     "https://upload.wikimedia.org/wikipedia/commons/b/ba/New_Administrative_Capital_Stadium.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/9/9c/Partido_Uruguay-Egipto-02.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/e/e8/Soccer_Stadium_bleachers%2C_Syracuse_University.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/c/c1/Lionel_Messi_20180626.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/c/c1/Lionel_Messi_20180626.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/c/cd/Soccer_Panama.png",
+    "https://upload.wikimedia.org/wikipedia/commons/f/ff/FC_K%C3%BCsnacht_Logo.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/d/df/Swiss_national_football_team_at_the_1924_Summer_Olympics_in_Paris.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/c/c0/Rosso_e_Cruce_%28Suiza%29.png",
+    "https://upload.wikimedia.org/wikipedia/commons/c/cf/010e_Wild_Bearded_Vulture_in_flight_at_Pfyn-Finges_%28Switzerland%29_Photo_by_Giles_Laurent.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/0/01/FIFA_World_Ranking_Evolution_for_Bosnia_and_Herzegovina_national_football_team.jpeg",
+    "https://upload.wikimedia.org/wikipedia/commons/8/85/20150331_2028_AUT_BIH_2186.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/7/75/Karte-bosnische-fu%C3%9Fallmeister.png",
+    "https://upload.wikimedia.org/wikipedia/commons/a/ab/Soccer_Bosnia_and_Herzegovina.png",
+    "https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccer_Canada.png",
+    "https://upload.wikimedia.org/wikipedia/commons/1/12/Western_football_association_of_canada_team_1894.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/2/20/Canada_national_football_team_WC2022.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
@@ -160,11 +172,13 @@
     ],
     "Suiza_vs_Bosnia_Herzegovina": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Canadá_vs_Qatar": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "México_vs_Corea_del_Sur": [
       "previa",
@@ -245,7 +259,9 @@
     "Jordania_vs_Argelia": [
       "previa"
     ],
-    "Panamá_vs_Croacia": []
+    "Panamá_vs_Croacia": [
+      "previa"
+    ]
   },
   "jacinto_perplejo_last_hash": "bbe311323edbd9654d995f981dd76b84"
 }
