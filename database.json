@@ -18,7 +18,8 @@
     "https://news.google.com/rss/articles/CBMizgFBVV95cUxQVGZydk1mWDlWNXNBNG44THlVOXBRMHZrajhrMVZ4WVFPZDBud2ZVMl91aDdZQTlKZF8zclhUSVNiZ0lBSFJFSXY1YjFUVnRCNEJBaVJ2cUJSTVVKOTJaYU1XaHVtbkxLS2RRUlN3N0Q0b1RTUFBSbGxOZVNGU3R5UU9XR2JiTW9ZTW1zMWs3NDlmNXljN2txX1RVVXA5a01KS2lIdXUwTl9JME1UZmxncWkyRVlVVWtJV3ZDNzJ3azYzS1hDMkVObjVicm83UQ?oc=5",
     "https://pasionypelota.com/mundial-2026-brasil-y-espana-deslumbran-con-goleadas-que-selecciones-latinoamericanas-marcaron-el-ritmo/",
     "https://pasionypelota.com/el-terremoto-mundial-potencias-en-la-cuerda-floja-y-el-ascenso-impetuoso-de-los-outsiders/",
-    "https://pasionypelota.com/goleadas-historicas-en-el-mundial-2026-que-nos-depara-el-futuro/"
+    "https://pasionypelota.com/goleadas-historicas-en-el-mundial-2026-que-nos-depara-el-futuro/",
+    "https://pasionypelota.com/el-tablero-tactico-se-fractura-cuando-los-gigantes-caminan-sobre-cascaras-de-huevo/"
   ],
   "published_titles": [
     "El Celta de Vigo: Un equipo con historia por escribir",
@@ -39,7 +40,8 @@
     "Lionel Messi: ¿Tiene el ritmo para liderar a la Selección Argentina en Mundial 2026?",
     "Mundial 2026: Brasil y España Deslumbran con Goleadas, ¿Qué Selecciones Latinoamericanas Marcaron el Ritmo?",
     "El Terremoto Mundial: Potencias en la cuerda floja y el ascenso impetuoso de los 'outsiders'",
-    "Goleadas históricas en el Mundial 2026: ¿Qué nos depara el futuro?"
+    "Goleadas históricas en el Mundial 2026: ¿Qué nos depara el futuro?",
+    "El tablero táctico se fractura: Cuando los gigantes caminan sobre cáscaras de huevo"
   ],
   "published_image_urls": [
     "https://upload.wikimedia.org/wikipedia/commons/e/e6/FWC_2018_-_Group_D_-_ARG_v_ISL_-_Messi_penalty_kick.jpg",
@@ -94,7 +96,10 @@
     "https://upload.wikimedia.org/wikipedia/commons/2/29/Panneau_%C3%A9quipes_internationales%2C_parc_des_sports_de_Vichy.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/a/a4/Loftus_Versfeld_Stadium.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/d/de/Chile_-_Sud%C3%A1frica_20181009_02a.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/6/68/Duke_soccer_match_1963.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/6/68/Duke_soccer_match_1963.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/d/d2/WWHCC_2009_-_Team_Norway_%28cropped%29_-_Anne_Mette_Samdal.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/7/79/Soccer_Argentina.png",
+    "https://upload.wikimedia.org/wikipedia/commons/b/bc/Elene-Grotenberge%E2%80%93Voorde-Appelterre%2C30-11-25%2801%29.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
@@ -150,13 +155,15 @@
     ],
     "Bélgica_vs_Irán": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Uruguay_vs_Cabo_Verde": [
       "previa"
     ],
     "Argentina_vs_Austria": [
-      "previa"
+      "previa",
+      "durante"
     ],
     "Francia_vs_Irak": [
       "previa"
@@ -173,9 +180,11 @@
     "Países_Bajos_vs_Suecia": [],
     "Túnez_vs_Japón": [],
     "Nueva_Zelanda_vs_Egipto": [],
-    "Noruega_vs_Senegal": [],
+    "Noruega_vs_Senegal": [
+      "previa"
+    ],
     "Jordania_vs_Argelia": [],
     "Panamá_vs_Croacia": []
   },
-  "jacinto_perplejo_last_hash": "8f1c684687892ca23de41986ac06c4aa"
+  "jacinto_perplejo_last_hash": "bbe311323edbd9654d995f981dd76b84"
 }
