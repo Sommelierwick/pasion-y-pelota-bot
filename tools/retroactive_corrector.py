@@ -55,7 +55,16 @@ def _call_gemini_corrector(title: str, content_html: str) -> Optional[dict]:
     if not config.GEMINI_API_KEYS:
         return None
         
-    models_to_try = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
+    models_to_try = [
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-flash-latest"
+    ]
     num_keys = len(config.GEMINI_API_KEYS)
     prompt = f"""Por favor revisa, audita y corrige el siguiente artículo.
 Título: {title}

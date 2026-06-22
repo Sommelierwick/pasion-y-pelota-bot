@@ -243,7 +243,16 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
         logging.warning("No hay claves de Gemini configuradas. Saltando a Groq.")
         return None
         
-    models_to_try = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
+    models_to_try = [
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash",
+        "gemini-3.5-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-flash-latest"
+    ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
     
