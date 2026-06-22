@@ -23,7 +23,7 @@ def clean_html_text(html_str: str) -> str:
         # Fallback si BeautifulSoup falla
         return re.sub(r'<[^>]*>', '', html_str).strip()
 
-def search_wikimedia_commons(query: str) -> Optional[Dict[str, str]]:
+def search_wikimedia_commons(query: str, exclude_urls: list = None) -> Optional[Dict[str, str]]:
     """
     Busca una imagen en Wikimedia Commons para el término dado.
     Devuelve un diccionario con {'url': ..., 'citation': ...} o None si no hay resultados.
@@ -97,6 +97,10 @@ def search_wikimedia_commons(query: str) -> Optional[Dict[str, str]]:
             if not url:
                 continue
 
+            if exclude_urls and url in exclude_urls:
+                logger.info(f"Saltando imagen duplicada ya usada anteriormente: {url}")
+                continue
+
             # Extraer y limpiar metadatos de autoría y crédito
             artist_html = extmetadata.get("Artist", {}).get("value", "")
             license_name = extmetadata.get("LicenseShortName", {}).get("value", "CC")
@@ -122,7 +126,7 @@ def search_wikimedia_commons(query: str) -> Optional[Dict[str, str]]:
 
     return None
 
-def get_football_image(player_name, team_name=None) -> Dict[str, str]:
+def get_football_image(player_name, team_name=None, exclude_urls: list = None) -> Dict[str, str]:
     """
     Busca una imagen real del jugador. Si falla, busca por el equipo.
     Si ambos fallan, busca una genérica de fútbol/estadio.
@@ -132,13 +136,13 @@ def get_football_image(player_name, team_name=None) -> Dict[str, str]:
     if isinstance(player_name, list):
         for name in player_name:
             if name and isinstance(name, str) and name.lower() not in ["desconocido", "ninguno", ""]:
-                res = search_wikimedia_commons(name)
+                res = search_wikimedia_commons(name, exclude_urls=exclude_urls)
                 if res:
                     return res
         player_name = player_name[0] if player_name else ""
 
     if player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
-        res = search_wikimedia_commons(player_name)
+        res = search_wikimedia_commons(player_name, exclude_urls=exclude_urls)
         if res:
             return res
 
@@ -146,22 +150,23 @@ def get_football_image(player_name, team_name=None) -> Dict[str, str]:
     if isinstance(team_name, list):
         for t in team_name:
             if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]:
-                res = search_wikimedia_commons(t)
+                res = search_wikimedia_commons(t, exclude_urls=exclude_urls)
                 if res:
                     return res
         team_name = team_name[0] if team_name else ""
 
     if team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
-        res = search_wikimedia_commons(team_name)
+        res = search_wikimedia_commons(team_name, exclude_urls=exclude_urls)
         if res:
             return res
 
-    # 3. Fallback genérico de alta calidad de Wikimedia
+    # 3. Fallback genérico de alta calidad de Wikimedia (iterando para variedad)
     generic_terms = ["association football match", "soccer stadium", "football training", "futbol"]
-    term = random.choice(generic_terms)
-    res = search_wikimedia_commons(term)
-    if res:
-        return res
+    random.shuffle(generic_terms)
+    for term in generic_terms:
+        res = search_wikimedia_commons(term, exclude_urls=exclude_urls)
+        if res:
+            return res
 
     # 4. Fallback absoluto cableado (imagen libre conocida de Wikimedia)
     return {

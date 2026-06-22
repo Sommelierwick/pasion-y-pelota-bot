@@ -311,7 +311,7 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE CUALQUIER NOTICIA GENERAL/DEPORTIVA/DE CRÓNICAS DE PARTIDOS):
 1. LIONEL MESSI: Se acepta cualquier noticia sobre él (goles, partidos, récords en Inter Miami, lesiones, rendimiento, etc.).
 2. SELECCIÓN ARGENTINA: Se permite cobertura total de su desempeño, partidos, resultados, previas, tácticas, convocatorias y noticias en general.
-3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México).
+3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron o empataron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México).
 4. FÓRMULA 1 (F1): Se permite cobertura completa de carreras, resultados, clasificaciones y rumores de escuderías. Se debe hablar prioritariamente sobre Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen, etc.
 5. BRASILEIRÃO (FÚTBOL DE BRASIL): Dado que el torneo está en juego, se permite cobertura total de partidos, resultados, crónicas de encuentros, tablas de posiciones y noticias de los clubes brasileños (Flamengo, Palmeiras, São Paulo, etc.), no limitándose únicamente a mercado de pases.
 
@@ -651,7 +651,8 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
     team_name = teams[0] if teams else None
     
-    img_data = get_football_image(player_name_str, team_name)
+    exclude_urls = db.get("published_image_urls", [])
+    img_data = get_football_image(player_name_str, team_name, exclude_urls=exclude_urls)
     image_url = img_data.get("url")
     citation = img_data.get("citation", "")
     
@@ -747,6 +748,10 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
         db["published_titles"].append(final_article.get("title"))
         db["published_urls"].append(source_link or wp_post.get("link", ""))
+        if image_url:
+            if "published_image_urls" not in db:
+                db["published_image_urls"] = []
+            db["published_image_urls"].append(image_url)
         save_database(db)
         logging.info("Base de datos anti-duplicados actualizada.")
     else:
