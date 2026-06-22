@@ -313,6 +313,10 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
 
 def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
     """Motor híbrido principal: Intenta Gemini primero (con rotación). Si falla, recurre a Groq. Si falla, recurre a OpenAI."""
+    import time
+    logging.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429)...")
+    time.sleep(15)
+
     res = call_gemini_http(prompt, system_instruction, response_schema)
     if res:
         logging.info("Respuesta obtenida con éxito usando Gemini.")

@@ -93,6 +93,10 @@ def clean_schema_for_gemini(schema_dict: dict) -> dict:
 def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
     """Intenta llamar a Gemini para obtener JSON estructurado usando solicitudes HTTP directas,
     probando con varios modelos y rotando claves en caso de rate limit."""
+    import time
+    logger.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429)...")
+    time.sleep(15)
+    
     if not config.GEMINI_API_KEYS:
         logger.warning("No hay claves de Gemini configuradas.")
         return {}
