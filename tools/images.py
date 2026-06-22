@@ -152,21 +152,108 @@ def search_wikimedia_commons(query: str, exclude_urls: list = None) -> Optional[
 
     return None
 
+def verify_image_suitability_text_fallback(filename: str, article_title: str) -> bool:
+    """
+    Usa Groq (Llama 3.3 70B) como fallback para evaluar si la imagen es apta basándose únicamente
+    en el nombre del archivo y el título del artículo (cuando Gemini está bajo límite de cuota).
+    """
+    groq_key = os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        logger.warning("No hay GROQ_API_KEY configurada para la verificación de imagen de respaldo. Aprobando por defecto.")
+        return True
+
+    system_prompt = "Eres un Inspector de Contenido Editorial para un portal de fútbol premium."
+    prompt = f"""
+    Evalúa si la siguiente imagen es adecuada para un artículo de fútbol asociación (soccer) en nuestro portal.
+    
+    Título del artículo: "{article_title}"
+    Nombre de archivo de la imagen: "{filename}"
+    
+    Criterios de rechazo:
+    - La imagen representa fútbol americano, NFL, rugby, béisbol u otros deportes ajenos al fútbol asociación.
+    - La imagen es de fútbol playa (beach soccer) o futsal (a menos que el título del artículo hable explícitamente de fútbol playa o futsal).
+    - La imagen representa políticos, presidentes, mandatarios o banderas nacionales.
+    - La imagen representa ciudades, castillos, catedrales, paisajes o edificios turísticos fuera del contexto de un partido de fútbol.
+    
+    Responde únicamente con un objeto JSON con esta estructura:
+    {{
+        "is_suitable": true o false,
+        "reason": "Explicación breve de por qué se aprueba o rechaza"
+    }}
+    """
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"}
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        if resp.status_code == 200:
+            result = resp.json()
+            content = result["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+            is_suitable = parsed.get("is_suitable", True)
+            reason = parsed.get("reason", "")
+            if not is_suitable:
+                logger.warning(f"❌ Imagen RECHAZADA por Groq (Fallback de Texto) para '{article_title}'. Razón: {reason}")
+                return False
+            else:
+                logger.info(f"✅ Imagen aprobada por Groq (Fallback de Texto): {reason}")
+                return True
+    except Exception as e:
+        logger.error(f"Error en fallback de verificación de texto con Groq: {e}")
+    return True
+
+
 def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool:
     """
-    Usa el modelo multimodal de Gemini para verificar si la imagen es apta para un portal de fútbol asociación.
-    Rechaza fútbol americano, rugby, políticos, mapas, banderas, paisajes fuera de contexto, etc.
+    Verifica si una imagen es apta para el artículo de fútbol asociación:
+    1. Filtra localmente por palabras clave prohibidas en el nombre de archivo/URL.
+    2. Usa el modelo multimodal de Gemini para inspección visual.
+    3. Si Gemini falla (429/500), recurre a Groq para análisis de texto basado en el nombre del archivo.
     """
     if not article_title:
         return True
 
+    # 1. Filtro local basado en palabras clave en la URL/nombre del archivo (Case-Insensitive)
+    filename_clean = os.path.basename(image_url_or_path).lower().replace("%20", " ").replace("_", " ").replace("-", " ")
+    reject_keywords = [
+        "american_football", "american-football", "american football", "gridiron", "quarterback", "touchdown", 
+        "superbowl", "helmet", "rugby", "baseball", "cricket", "basketball", "volleyball",
+        "tennis", "golf", "athletics", "swimming", "boxing",
+        "beach_soccer", "beach-soccer", "beachsoccer", "beach soccer", "sand_soccer", "sand soccer", "futsal", "indoor_soccer",
+        "futbol_playa", "futbol-playa", "playa_futbol", "playa-futbol", "playa futbol", "futbol playa",
+        "biden", "putin", "trump", "obama", "xi_jinping", "macron", "merkel", "politician", 
+        "president", "minister", "senate", "parliament", "congress", "government",
+        "politico", "presidente", "ministro", "parlamento", "congreso", "gobierno",
+        "cathedral", "castle", "church", "palace", "monument", "cityscape", "landscape", 
+        "skyline", "temple", "museum", "ruins", "bridge", "street_view",
+        "catedral", "castillo", "iglesia", "palacio", "monumento", "templo", "museo", "ruinas", "puente",
+        "flag_of", "map_of", "coat_of_arms", "emblem", "shield", "bandera", "mapa", "escudo"
+    ]
+    for kw in reject_keywords:
+        if kw in filename_clean:
+            logger.warning(f"❌ Imagen RECHAZADA localmente por palabra clave prohibida '{kw}' en el nombre de archivo: {os.path.basename(image_url_or_path)}")
+            return False
+
     api_key = config.get_active_key()
     if not api_key:
-        logger.warning("No hay API Key activa para verificar la idoneidad de la imagen.")
-        return True
+        logger.warning("No hay API Key activa para Gemini. Recurriendo a Groq como respaldo...")
+        return verify_image_suitability_text_fallback(filename_clean, article_title)
 
     try:
-        # 1. Obtener los bytes de la imagen
+        # Obtener los bytes de la imagen
         is_local = not image_url_or_path.startswith(("http://", "https://"))
         if is_local:
             local_path = image_url_or_path
@@ -174,7 +261,7 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
                 local_path = local_path.replace("file://", "", 1)
             if not os.path.exists(local_path):
                 logger.warning(f"No se encontró el archivo local para verificar: {local_path}")
-                return True
+                return False
             with open(local_path, "rb") as f:
                 img_content = f.read()
         else:
@@ -182,10 +269,10 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
             r = requests.get(image_url_or_path, headers=headers, timeout=15)
             if r.status_code != 200:
                 logger.warning(f"No se pudo descargar la imagen para verificar: {image_url_or_path} (HTTP {r.status_code})")
-                return True
+                return False
             img_content = r.content
 
-        # 2. Redimensionar/optimizar la imagen usando PIL para no saturar la API
+        # Redimensionar/optimizar la imagen usando PIL
         from PIL import Image
         import io
         img = Image.open(io.BytesIO(img_content))
@@ -197,7 +284,7 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         optimized_bytes = out_io.getvalue()
         b64_data = base64.b64encode(optimized_bytes).decode("utf-8")
 
-        # 3. Llamar a la API Multimodal de Gemini
+        # Llamar a la API Multimodal de Gemini
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         
@@ -264,16 +351,16 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
                     logger.info(f"✅ Imagen aprobada por el inspector multimodal: {reason}")
                     return True
         elif r_api.status_code == 429:
-            logger.warning("Quota límite excedida (429) en verificación de imagen. Se aprueba por defecto.")
+            logger.warning("Quota límite excedida (429) en verificación de imagen de Gemini. Recurriendo a Groq como respaldo...")
             config.rotate_key()
-            return True
+            return verify_image_suitability_text_fallback(filename_clean, article_title)
         else:
-            logger.warning(f"Fallo en llamada a la API de verificación de imagen ({r_api.status_code}). Se aprueba por defecto.")
-            return True
+            logger.warning(f"Fallo en llamada a la API de verificación de imagen de Gemini ({r_api.status_code}). Recurriendo a Groq como respaldo...")
+            return verify_image_suitability_text_fallback(filename_clean, article_title)
 
     except Exception as e:
-        logger.error(f"Excepción al verificar idoneidad de imagen: {e}")
-        return True
+        logger.error(f"Excepción al verificar idoneidad de imagen con Gemini: {e}. Recurriendo a Groq como respaldo...")
+        return verify_image_suitability_text_fallback(filename_clean, article_title)
 
     return True
 
