@@ -83,12 +83,24 @@
     "https://upload.wikimedia.org/wikipedia/commons/5/58/Alemania_vs_argentina_1973_sintesis.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/5/55/Camiseta_suplente_Alemania_Federal_74.png",
     "https://upload.wikimedia.org/wikipedia/commons/b/b2/Belgium_football_lion_crest.png",
-    "https://upload.wikimedia.org/wikipedia/commons/1/11/Belgian_national_football_team_WC2022.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/1/11/Belgian_national_football_team_WC2022.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/9/94/Czech_football_league_-_trophy.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/3/34/Kit_socks_cze10h2.png",
+    "https://upload.wikimedia.org/wikipedia/commons/b/b6/Kit_shorts_cze10a2.png",
+    "https://upload.wikimedia.org/wikipedia/commons/d/d5/Znojmo_Old_Town_Panorama_from_Castle_20190217.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/5/59/Mbombela_Stadium_Bafana_vs_Thailand.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/1/12/Morgan_Gould_in_Bafana_Bafana_Jersey.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/6/61/Mamelodi_Sundowns-002.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/2/29/Panneau_%C3%A9quipes_internationales%2C_parc_des_sports_de_Vichy.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/a/a4/Loftus_Versfeld_Stadium.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/d/de/Chile_-_Sud%C3%A1frica_20181009_02a.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/6/68/Duke_soccer_match_1963.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Suiza_vs_Bosnia_Herzegovina": [
       "previa",
@@ -157,7 +169,13 @@
     ],
     "Colombia_vs_RD_Congo": [
       "previa"
-    ]
+    ],
+    "Países_Bajos_vs_Suecia": [],
+    "Túnez_vs_Japón": [],
+    "Nueva_Zelanda_vs_Egipto": [],
+    "Noruega_vs_Senegal": [],
+    "Jordania_vs_Argelia": [],
+    "Panamá_vs_Croacia": []
   },
   "jacinto_perplejo_last_hash": "8f1c684687892ca23de41986ac06c4aa"
 }
