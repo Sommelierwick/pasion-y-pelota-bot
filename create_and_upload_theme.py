@@ -1797,13 +1797,19 @@ function ppelota_verify_files_callback() {
 function ppelota_update_data_callback($request) {
   $params = $request->get_json_params();
   if (isset($params['upcoming_matches'])) {
-    update_option('ppelota_upcoming_matches', $params['upcoming_matches']);
+    $upcoming_clean = str_replace(array('\\\\n', '\\n', '\n'), "\n", $params['upcoming_matches']);
+    $upcoming_clean = stripslashes($upcoming_clean);
+    update_option('ppelota_upcoming_matches', $upcoming_clean);
   }
   if (isset($params['live_scores'])) {
-    update_option('ppelota_live_scores', $params['live_scores']);
+    $live_clean = str_replace(array('\\\\n', '\\n', '\n'), "\n", $params['live_scores']);
+    $live_clean = stripslashes($live_clean);
+    update_option('ppelota_live_scores', $live_clean);
   }
   if (isset($params['semaforo'])) {
-    update_option('ppelota_semaforo', $params['semaforo']);
+    $semaforo_clean = str_replace(array('\\\\n', '\\n', '\n'), "\n", $params['semaforo']);
+    $semaforo_clean = stripslashes($semaforo_clean);
+    update_option('ppelota_semaforo', $semaforo_clean);
   }
   if (isset($params['mundial_data'])) {
     update_option('ppelota_mundial_data', json_encode($params['mundial_data']));
@@ -2030,7 +2036,7 @@ if ('scrollRestoration' in history) {
         <?php
         $live_scores = get_option('ppelota_live_scores');
         if ($live_scores) {
-          echo $live_scores;
+          echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $live_scores));
         } else {
           // Fallback con datos reales de la Copa del Mundo del 20 de Junio
           ?>
@@ -2057,7 +2063,7 @@ if ('scrollRestoration' in history) {
         <?php
         $upcoming = get_option('ppelota_upcoming_matches');
         if ($upcoming) {
-          echo $upcoming;
+          echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $upcoming));
         } else {
           // Fallback con datos reales del 21-22 de Junio
           ?>
@@ -2236,7 +2242,7 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
       <?php
       $semaforo = get_option('ppelota_semaforo');
       if ($semaforo) {
-        echo $semaforo;
+        echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $semaforo));
       } else {
         ?>
         <a href="<?php echo esc_url(home_url('/')); ?>" class="semaforo-link">
