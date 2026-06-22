@@ -125,7 +125,7 @@ def run_retroactive_correction(max_posts: int = 20, dry_run: bool = False):
     logger.info(f"Modo: {'DRY RUN (sin cambios reales)' if dry_run else 'PRODUCCIÓN (aplicando cambios)'}")
     logger.info("=" * 70)
 
-    wp_base = config.WP_URL.rstrip("/")
+    wp_base = config.WP_URL.rstrip("/").strip()
     auth = HTTPBasicAuth(config.WP_USER, config.WP_PASSWORD)
     publisher = WordPressPublisher()
 
