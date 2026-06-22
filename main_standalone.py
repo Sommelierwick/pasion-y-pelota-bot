@@ -631,22 +631,34 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
     # Obtener imagen real de fútbol (Wikimedia Commons) con citación
     player_name_raw = enriched_data.get("player", "futbol")
-    team_name = teams[0] if teams else None
     
-    img_data = get_football_image(player_name_raw, team_name)
-    image_url = img_data.get("url")
-    citation = img_data.get("citation", "")
-    
-    # Asegurar que player_name sea un string para el nombre de archivo
-    if isinstance(player_name_raw, list):
+    # Asegurar que player_name sea un string limpio
+    if isinstance(player_name_raw, dict):
+        player_name_str = player_name_raw.get("name", player_name_raw.get("player", "futbol"))
+    elif isinstance(player_name_raw, list):
         player_name_str = player_name_raw[0] if player_name_raw else "futbol"
     else:
         player_name_str = str(player_name_raw)
+
+    import unicodedata
+    import re
+    # Normalizar para remover tildes y caracteres especiales
+    player_name_normalized = unicodedata.normalize('NFKD', player_name_str).encode('ascii', 'ignore').decode('ascii')
+    # Dejar solo caracteres alfanuméricos y guiones
+    player_name_clean = re.sub(r'[^a-zA-Z0-9_\-]', '', player_name_normalized.replace(' ', '_')).lower()
+    if not player_name_clean:
+        player_name_clean = "futbol"
+
+    team_name = teams[0] if teams else None
+    
+    img_data = get_football_image(player_name_str, team_name)
+    image_url = img_data.get("url")
+    citation = img_data.get("citation", "")
     
     logging.info(f"Subiendo imagen de portada real desde Wikimedia: {image_url}")
     featured_image_id = publisher.upload_featured_image(
         image_url=image_url,
-        filename=f"{player_name_str.replace(' ', '_').lower()}_portada.jpg"
+        filename=f"{player_name_clean}_portada.jpg"
     )
 
     # Determinar el redactor según la categoría/clúster original
