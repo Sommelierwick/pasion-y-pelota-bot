@@ -1977,6 +1977,25 @@ add_action('customize_register', function ($wp_customize) {
 function ppelota_sanitize_ad_code($value) {
   return $value;
 }
+
+// Filtro automático de Teaser Semántico Híbrido (GEO Pro)
+// Mantiene el primer párrafo legible/indexable y envuelve el resto en data-nosnippet
+function ppelota_hybrid_nosnippet_filter($content) {
+  if (!is_single()) {
+    return $content;
+  }
+  $pos = strpos($content, '</p>');
+  if ($pos !== false) {
+    $first_p_end = $pos + 4;
+    $first_p = substr($content, 0, $first_p_end);
+    $rest = substr($content, $first_p_end);
+    if (trim($rest)) {
+      return $first_p . '<div data-nosnippet="true">' . $rest . '</div>';
+    }
+  }
+  return $content;
+}
+add_filter('the_content', 'ppelota_hybrid_nosnippet_filter', 99);
 """)
 
 # ── header.php ──────────────────────────────────────────────────────────────
