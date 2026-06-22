@@ -90,7 +90,7 @@ def save_database(db):
 # 3. Motor de IA: API de Groq
 # =============================================================================
 
-def call_groq(prompt: str, system_instruction: str, response_schema=None, model="llama-3.1-8b-instant") -> Optional[dict]:
+def call_groq(prompt: str, system_instruction: str, response_schema=None, model="llama-3.3-70b-versatile") -> Optional[dict]:
     """Llama a la API de Groq y devuelve la respuesta estructurada o texto plano."""
     groq_key = os.getenv("GROQ_API_KEY")
     if not groq_key:
@@ -241,6 +241,241 @@ def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> 
     return call_groq(prompt, system_instruction, response_schema)
 
 # =============================================================================
+# 3.5. Motor de Cobertura en Vivo del Mundial 2026
+# =============================================================================
+
+def run_worldcup_coverage_engine(db):
+    import logging
+    import time
+    import re
+    import unicodedata
+    import json
+    import pydantic
+    from typing import List
+    from tools.promiedos import fetch_mundial_complete_data
+    from tools.images import get_football_image
+    from tools.wordpress import WordPressPublisher
+
+    logging.info("Iniciando Motor de Cobertura en Vivo del Mundial 2026...")
+    try:
+        mundial_data = fetch_mundial_complete_data()
+        games = mundial_data.get("games", [])
+        groups = mundial_data.get("groups", [])
+        
+        if not games:
+            logging.info("No se encontraron partidos activos del Mundial para cobertura en vivo.")
+            return
+            
+        coverage = db.setdefault("worldcup_coverage", {})
+        publisher = WordPressPublisher()
+        exclude_urls = db.get("published_image_urls", [])
+        
+        max_articles = 8
+        articles_created = 0
+        
+        for g in games:
+            if articles_created >= max_articles:
+                logging.info("Se alcanzó el límite máximo de artículos por ciclo (8). Deteniendo motor en vivo.")
+                break
+                
+            home = g.get("home", "Local")
+            away = g.get("away", "Visita")
+            home_goals = g.get("home_goals", "-")
+            away_goals = g.get("away_goals", "-")
+            status = g.get("status", "Prog.")
+            disp_time = g.get("display_time", "")
+            
+            # Limpiar goles
+            if home_goals is None or home_goals == "": home_goals = "-"
+            if away_goals is None or away_goals == "": away_goals = "-"
+            
+            match_id = f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}"
+            published = coverage.setdefault(match_id, [])
+            
+            # Encontrar el grupo correspondiente
+            group_data = None
+            for grp in groups:
+                for t in grp.get("teams", []):
+                    if t.get("name", "").lower() == home.lower():
+                        group_data = grp
+                        break
+                if group_data:
+                    break
+            
+            group_json = json.dumps(group_data, indent=2, ensure_ascii=False) if group_data else "No disponible"
+            
+            # Determinar tipo de artículo pendiente (ORDEN IRREFUTABLE)
+            article_type = None
+            if "previa" not in published:
+                article_type = "previa"
+            elif "durante" not in published:
+                # Solo podemos generar "durante" si el partido ya arrancó o ya terminó
+                if status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-"):
+                    article_type = "durante"
+            elif "post" not in published:
+                # Solo podemos generar "post" si el partido ya terminó
+                if status in ["Final", "Finalizado"]:
+                    article_type = "post"
+                    
+            if not article_type:
+                continue
+                
+            logging.info(f"Detectado artículo pendiente de tipo '{article_type}' para el partido: {home} vs {away}")
+            
+            # ─── AGENTE 1: ANALISTA/DOCUMENTALISTA DE MUNDIAL ────────────────
+            DOCUMENTALISTA_WORLD_CUP_SYSTEM = f"""
+            Eres 'El Documentalista', experto analista de datos de la Copa Mundial 2026.
+            Tu tarea es realizar un análisis lógico de clasificación y de tabla de posiciones para el partido {home} vs {away}.
+            
+            INFORMACIÓN DEL PARTIDO:
+            - Local: {home} (Goles: {home_goals})
+            - Visitante: {away} (Goles: {away_goals})
+            - Estado actual: {status} ({disp_time})
+            
+            TABLA DE POSICIONES ACTUAL DEL GRUPO:
+            {group_json}
+            
+            INSTRUCCIONES DE RAZONAMIENTO LÓGICO:
+            1. Calcula los puntos virtuales/reales de cada equipo en el grupo sumando los puntos de este partido (3 por ganar, 1 por empatar, 0 por perder).
+            2. Determina con precisión matemática y lógica:
+               - Quién queda CLASIFICADO a octavos de final.
+               - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de otros resultados).
+               - Quién queda ELIMINADO de la Copa del Mundo matemáticamente.
+            3. Devuelve los resultados estructurados en JSON.
+            """
+            
+            class WCAnalysis(pydantic.BaseModel):
+                virtual_points_explanation: str = pydantic.Field(description="Cálculo matemático de puntos y cómo queda el grupo.")
+                classified_teams: List[str] = pydantic.Field(description="Lista de selecciones clasificadas.")
+                compromised_teams: List[str] = pydantic.Field(description="Lista de selecciones comprometidas.")
+                eliminated_teams: List[str] = pydantic.Field(description="Lista de selecciones eliminadas.")
+                key_talking_point: str = pydantic.Field(description="Punto clave táctico o deportivo a destacar.")
+                
+            analysis = call_ai_json(
+                prompt=f"Realiza el análisis lógico de posiciones para {home} vs {away} del tipo '{article_type}'",
+                system_instruction=DOCUMENTALISTA_WORLD_CUP_SYSTEM,
+                response_schema=WCAnalysis
+            )
+            
+            if not analysis:
+                logging.error("El Documentalista del Mundial falló en su análisis. Saltando partido.")
+                continue
+                
+            # ─── AGENTE 2: REDACTOR SEO DE MUNDIAL ────────────────────────────
+            REDACTOR_WORLD_CUP_SYSTEM = f"""
+            Eres 'El Redactor SEO', periodista deportivo especializado en el Mundial 2026.
+            Escribes un artículo de análisis periodístico premium en español neutro para Pasión y Pelota.
+            
+            TIPO DE NOTA A GENERAR: {article_type.upper()}
+            - previa: Análisis táctico previo, predicciones y qué necesita cada equipo.
+            - durante: Crónica virtual en vivo. Cómo el marcador en juego altera el grupo en tiempo real.
+            - post: Consecuencias definitivas, clasificados y eliminados oficiales de la fecha.
+            
+            REGLAS DE REDACCIÓN:
+            1. Título H1: Clickbait honesto con el nombre de los equipos, el resultado y una consecuencia de clasificación.
+            2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
+            3. Debes incluir una tabla HTML de la clasificación del grupo actualizada tras este partido/resultado.
+            4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto.
+            5. Incorpora co-citaciones a medios de prensa al final de la nota.
+            """
+            
+            class ArticleWC(pydantic.BaseModel):
+                title: str = pydantic.Field(description="Título H1 con gancho y consecuencia de clasificación.")
+                content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2 y tabla HTML de posiciones del grupo.")
+                tags: List[str] = pydantic.Field(description="4-7 etiquetas relevantes.")
+                meta_description: str = pydantic.Field(description="Meta descripción SEO con keyword al inicio.")
+                
+            prompt_redactor = (
+                f"Redacta la nota de tipo '{article_type}' para {home} vs {away}.\n"
+                f"Datos del partido: Local {home} ({home_goals}) - Visitante {away} ({away_goals}). Estado: {status}.\n"
+                f"Análisis de posiciones provisto por el Documentalista:\n"
+                f"- Explicación: {analysis.get('virtual_points_explanation')}\n"
+                f"- Clasificados: {analysis.get('classified_teams')}\n"
+                f"- Comprometidos: {analysis.get('compromised_teams')}\n"
+                f"- Eliminados: {analysis.get('eliminated_teams')}\n"
+                f"- Punto clave: {analysis.get('key_talking_point')}\n"
+            )
+            
+            # Esperar 6 segundos para enfriar TPM antes de llamar al redactor
+            time.sleep(6)
+            article_wc = call_ai_json(
+                prompt=prompt_redactor,
+                system_instruction=REDACTOR_WORLD_CUP_SYSTEM,
+                response_schema=ArticleWC
+            )
+            
+            if not article_wc:
+                logging.error("El Redactor del Mundial falló al redactar el artículo. Saltando partido.")
+                continue
+                
+            # ─── AGENTE 3: IMAGEN Y PUBLICADOR ───────────────────────────────
+            player_name_normalized = unicodedata.normalize('NFKD', home).encode('ascii', 'ignore').decode('ascii')
+            player_name_clean = re.sub(r'[^a-zA-Z0-9_\-]', '', player_name_normalized.replace(' ', '_')).lower()
+            
+            img_data = get_football_image(home, away, exclude_urls=exclude_urls)
+            image_url = img_data.get("url") if img_data else None
+            
+            featured_image_id = None
+            if image_url:
+                logging.info(f"Subiendo imagen de portada desde Wikimedia para el partido: {image_url}")
+                featured_image_id = publisher.upload_featured_image(
+                    image_url=image_url,
+                    filename=f"{player_name_clean}_portada.jpg"
+                )
+                
+            # Publicar en WordPress con firma, citación de imagen y enlaces de afiliados
+            content_html = article_wc.get("content_html", "")
+            writer = "Roberto Mancifredi"
+            
+            # 1. Enlaces de afiliados
+            affiliate_inserted = False
+            for team, html_code in config.AFFILIATE_LINKS.items():
+                if team != "generico" and (team in content_html.lower() or team in home.lower() or team in away.lower()):
+                    logging.info(f"Equipo '{team}' detectado en el artículo del mundial. Insertando enlace de afiliado.")
+                    content_html += f"\n\n{html_code}"
+                    affiliate_inserted = True
+                    break
+            if not affiliate_inserted:
+                content_html += f"\n\n{config.AFFILIATE_LINKS['generico']}"
+                
+            # 2. Citación de imagen
+            citation = img_data.get("citation", "") if img_data else ""
+            if citation:
+                content_html += f'\n\n<p style="font-size: 11px; color: #777; text-align: right; margin-top: 20px; font-style: italic;">{citation}</p>'
+                
+            # 3. Firma de autor
+            content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por {writer}</strong></p>'
+            
+            wp_post = publisher.publish_post(
+                title=article_wc.get("title"),
+                content=content_html,
+                league_category=["Mundial 2026"],
+                tags=article_wc.get("tags", []),
+                status="publish",
+                featured_image_id=featured_image_id,
+                seo_desc=article_wc.get("meta_description"),
+                writer=writer
+            )
+            
+            if wp_post:
+                logging.info(f"🎉 ¡ARTÍCULO DEL MUNDIAL DE TIPO '{article_type}' PUBLICADO EXITOSAMENTE!")
+                logging.info(f"   Link: {wp_post.get('link')}")
+                
+                # Actualizar cobertura en base de datos
+                published.append(article_type)
+                if image_url:
+                    if "published_image_urls" not in db:
+                        db["published_image_urls"] = []
+                    db["published_image_urls"].append(image_url)
+                save_database(db)
+                articles_created += 1
+            else:
+                logging.error("No se pudo publicar el artículo del Mundial en WordPress.")
+                
+    except Exception as e:
+        logging.error(f"Excepción general en el Motor de Cobertura en Vivo del Mundial: {e}")
+
+# =============================================================================
 # 4. Flujo Principal del Pipeline
 # =============================================================================
 
@@ -264,6 +499,12 @@ def run_pipeline():
         logging.error(f"Error al limpiar posts viejos: {e}")
 
     db = load_database()
+
+    # --- PASO 0.5: Motor de Cobertura en Vivo del Mundial 2026 ---
+    try:
+        run_worldcup_coverage_engine(db)
+    except Exception as e:
+        logging.error(f"Error en el motor de cobertura del mundial: {e}")
 
     # --- PASO 1: Obtener noticias recientes de todas las fuentes ---
     logging.info("Paso 1: Monitoreando fuentes de noticias...")
