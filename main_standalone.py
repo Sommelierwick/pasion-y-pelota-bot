@@ -475,6 +475,163 @@ def run_worldcup_coverage_engine(db):
     except Exception as e:
         logging.error(f"Excepción general en el Motor de Cobertura en Vivo del Mundial: {e}")
 
+def run_jacinto_perplejo_analysis(db: dict):
+    """
+    Motor de análisis de Jacinto Perplejo.
+    Calcula y recupera las estadísticas del mundial (goleadores, asistencias, pases) y las posiciones.
+    Generas un artículo de opinión deportiva premium firmado por Jacinto Perplejo.
+    """
+    logging.info("Iniciando análisis periodístico de Jacinto Perplejo...")
+    try:
+        import unicodedata
+        import re
+        import time
+        import json
+        import hashlib
+        from tools.promiedos import fetch_mundial_complete_data, search_web_for_verification
+        from tools.editor_jefe import EditorJefe
+        from tools.wordpress import WordPressPublisher
+        from tools.images import get_football_image
+        
+        mundial_data = fetch_mundial_complete_data()
+        if not mundial_data or not mundial_data.get("groups"):
+            logging.error("No se obtuvieron posiciones del mundial para el análisis de Jacinto Perplejo.")
+            return
+
+        # Generar hash de estado para control de duplicados
+        standings_fingerprint = ""
+        for g in mundial_data.get("groups", []):
+            for t in g.get("teams", []):
+                standings_fingerprint += f"{t['name']}:{t['pts']}:{t['pj']};"
+        
+        current_hash = hashlib.md5(standings_fingerprint.encode('utf-8')).hexdigest()
+        
+        last_hash = db.get("jacinto_perplejo_last_hash", "")
+        if current_hash == last_hash:
+            logging.info("El análisis de Jacinto Perplejo ya está actualizado para las posiciones actuales del Mundial. Saltando.")
+            return
+
+        logging.info("El estado del Mundial cambió. Jacinto Perplejo está preparando su columna de opinión...")
+
+        # Obtener/Calcular estadísticas de jugadores
+        editor = EditorJefe()
+        player_stats = editor.calculate_player_stats(mundial_data)
+        
+        # Estructurar tablas en formato texto para el prompt
+        scorers_str = "\n".join([f"- {s.get('name', s.get('player', ''))} ({s.get('team', '')}): {s.get('goals', 0)} goles" for s in player_stats.get("scorers", [])])
+        assists_str = "\n".join([f"- {s.get('name', s.get('player', ''))} ({s.get('team', '')}): {s.get('assists', 0)} asistencias" for s in player_stats.get("assists", [])])
+        passing_str = "\n".join([f"- {s.get('name', s.get('player', ''))} ({s.get('team', '')}): {s.get('passes', s.get('correct_passes', 0))} pases ({s.get('accuracy', s.get('precision_percentage', s.get('precision', '90%')))} efectividad)" for s in player_stats.get("passing", [])])
+
+        groups_json = json.dumps(mundial_data.get("groups", []), indent=2, ensure_ascii=False)
+
+        # Buscar contexto adicional en la web sobre revelaciones y potencias ajustadas
+        web_context = ""
+        try:
+            web_context += search_web_for_verification("sorpresas revelaciones mundial 2026") + "\n\n"
+            web_context += search_web_for_verification("potencias eliminadas comprometidas mundial 2026")
+        except Exception as e:
+            logging.error(f"Error al buscar contexto web para Jacinto: {e}")
+
+        # Agente Redactor Jacinto Perplejo
+        JACINTO_SYSTEM = """
+        Eres 'Jacinto Perplejo', el analista y columnista de deportes estrella de Pasión y Pelota.
+        Tu estilo es sumamente agudo, inteligente, un tanto irónico y extremadamente analítico. Te obsesiona la precisión táctica y los datos.
+        
+        Escribes una columna de opinión deportiva premium en español neutro (500-750 palabras).
+        
+        REGLAS EDITORIALES DE TU COLUMNA:
+        1. Título H1: Debe ser sumamente llamativo y periodístico (ej: 'El Mundial patas arriba: ¿Por qué las potencias tiemblan ante la rebelión silenciosa?').
+        2. Analiza en profundidad:
+           - Qué potencias están justas de puntos y sufriendo de más en la fase de grupos.
+           - Cuáles potencias rindieron menos de lo esperado, explicando el por qué táctico o de rendimiento.
+           - Cuáles de las selecciones menores (no potencias) es la revelación o sensación del torneo.
+        3. Cita y menciona a los jugadores clave de las tablas de estadísticas provistas (scorers, assists, passing) como Deniz Undav, Lionel Messi o Alexander Isak para dar solidez y sustento numérico a tu análisis.
+        4. Incluye dentro del artículo una tabla HTML estilizada que resuma el Top 5 de Goleadores y Top 5 de Asistidores citados.
+        5. Firma al final como Jacinto Perplejo.
+        """
+
+        prompt = f"""
+        Posiciones de los grupos del Mundial:
+        {groups_json}
+
+        Estadísticas oficiales de jugadores del Mundial:
+        --- GOLEADORES ---
+        {scorers_str}
+        
+        --- ASISTENCIAS ---
+        {assists_str}
+        
+        --- PASES Y EFECTIVIDAD ---
+        {passing_str}
+
+        Noticias de contexto web reciente:
+        {web_context}
+        """
+
+        class JacintoArticle(pydantic.BaseModel):
+            title: str = pydantic.Field(description="Título de la columna de opinión.")
+            content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2, párrafos y tablas de estadísticas.")
+            tags: List[str] = pydantic.Field(description="4-6 etiquetas relevantes.")
+            meta_description: str = pydantic.Field(description="Meta descripción SEO.")
+
+        # Invocar a Gemini para redactar
+        article_data = call_ai_json(
+            prompt=prompt,
+            system_instruction=JACINTO_SYSTEM,
+            response_schema=JacintoArticle
+        )
+
+        if not article_data:
+            logging.error("Gemini falló al redactar el artículo de Jacinto Perplejo.")
+            return
+
+        publisher = WordPressPublisher()
+
+        # Buscar imagen representativa de fútbol
+        img_data = get_football_image("pelota", "estadio")
+        image_url = img_data.get("url") if img_data else None
+        featured_image_id = None
+        if image_url:
+            featured_image_id = publisher.upload_featured_image(
+                image_url=image_url,
+                filename="jacinto_perplejo_analisis.jpg"
+            )
+
+        content_html = article_data.get("content_html", "")
+        # Firma y monetización
+        content_html += f"\n\n{config.AFFILIATE_LINKS['generico']}"
+        
+        citation = img_data.get("citation", "") if img_data else ""
+        if citation:
+            content_html += f'\n\n<p style="font-size: 11px; color: #777; text-align: right; margin-top: 20px; font-style: italic;">{citation}</p>'
+            
+        content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por Jacinto Perplejo</strong></p>'
+
+        wp_post = publisher.publish_post(
+            title=article_data.get("title"),
+            content=content_html,
+            league_category=["Mundial 2026"],
+            tags=article_data.get("tags", []),
+            status="publish",
+            featured_image_id=featured_image_id,
+            seo_desc=article_data.get("meta_description"),
+            writer="Jacinto Perplejo"
+        )
+
+        if wp_post:
+            logging.info(f"🎉 ¡COLUMNA DE JACINTO PERPLEJO PUBLICADA EXITOSAMENTE!")
+            logging.info(f"   Link: {wp_post.get('link')}")
+            
+            db["jacinto_perplejo_last_hash"] = current_hash
+            db["published_urls"].append(wp_post.get("link"))
+            db["published_titles"].append(article_data.get("title"))
+            save_database(db)
+        else:
+            logging.error("No se pudo publicar el artículo de Jacinto Perplejo en WordPress.")
+
+    except Exception as e:
+        logging.error(f"Excepción general en el análisis de Jacinto Perplejo: {e}")
+
 # =============================================================================
 # 4. Flujo Principal del Pipeline
 # =============================================================================
@@ -505,6 +662,12 @@ def run_pipeline():
         run_worldcup_coverage_engine(db)
     except Exception as e:
         logging.error(f"Error en el motor de cobertura del mundial: {e}")
+
+    # --- PASO 0.6: Columna de Opinión de Jacinto Perplejo ---
+    try:
+        run_jacinto_perplejo_analysis(db)
+    except Exception as e:
+        logging.error(f"Error en el análisis de Jacinto Perplejo: {e}")
 
     # --- PASO 1: Obtener noticias recientes de todas las fuentes ---
     logging.info("Paso 1: Monitoreando fuentes de noticias...")

@@ -1811,6 +1811,9 @@ function ppelota_update_data_callback($request) {
   if (isset($params['projected_brackets'])) {
     update_option('ppelota_projected_brackets', json_encode($params['projected_brackets']));
   }
+  if (isset($params['player_stats'])) {
+    update_option('ppelota_player_stats', json_encode($params['player_stats']));
+  }
   return new WP_REST_Response(['status' => 'success'], 200);
 }
 
@@ -2474,6 +2477,7 @@ get_header();
         <button class="fixture-tab-btn active" onclick="openFixtureTab(event, 'tab-posiciones')">📊 Zonas y Posiciones</button>
         <button class="fixture-tab-btn" onclick="openFixtureTab(event, 'tab-partidos')">⚽ Partidos y Resultados</button>
         <button class="fixture-tab-btn" onclick="openFixtureTab(event, 'tab-eliminatorias')">⚔️ Llaves Eliminatorias</button>
+        <button class="fixture-tab-btn" onclick="openFixtureTab(event, 'tab-estadisticas')">🔥 Estadísticas</button>
       </div>
 
       <?php
@@ -2674,6 +2678,116 @@ get_header();
           </div>
         <?php else: ?>
           <p class="no-data-msg">La fase eliminatoria comenzará al finalizar la fase de grupos.</p>
+        <?php endif; ?>
+      </div>
+
+      <!-- TAB 4: ESTADÍSTICAS -->
+      <div id="tab-estadisticas" class="fixture-tab-content">
+        <?php
+        $stats_raw = get_option('ppelota_player_stats');
+        $stats = $stats_raw ? json_decode($stats_raw, true) : null;
+        if($stats):
+        ?>
+          <div class="stats-grids-wrap" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px;">
+            
+            <!-- GOLEADORES -->
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px;">
+              <h3 style="color: #ffaa00; margin-top: 0; margin-bottom: 15px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700; border-bottom: 2px solid #2d2d2d; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">⚽ GOLEADORES</h3>
+              <table class="group-table" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th style="text-align: left;">Jugador</th>
+                    <th>Goles</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php 
+                  $idx = 1;
+                  foreach($stats['scorers'] as $s): 
+                    $c = $s['colors']['color'] ?? '#333';
+                  ?>
+                    <tr class="team-row">
+                      <td><?php echo $idx++; ?></td>
+                      <td style="text-align: left; font-weight: 700;">
+                        <span class="team-color-badge" style="background: <?php echo esc_attr($c); ?>;"></span>
+                        <?php echo esc_html($s['name']); ?>
+                        <span style="font-size: 10px; color: #777; font-weight: normal; display: block; margin-left: 18px;"><?php echo esc_html($s['team']); ?></span>
+                      </td>
+                      <td style="font-weight: 800; color: #ffaa00; text-align: center;"><?php echo esc_html($s['goals']); ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- ASISTENCIAS -->
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px;">
+              <h3 style="color: #ffaa00; margin-top: 0; margin-bottom: 15px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700; border-bottom: 2px solid #2d2d2d; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">🅰️ ASISTENCIAS</h3>
+              <table class="group-table" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th style="text-align: left;">Jugador</th>
+                    <th>Asist.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php 
+                  $idx = 1;
+                  foreach($stats['assists'] as $s): 
+                    $c = $s['colors']['color'] ?? '#333';
+                  ?>
+                    <tr class="team-row">
+                      <td><?php echo $idx++; ?></td>
+                      <td style="text-align: left; font-weight: 700;">
+                        <span class="team-color-badge" style="background: <?php echo esc_attr($c); ?>;"></span>
+                        <?php echo esc_html($s['name']); ?>
+                        <span style="font-size: 10px; color: #777; font-weight: normal; display: block; margin-left: 18px;"><?php echo esc_html($s['team']); ?></span>
+                      </td>
+                      <td style="font-weight: 800; color: #ffaa00; text-align: center;"><?php echo esc_html($s['assists']); ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- PASES -->
+            <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px;">
+              <h3 style="color: #ffaa00; margin-top: 0; margin-bottom: 15px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700; border-bottom: 2px solid #2d2d2d; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">🎯 PASES Y EFECTIVIDAD</h3>
+              <table class="group-table" style="width: 100%;">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th style="text-align: left;">Jugador</th>
+                    <th>Pases</th>
+                    <th>Efect.</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <?php 
+                  $idx = 1;
+                  foreach($stats['passing'] as $s): 
+                    $c = $s['colors']['color'] ?? '#333';
+                  ?>
+                    <tr class="team-row">
+                      <td><?php echo $idx++; ?></td>
+                      <td style="text-align: left; font-weight: 700;">
+                        <span class="team-color-badge" style="background: <?php echo esc_attr($c); ?>;"></span>
+                        <?php echo esc_html($s['name']); ?>
+                        <span style="font-size: 10px; color: #777; font-weight: normal; display: block; margin-left: 18px;"><?php echo esc_html($s['team']); ?></span>
+                      </td>
+                      <td style="text-align: center;"><?php echo esc_html($s['passes']); ?></td>
+                      <td style="font-weight: 800; color: #ffaa00; text-align: center;"><?php echo esc_html($s['accuracy']); ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        <?php else: ?>
+          <p class="no-data-msg">Estadísticas de jugadores no disponibles en este momento.</p>
         <?php endif; ?>
       </div>
     </div>
