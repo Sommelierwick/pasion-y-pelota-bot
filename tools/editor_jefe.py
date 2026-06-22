@@ -147,7 +147,7 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
             
     return {}
 
-def call_groq_json(prompt: str, system_instruction: str, model: str = "llama-3.1-8b-instant") -> dict:
+def call_groq_json(prompt: str, system_instruction: str, model: str = "llama-3.3-70b-versatile") -> dict:
     """Función auxiliar para llamar a la API de Groq y obtener una respuesta JSON estructurada."""
     groq_key = os.getenv("GROQ_API_KEY")
     if not groq_key:
@@ -229,7 +229,7 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         res = call_gemini_json(prompt, system_instruction, ApprovedData)
         if not res:
             logger.info("Falló Gemini en review_news, usando Groq como respaldo...")
-            res = call_groq_json(prompt, system_instruction, model="llama-3.1-8b-instant")
+            res = call_groq_json(prompt, system_instruction, model="llama-3.3-70b-versatile")
         # Reglas Editoriales Estrictas:
         # 1. LIGAS PERMITIDAS: Solo MLS, Brasileirão, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Copa Libertadores y Copa Mundial 2026.
         # 2. ENTIDADES PROHIBIDAS: Miguel Almirón está completamente prohibido en cualquier contexto en el Mundial 2026 o en la tapa.
@@ -651,7 +651,7 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
         res = call_gemini_json(prompt, system_instruction, WidgetData)
         if not res or "live_scores" not in res:
             logger.info("Falló Gemini en update_widgets_and_banners, usando Groq como respaldo...")
-            res = call_groq_json(prompt, system_instruction, model="llama-3.1-8b-instant")
+            res = call_groq_json(prompt, system_instruction, model="llama-3.3-70b-versatile")
         if not res or "live_scores" not in res:
             logger.error("Error al generar marcadores dinámicos con los modelos.")
             return False

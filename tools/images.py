@@ -724,98 +724,102 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
     Si no encuentra una específica, y disponemos de contexto del artículo, genera una imagen hiperrealista por IA (Flux/Imagen).
     Si falla la IA, recurre a los fallbacks genéricos de Wikimedia.
     """
-    # 1. Intentar buscar con el nombre del jugador en Wikimedia Commons
-    if isinstance(player_name, list):
-        for name in player_name:
-            if name and isinstance(name, str) and name.lower() not in ["desconocido", "ninguno", ""]:
-                # Intentamos con sufijo deportivo primero para evitar coincidencias homónimas extrañas
-                # El filtro anti-fútbol-americano en search_wikimedia_commons asegura que no se traiga NFL
-                for q in [f"{name} soccer", f"{name} association football", f"{name} football", name]:
-                    res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
-                    if res:
-                        # Verificar idoneidad multimodal si hay título
-                        if article_title:
-                            if verify_image_suitability(res["url"], article_title):
-                                return res
-                            else:
-                                if not exclude_urls:
-                                    exclude_urls = []
-                                exclude_urls.append(res["url"])
-                                continue
-                        return res
-        player_name = player_name[0] if player_name else ""
+    try:
+        # 1. Intentar buscar con el nombre del jugador en Wikimedia Commons
+        if isinstance(player_name, list):
+            for name in player_name:
+                if name and isinstance(name, str) and name.lower() not in ["desconocido", "ninguno", ""]:
+                    # Intentamos con sufijo deportivo primero para evitar coincidencias homónimas extrañas
+                    # El filtro anti-fútbol-americano en search_wikimedia_commons asegura que no se traiga NFL
+                    for q in [f"{name} soccer", f"{name} association football", f"{name} football", name]:
+                        res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+                        if res:
+                            # Verificar idoneidad multimodal si hay título
+                            if article_title:
+                                if verify_image_suitability(res["url"], article_title):
+                                    return res
+                                else:
+                                    if not exclude_urls:
+                                        exclude_urls = []
+                                    exclude_urls.append(res["url"])
+                                    continue
+                            return res
+            player_name = player_name[0] if player_name else ""
 
-    if player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
-        for q in [f"{player_name} soccer", f"{player_name} association football", f"{player_name} football", player_name]:
-            res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
-            if res:
-                # Verificar idoneidad multimodal si hay título
-                if article_title:
-                    if verify_image_suitability(res["url"], article_title):
-                        return res
-                    else:
-                        if not exclude_urls:
-                            exclude_urls = []
-                        exclude_urls.append(res["url"])
-                        continue
-                return res
-
-    # 2. Intentar buscar con el nombre del equipo con sufijos deportivos específicos
-    teams_to_try = []
-    if isinstance(team_name, list):
-        teams_to_try = [t for t in team_name if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]]
-    elif team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
-        teams_to_try = [team_name]
-
-    for t in teams_to_try:
-        queries_to_try = [
-            f"{t} national football team",
-            f"Selección de fútbol de {t}",
-            f"{t} football club",
-            f"{t} soccer",
-            f"{t} stadium",
-            f"{t} football"
-        ]
-        for q in queries_to_try:
-            res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
-            if res:
-                # Verificar idoneidad multimodal si hay título
-                if article_title:
-                    if verify_image_suitability(res["url"], article_title):
-                        return res
-                    else:
-                        if not exclude_urls:
-                            exclude_urls = []
-                        exclude_urls.append(res["url"])
-                        continue
-                return res
-
-    # --- FALLBACK A IA (IMAGEN DE ALTA CALIDAD ESPECÍFICA) ---
-    if article_title:
-        logger.info(f"No se encontró imagen real específica para '{player_name}' / '{team_name}'. Iniciando fallback de generación con IA...")
-        ai_prompt = generate_image_prompt_via_llm(article_title, article_content)
-        if ai_prompt:
-            res = generate_ai_image(ai_prompt)
-            if res:
-                # También verificamos la imagen generada por IA por si acaso
-                if verify_image_suitability(res["url"], article_title):
+        if player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
+            for q in [f"{player_name} soccer", f"{player_name} association football", f"{player_name} football", player_name]:
+                res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+                if res:
+                    # Verificar idoneidad multimodal si hay título
+                    if article_title:
+                        if verify_image_suitability(res["url"], article_title):
+                            return res
+                        else:
+                            if not exclude_urls:
+                                exclude_urls = []
+                            exclude_urls.append(res["url"])
+                            continue
                     return res
-                else:
-                    # Si la IA genera algo inválido, borrar el archivo local temporal
-                    try:
-                        local_path = res["url"].replace("file://", "", 1)
-                        if os.path.exists(local_path):
-                            os.remove(local_path)
-                    except Exception:
-                        pass
 
-    # 3. Fallback genérico de alta calidad de Wikimedia (si la IA falló o no había título)
-    generic_terms = ["association football match", "soccer stadium", "soccer match action", "futbol"]
-    random.shuffle(generic_terms)
-    for term in generic_terms:
-        res = search_wikimedia_commons(term, exclude_urls=exclude_urls)
-        if res:
-            return res
+        # 2. Intentar buscar con el nombre del equipo con sufijos deportivos específicos
+        teams_to_try = []
+        if isinstance(team_name, list):
+            teams_to_try = [t for t in team_name if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]]
+        elif team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
+            teams_to_try = [team_name]
+
+        for t in teams_to_try:
+            queries_to_try = [
+                f"{t} national football team",
+                f"Selección de fútbol de {t}",
+                f"{t} football club",
+                f"{t} soccer",
+                f"{t} stadium",
+                f"{t} football"
+            ]
+            for q in queries_to_try:
+                res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+                if res:
+                    # Verificar idoneidad multimodal si hay título
+                    if article_title:
+                        if verify_image_suitability(res["url"], article_title):
+                            return res
+                        else:
+                            if not exclude_urls:
+                                exclude_urls = []
+                            exclude_urls.append(res["url"])
+                            continue
+                    return res
+
+        # --- FALLBACK A IA (IMAGEN DE ALTA CALIDAD ESPECÍFICA) ---
+        if article_title:
+            logger.info(f"No se encontró imagen real específica para '{player_name}' / '{team_name}'. Iniciando fallback de generación con IA...")
+            ai_prompt = generate_image_prompt_via_llm(article_title, article_content)
+            if ai_prompt:
+                res = generate_ai_image(ai_prompt)
+                if res:
+                    # Also verify AI generated images just in case
+                    if verify_image_suitability(res["url"], article_title):
+                        return res
+                    else:
+                        # If AI generated something invalid, delete the temporary file
+                        try:
+                            local_path = res["url"].replace("file://", "", 1)
+                            if os.path.exists(local_path):
+                                os.remove(local_path)
+                        except Exception:
+                            pass
+
+        # 3. Fallback genérico de alta calidad de Wikimedia (si la IA falló o no había título)
+        generic_terms = ["association football match", "soccer stadium", "soccer match action", "futbol"]
+        random.shuffle(generic_terms)
+        for term in generic_terms:
+            res = search_wikimedia_commons(term, exclude_urls=exclude_urls)
+            if res:
+                return res
+
+    except Exception as e:
+        logger.error(f"Excepción general en get_football_image: {e}. Recurriendo a fallback absoluto.")
 
     # 4. Fallback absoluto cableado (imagen libre conocida de Wikimedia)
     return {

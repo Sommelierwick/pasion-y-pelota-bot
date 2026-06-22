@@ -29,6 +29,9 @@ class WordPressPublisher:
     def upload_featured_image(self, image_url: str, filename: str = "portada.jpg") -> Optional[int]:
         """Descarga una imagen desde una URL o lee un archivo local, y la sube a la Media Library de WordPress.
         Devuelve el ID del media attachment, o None si falla."""
+        if not image_url:
+            logging.warning("No se proporcionó URL o ruta de imagen para subir como destacada.")
+            return None
         try:
             is_local = not image_url.startswith(("http://", "https://"))
             if not is_local:

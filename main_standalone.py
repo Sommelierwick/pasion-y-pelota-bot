@@ -258,7 +258,7 @@ def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> 
 # 3.5. Motor de Cobertura en Vivo del Mundial 2026
 # =============================================================================
 
-def run_worldcup_coverage_engine(db):
+def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
     import logging
     import time
     import re
@@ -269,6 +269,9 @@ def run_worldcup_coverage_engine(db):
     from tools.promiedos import fetch_mundial_complete_data
     from tools.images import get_football_image
     from tools.wordpress import WordPressPublisher
+    import os
+    from datetime import datetime
+    import pytz
 
     logging.info("Iniciando Motor de Cobertura en Vivo del Mundial 2026...")
     try:
@@ -284,8 +287,20 @@ def run_worldcup_coverage_engine(db):
         publisher = WordPressPublisher()
         exclude_urls = db.get("published_image_urls", [])
         
-        max_articles = 8
+        max_articles_env = os.environ.get("MAX_ARTICLES_PER_CYCLE")
+        try:
+            max_articles = int(max_articles_env) if max_articles_env else 3
+            if max_articles < 1:
+                max_articles = 3
+        except Exception as e:
+            logging.warning(f"Valor inválido para MAX_ARTICLES_PER_CYCLE ('{max_articles_env}'): {e}. Usando valor por defecto 3.")
+            max_articles = 3
         articles_created = 0
+        
+        # Obtener la fecha de hoy en Argentina
+        tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+        today_arg = datetime.now(tz_arg).strftime("%d-%m-%Y")
+        logging.info(f"Fecha de hoy en Argentina para priorización: {today_arg}")
         
         # Priorización de partidos del Mundial (Solución a la inanición)
         priority_teams = ["Argentina", "Brasil", "España", "Espana", "Francia", "Inglaterra", "Uruguay", "México", "Mexico", "Alemania", "Portugal", "Bélgica", "Belgica", "Colombia", "Ecuador", "Estados Unidos"]
@@ -296,21 +311,39 @@ def run_worldcup_coverage_engine(db):
             g_match_id = f"{g_home.replace(' ', '_')}_vs_{g_away.replace(' ', '_')}"
             g_published = coverage.get(g_match_id, [])
             
+            start_time_str = game.get("start_time", "")
+            is_today = start_time_str.startswith(today_arg) if start_time_str else False
+            
+            # ¿Necesita previa hoy?
+            needs_today_previa = is_today and ("previa" not in g_published)
+            needs_today_previa_val = 0 if needs_today_previa else 1
+            
+            # ¿Es hoy?
+            is_today_val = 0 if is_today else 1
+            
+            # ¿Es selección prioritaria?
             is_priority = any(team.lower() in [g_home.lower(), g_away.lower()] for team in priority_teams)
             priority_val = 0 if is_priority else 1
+            
+            # ¿Tiene algún artículo publicado?
             has_no_articles = 0 if len(g_published) == 0 else 1
             
-            return (priority_val, has_no_articles)
+            return (needs_today_previa_val, is_today_val, priority_val, has_no_articles)
             
         games_sorted = sorted(games, key=get_game_priority)
         
         for g in games_sorted:
             if articles_created >= max_articles:
-                logging.info("Se alcanzó el límite máximo de artículos por ciclo (8). Deteniendo motor en vivo.")
+                logging.info(f"Se alcanzó el límite máximo de artículos por ciclo ({max_articles}). Deteniendo motor en vivo.")
                 break
                 
             home = g.get("home", "Local")
             away = g.get("away", "Visita")
+            
+            # Control de saturación: Evitar duplicar el mismo equipo en este ciclo
+            if home in teams_covered_this_cycle or away in teams_covered_this_cycle:
+                logging.info(f"Saltando {home} vs {away} porque uno de los equipos ya fue cubierto en este ciclo.")
+                continue
             home_goals = g.get("home_goals", "-")
             away_goals = g.get("away_goals", "-")
             status = g.get("status", "Prog.")
@@ -471,21 +504,29 @@ def run_worldcup_coverage_engine(db):
             player_name_normalized = unicodedata.normalize('NFKD', home).encode('ascii', 'ignore').decode('ascii')
             player_name_clean = re.sub(r'[^a-zA-Z0-9_\-]', '', player_name_normalized.replace(' ', '_')).lower()
             
-            img_data = get_football_image(
-                home, away, 
-                exclude_urls=exclude_urls,
-                article_title=article_wc.get("title", ""),
-                article_content=article_wc.get("content_html", "")
-            )
-            image_url = img_data.get("url") if img_data else None
-            
+            img_data = None
+            image_url = None
+            try:
+                img_data = get_football_image(
+                    home, away, 
+                    exclude_urls=exclude_urls,
+                    article_title=article_wc.get("title", ""),
+                    article_content=article_wc.get("content_html", "")
+                )
+                image_url = img_data.get("url") if img_data else None
+            except Exception as e_img:
+                logging.error(f"Error al obtener imagen para el partido {home} vs {away}: {e_img}")
+                
             featured_image_id = None
             if image_url:
-                logging.info(f"Subiendo imagen de portada desde Wikimedia para el partido: {image_url}")
-                featured_image_id = publisher.upload_featured_image(
-                    image_url=image_url,
-                    filename=f"{player_name_clean}_portada.jpg"
-                )
+                try:
+                    logging.info(f"Subiendo imagen de portada desde Wikimedia para el partido: {image_url}")
+                    featured_image_id = publisher.upload_featured_image(
+                        image_url=image_url,
+                        filename=f"{player_name_clean}_portada.jpg"
+                    )
+                except Exception as e_up:
+                    logging.error(f"Error al subir imagen de portada para el partido {home} vs {away}: {e_up}")
                 
             # Publicar en WordPress con firma, citación de imagen y enlaces de afiliados
             content_html = article_wc.get("content_html", "")
@@ -527,6 +568,8 @@ def run_worldcup_coverage_engine(db):
                 
                 # Actualizar cobertura en base de datos
                 published.append(article_type)
+                teams_covered_this_cycle.add(home)
+                teams_covered_this_cycle.add(away)
                 if image_url:
                     if "published_image_urls" not in db:
                         db["published_image_urls"] = []
@@ -652,18 +695,27 @@ def run_jacinto_perplejo_analysis(db: dict):
         publisher = WordPressPublisher()
 
         # Buscar imagen representativa de fútbol
-        img_data = get_football_image(
-            "pelota", "estadio",
-            article_title=article_data.get("title", ""),
-            article_content=article_data.get("content_html", "")
-        )
-        image_url = img_data.get("url") if img_data else None
+        img_data = None
+        image_url = None
+        try:
+            img_data = get_football_image(
+                "pelota", "estadio",
+                article_title=article_data.get("title", ""),
+                article_content=article_data.get("content_html", "")
+            )
+            image_url = img_data.get("url") if img_data else None
+        except Exception as e_img:
+            logging.error(f"Error al obtener imagen para Jacinto Perplejo: {e_img}")
+            
         featured_image_id = None
         if image_url:
-            featured_image_id = publisher.upload_featured_image(
-                image_url=image_url,
-                filename="jacinto_perplejo_analisis.jpg"
-            )
+            try:
+                featured_image_id = publisher.upload_featured_image(
+                    image_url=image_url,
+                    filename="jacinto_perplejo_analisis.jpg"
+                )
+            except Exception as e_up:
+                logging.error(f"Error al subir imagen para Jacinto Perplejo: {e_up}")
 
         content_html = article_data.get("content_html", "")
         # Firma y monetización
@@ -709,6 +761,8 @@ def run_pipeline():
     logging.info("INICIANDO PIPELINE DE REDACCIÓN VIRTUAL — PASIÓN Y PELOTA")
     logging.info("=" * 70)
 
+    teams_covered_this_cycle = set()
+
     # --- PASO -1: Actualizar marquesinas y widgets con Editor Jefe ---
     try:
         from tools.editor_jefe import EditorJefe
@@ -727,7 +781,7 @@ def run_pipeline():
 
     # --- PASO 0.5: Motor de Cobertura en Vivo del Mundial 2026 ---
     try:
-        run_worldcup_coverage_engine(db)
+        run_worldcup_coverage_engine(db, teams_covered_this_cycle)
     except Exception as e:
         logging.error(f"Error en el motor de cobertura del mundial: {e}")
 
@@ -869,6 +923,13 @@ Asigna 'priority_score' del 1 (altísima) al 10 (baja).
     details_str = ", ".join(selected_news.get("details", []))
     player = selected_news.get("player", "")
     teams = selected_news.get("teams_involved", [])
+    
+    # Control de saturación: Evitar duplicar el mismo equipo/selección en este ciclo
+    if teams:
+        teams_lower_covered = [t.lower() for t in teams_covered_this_cycle]
+        if any(t.lower() in teams_lower_covered for t in teams):
+            logging.info(f"Omitiendo noticia de {player} porque involucra a un equipo ya cubierto en este ciclo: {teams}")
+            return
     
     # Generar consulta de búsqueda para verificar veracidad (Fact-Checking)
     fact_check_query = f'"{headline}"' if headline else ""
@@ -1184,20 +1245,32 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     team_name = teams[0] if teams else None
     
     exclude_urls = db.get("published_image_urls", [])
-    img_data = get_football_image(
-        player_name_str, team_name, 
-        exclude_urls=exclude_urls,
-        article_title=final_article.get("title", ""),
-        article_content=content_html
-    )
-    image_url = img_data.get("url")
-    citation = img_data.get("citation", "")
-    
-    logging.info(f"Subiendo imagen de portada real desde Wikimedia: {image_url}")
-    featured_image_id = publisher.upload_featured_image(
-        image_url=image_url,
-        filename=f"{player_name_clean}_portada.jpg"
-    )
+    img_data = None
+    image_url = None
+    citation = ""
+    try:
+        img_data = get_football_image(
+            player_name_str, team_name, 
+            exclude_urls=exclude_urls,
+            article_title=final_article.get("title", ""),
+            article_content=content_html
+        )
+        if img_data:
+            image_url = img_data.get("url")
+            citation = img_data.get("citation", "")
+    except Exception as e_img:
+        logging.error(f"Error al obtener imagen para noticia general/RSS: {e_img}")
+        
+    featured_image_id = None
+    if image_url:
+        try:
+            logging.info(f"Subiendo imagen de portada real desde Wikimedia: {image_url}")
+            featured_image_id = publisher.upload_featured_image(
+                image_url=image_url,
+                filename=f"{player_name_clean}_portada.jpg"
+            )
+        except Exception as e_up:
+            logging.error(f"Error al subir imagen de portada para noticia general/RSS: {e_up}")
 
     # Determinar el redactor según la categoría/clúster original
     league_cat_orig = final_article.get("league_category", "Noticias")
@@ -1291,6 +1364,9 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
             db["published_image_urls"].append(image_url)
         save_database(db)
         logging.info("Base de datos anti-duplicados actualizada.")
+        if teams:
+            for t in teams:
+                teams_covered_this_cycle.add(t)
     else:
         logging.error("No se pudo publicar en WordPress.")
 

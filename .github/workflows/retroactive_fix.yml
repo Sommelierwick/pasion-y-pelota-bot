@@ -1,11 +1,18 @@
 name: Retroactive Corrector Bot
 
 on:
-  workflow_dispatch:           # Solo se dispara manualmente o por webhook
+  schedule:
+    - cron: '0 3 * * *'           # Runs once a day at 03:00 UTC
+  workflow_dispatch:              # Allows manual triggering
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
   retroactive-fix:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
 
@@ -31,5 +38,7 @@ jobs:
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TZ: America/Argentina/Buenos_Aires
         run: |
           python -m tools.retroactive_corrector --max-posts 30
+

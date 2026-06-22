@@ -1814,7 +1814,11 @@ function ppelota_update_data_callback($request) {
   if (isset($params['player_stats'])) {
     update_option('ppelota_player_stats', json_encode($params['player_stats']));
   }
-  return new WP_REST_Response(['status' => 'success'], 200);
+  $response = new WP_REST_Response(['status' => 'success', 'updated_at' => current_time('mysql')], 200);
+  $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  $response->header('Pragma', 'no-cache');
+  $response->header('Expires', '0');
+  return $response;
 }
 
 // API REST para el contador de visitas (evita problemas de caché de página)

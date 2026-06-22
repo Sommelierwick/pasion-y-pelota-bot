@@ -1,11 +1,66 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 import logging
 import urllib.parse
 import json
+from datetime import datetime
+import pytz
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+_detected_tz = None
+
+def get_detected_timezone():
+    global _detected_tz
+    if _detected_tz is not None:
+        return _detected_tz
+    
+    # 1. Probar desde variable de entorno PROMIEDOS_SOURCE_TZ
+    env_tz = os.environ.get("PROMIEDOS_SOURCE_TZ")
+    if env_tz:
+        try:
+            logging.info(f"Usando zona horaria configurada en PROMIEDOS_SOURCE_TZ: {env_tz}")
+            _detected_tz = pytz.timezone(env_tz)
+            return _detected_tz
+        except Exception as e:
+            logging.warning(f"Zona horaria en PROMIEDOS_SOURCE_TZ '{env_tz}' inválida: {e}")
+
+    # 2. Si no está configurada, probar detectando por IP
+    try:
+        logging.info("Detectando zona horaria del scraper mediante ip-api.com...")
+        resp = requests.get('http://ip-api.com/json', timeout=5)
+        if resp.status_code == 200:
+            tz_str = resp.json().get('timezone')
+            if tz_str:
+                logging.info(f"Zona horaria detectada por IP: {tz_str}")
+                _detected_tz = pytz.timezone(tz_str)
+                return _detected_tz
+    except Exception as e:
+        logging.warning(f"No se pudo detectar la zona horaria por IP: {e}")
+        
+    # 3. Fallback final a Argentina
+    _detected_tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    return _detected_tz
+
+def convert_to_argentina_time(start_time_str: str) -> str:
+    if not start_time_str:
+        return start_time_str
+    try:
+        # Formato de Promiedos: "DD-MM-YYYY HH:MM" (ej: "22-06-2026 14:00")
+        dt = datetime.strptime(start_time_str.strip(), "%d-%m-%Y %H:%M")
+        tz_local = get_detected_timezone()
+        tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+        
+        # Convertir de zona local del IP a zona de Argentina
+        dt_local = tz_local.localize(dt)
+        dt_arg = dt_local.astimezone(tz_arg)
+        return dt_arg.strftime("%d-%m-%Y %H:%M")
+    except Exception as e:
+        logging.warning(f"Error al convertir horario '{start_time_str}': {e}")
+        return start_time_str
+
 
 LEAGUE_URLS = {
     "argentina": "https://www.promiedos.com.ar/league/liga-profesional/hc",
@@ -79,7 +134,7 @@ def parse_next_data_to_text(html_content: str, league_key: str = "") -> str:
                     away_goals = scores[1] if len(scores) > 1 else "-"
                     
                     status_name = status.get("name", "Prog.")
-                    start_time = g.get("start_time", "")
+                    start_time = convert_to_argentina_time(g.get("start_time", ""))
                     display_time = g.get("game_time_to_display", "")
                     display_status = g.get("game_time_status_to_display", "")
                     
@@ -124,7 +179,7 @@ def parse_next_data_to_text(html_content: str, league_key: str = "") -> str:
                     home_goals = scores[0] if len(scores) > 0 else "-"
                     away_goals = scores[1] if len(scores) > 1 else "-"
                     status_name = status.get("name", "Prog.")
-                    start_time = g.get("start_time", "")
+                    start_time = convert_to_argentina_time(g.get("start_time", ""))
                     output.append(f"  - [{status_name}] {home} {home_goals} - {away_goals} {away} | Inicio: {start_time}")
                     
         # 4. Cruces de llaves (brackets)
@@ -300,7 +355,7 @@ def fetch_mundial_complete_data() -> dict:
                         "away_goals": away_goals,
                         "status": status.get("name", "Prog."),
                         "status_symbol": status.get("symbol_name", "Prog."),
-                        "start_time": g.get("start_time"),
+                        "start_time": convert_to_argentina_time(g.get("start_time")),
                         "display_time": g.get("game_time_to_display", ""),
                         "display_status": g.get("game_time_status_to_display", "")
                     })
@@ -325,7 +380,7 @@ def fetch_mundial_complete_data() -> dict:
                     for cg in grp.get("games", []):
                         cg_scores = cg.get("scores", [])
                         cruce_games.append({
-                            "start_time": cg.get("start_time"),
+                            "start_time": convert_to_argentina_time(cg.get("start_time")),
                             "status": cg.get("status", {}).get("name", "Prog."),
                             "scores": cg_scores
                         })
