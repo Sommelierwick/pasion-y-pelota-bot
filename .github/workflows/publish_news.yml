@@ -1,9 +1,8 @@
 name: Publish News Bot
 
 on:
-  schedule:
-    - cron: '0,30 * * * *'      # Runs every 30 minutes
   workflow_dispatch:           # Allows manual triggering
+
 
 jobs:
   publish-news:
