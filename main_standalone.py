@@ -157,6 +157,60 @@ def call_groq(prompt: str, system_instruction: str, response_schema=None, model=
             logging.error(f"Excepción al llamar Groq: {e}")
     return None
 
+def call_openai(prompt: str, system_instruction: str, response_schema=None, model="gpt-4o-mini") -> Optional[dict]:
+    """Llama a la API de OpenAI y devuelve la respuesta estructurada o texto plano."""
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        logging.error("ERROR: No se configuró OPENAI_API_KEY en el archivo .env")
+        return None
+
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {openai_key}",
+        "Content-Type": "application/json"
+    }
+
+    if response_schema:
+        schema_fields = response_schema.__annotations__
+        prompt += (
+            f"\n\nResponde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: "
+            f"{list(schema_fields.keys())}. Sin introducción, sin bloques markdown, solo el JSON puro."
+        )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3
+    }
+
+    if response_schema:
+        payload["response_format"] = {"type": "json_object"}
+
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            logging.info(f"Intentando OpenAI ({model})...")
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                if response_schema:
+                    return json.loads(content)
+                return content
+            elif response.status_code == 429:
+                logging.warning(f"OpenAI Rate Limit (429) detectado. Reintentando en 15 segundos... (Intento {attempt + 1}/{max_retries})")
+                time.sleep(15)
+                continue
+            else:
+                logging.error(f"Error de OpenAI ({response.status_code}): {response.text}")
+        except Exception as e:
+            logging.error(f"Excepción al llamar OpenAI: {e}")
+    return None
+
 def clean_schema_for_gemini(schema_dict: dict) -> dict:
     """Filtra y limpia un esquema JSON de Pydantic para adaptarlo a la API de Gemini."""
     allowed_keys = {"type", "properties", "required", "items", "description", "enum"}
@@ -183,76 +237,86 @@ def clean_schema_for_gemini(schema_dict: dict) -> dict:
     return cleaned
 
 def call_gemini_http(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
-    """Llama a la API de Gemini mediante solicitudes HTTP directas rotando claves en caso de error 429."""
+    """Llama a la API de Gemini mediante solicitudes HTTP directas,
+    probando con varios modelos y rotando claves en caso de error 429."""
     if not config.GEMINI_API_KEYS:
         logging.warning("No hay claves de Gemini configuradas. Saltando a Groq.")
         return None
         
+    models_to_try = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
-    for attempt in range(num_keys * 2):
-        api_key = config.get_active_key()
-        if not api_key:
-            logging.error("No se pudo obtener una clave activa de Gemini.")
-            config.rotate_key()
-            continue
+    
+    for model_name in models_to_try:
+        for attempt in range(num_keys):
+            api_key = config.get_active_key()
+            if not api_key:
+                logging.error("No se pudo obtener una clave activa de Gemini.")
+                config.rotate_key()
+                continue
+                
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
             
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }],
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            }
-        }
-        
-        if response_schema:
-            raw_schema = response_schema.model_json_schema()
-            gemini_schema = clean_schema_for_gemini(raw_schema)
-            payload["generationConfig"] = {
-                "responseMimeType": "application/json",
-                "responseSchema": gemini_schema
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "systemInstruction": {
+                    "parts": [{"text": system_instruction}]
+                }
             }
             
-        try:
-            logging.info(f"Intentando Gemini HTTP (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
-            response = requests.post(url, json=payload, headers=headers, timeout=45)
-            
-            if response.status_code == 200:
-                result = response.json()
-                try:
-                    content = result["candidates"][0]["content"]["parts"][0]["text"]
-                    if response_schema:
-                        return json.loads(content)
-                    return {"text": content}
-                except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
-                    logging.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
-                    return None
-            elif response.status_code == 429:
-                logging.warning(f"Gemini Rate Limit (429) detectado. Rotando clave...")
+            if response_schema:
+                raw_schema = response_schema.model_json_schema()
+                gemini_schema = clean_schema_for_gemini(raw_schema)
+                payload["generationConfig"] = {
+                    "responseMimeType": "application/json",
+                    "responseSchema": gemini_schema
+                }
+                
+            try:
+                logging.info(f"Intentando Gemini HTTP ({model_name}) (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
+                response = requests.post(url, json=payload, headers=headers, timeout=45)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    try:
+                        content = result["candidates"][0]["content"]["parts"][0]["text"]
+                        if response_schema:
+                            return json.loads(content)
+                        return {"text": content}
+                    except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
+                        logging.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
+                        config.rotate_key()
+                elif response.status_code == 429:
+                    logging.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave...")
+                    config.rotate_key()
+                    time.sleep(1)
+                else:
+                    logging.error(f"Error de Gemini HTTP ({response.status_code}) para {model_name}: {response.text}")
+                    config.rotate_key()
+            except Exception as e:
+                logging.error(f"Excepción en Gemini HTTP call ({model_name}): {e}")
                 config.rotate_key()
-                time.sleep(2)
-            else:
-                logging.error(f"Error de Gemini HTTP ({response.status_code}): {response.text}")
-                config.rotate_key()
-        except Exception as e:
-            logging.error(f"Excepción al llamar a Gemini HTTP: {e}")
-            config.rotate_key()
-            
+                
     return None
 
 def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
-    """Motor híbrido principal: Intenta Gemini primero (con rotación). Si falla, recurre a Groq."""
+    """Motor híbrido principal: Intenta Gemini primero (con rotación). Si falla, recurre a Groq. Si falla, recurre a OpenAI."""
     res = call_gemini_http(prompt, system_instruction, response_schema)
     if res:
         logging.info("Respuesta obtenida con éxito usando Gemini.")
         return res
         
     logging.warning("Fallo en todas las claves de Gemini. Recurriendo a Groq como respaldo...")
-    return call_groq(prompt, system_instruction, response_schema)
+    res = call_groq(prompt, system_instruction, response_schema)
+    if res:
+        logging.info("Respuesta obtenida con éxito usando Groq.")
+        return res
+
+    logging.warning("Fallo en Groq. Recurriendo a OpenAI como respaldo final...")
+    return call_openai(prompt, system_instruction, response_schema)
 
 # =============================================================================
 # 3.5. Motor de Cobertura en Vivo del Mundial 2026

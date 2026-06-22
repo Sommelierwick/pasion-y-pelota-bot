@@ -50,10 +50,12 @@ REGLAS DE AUDITORÍA Y EDICIÓN OBLIGATORIAS:
 
 def _call_gemini_corrector(title: str, content_html: str) -> Optional[dict]:
     """
-    Intenta corregir el artículo vía Gemini rotando claves en caso de rate limit.
+    Intenta corregir el artículo vía Gemini probando con varios modelos y rotando claves en caso de rate limit.
     """
     if not config.GEMINI_API_KEYS:
         return None
+        
+    models_to_try = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
     num_keys = len(config.GEMINI_API_KEYS)
     prompt = f"""Por favor revisa, audita y corrige el siguiente artículo.
 Título: {title}
@@ -67,42 +69,45 @@ Devuelve un JSON con exactamente esta estructura:
 }}
 No agregues preámbulos ni explicaciones fuera del JSON."""
 
-    for attempt in range(num_keys * 2):
-        api_key = config.get_active_key()
-        if not api_key:
-            config.rotate_key()
-            continue
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        payload = {
-            "system_instruction": {"parts": [{"text": CORRECTOR_EDITORIAL_SYSTEM}]},
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "temperature": 0.2
+    import time
+    for model_name in models_to_try:
+        for attempt in range(num_keys):
+            api_key = config.get_active_key()
+            if not api_key:
+                config.rotate_key()
+                continue
+                
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "system_instruction": {"parts": [{"text": CORRECTOR_EDITORIAL_SYSTEM}]},
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {
+                    "responseMimeType": "application/json",
+                    "temperature": 0.2
+                }
             }
-        }
-
-        try:
-            logger.info(f"Intentando Gemini HTTP en corrector (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
-            resp = requests.post(url, headers=headers, json=payload, timeout=60)
-            if resp.status_code == 200:
-                raw = resp.json()
-                text = raw.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-                result = json.loads(text)
-                if "title" in result and "content_html" in result:
-                    return result
-            elif resp.status_code == 429:
-                logger.warning("Gemini Rate Limit (429) en corrector. Rotando clave...")
+            
+            try:
+                logger.info(f"Intentando Gemini HTTP en corrector ({model_name}) (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
+                resp = requests.post(url, headers=headers, json=payload, timeout=60)
+                if resp.status_code == 200:
+                    raw = resp.json()
+                    text = raw.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                    result = json.loads(text)
+                    if "title" in result and "content_html" in result:
+                        return result
+                elif resp.status_code == 429:
+                    logger.warning(f"Gemini Rate Limit (429) en corrector para {model_name}. Rotando clave...")
+                    config.rotate_key()
+                    time.sleep(1)
+                else:
+                    logger.error(f"Error de Gemini ({resp.status_code}) en corrector para {model_name}: {resp.text}")
+                    config.rotate_key()
+            except Exception as e:
+                logger.error(f"Excepción en Gemini corrector ({model_name}): {e}")
                 config.rotate_key()
-                time.sleep(2)
-            else:
-                logger.error(f"Error de Gemini ({resp.status_code}) en corrector: {resp.text}")
-                config.rotate_key()
-        except Exception as e:
-            logger.error(f"Excepción en Gemini corrector: {e}")
-            config.rotate_key()
+                
     return None
 
 
@@ -162,18 +167,79 @@ Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: 't
             logger.error(f"Excepción en Groq corrector: {e}")
     return None
 
+def _call_openai_corrector(title: str, content_html: str) -> Optional[dict]:
+    """
+    Intenta corregir el artículo vía OpenAI como respaldo final.
+    """
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        logger.error("No hay OPENAI_API_KEY configurada para el respaldo final en corrector.")
+        return None
+
+    prompt = f"""Por favor revisa, audita y corrige el siguiente artículo.
+Título: {title}
+Contenido HTML:
+{content_html}
+
+Devuelve un JSON con exactamente esta estructura:
+{{
+    "title": "Título corregido",
+    "content_html": "Contenido HTML corregido"
+}}
+Responde ÚNICAMENTE con un objeto JSON válido con exactamente estos campos: 'title' y 'content_html'. Sin introducción, sin bloques markdown, solo el JSON puro."""
+
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {openai_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": CORRECTOR_EDITORIAL_SYSTEM},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"}
+    }
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Intentando OpenAI en corrector (Intento {attempt+1}/{max_retries})...")
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
+            if resp.status_code == 200:
+                result = resp.json()
+                content = result["choices"][0]["message"]["content"]
+                parsed = json.loads(content)
+                if "title" in parsed and "content_html" in parsed:
+                    return parsed
+            elif resp.status_code == 429:
+                logger.warning(f"OpenAI Rate Limit (429) en corrector. Reintentando en 15 segundos...")
+                time.sleep(15)
+            else:
+                logger.error(f"Error de OpenAI ({resp.status_code}) en corrector: {resp.text}")
+        except Exception as e:
+            logger.error(f"Excepción en OpenAI corrector: {e}")
+    return None
+
 
 def call_corrector_editorial(title: str, content_html: str) -> Optional[dict]:
     """
     Llama al Corrector Editorial. Intenta Gemini primero (con rotación de keys).
-    Si falla, recurre a Groq como respaldo.
+    Si falla, recurre a Groq como respaldo. Si falla, recurre a OpenAI como respaldo final.
     """
     res = _call_gemini_corrector(title, content_html)
     if res:
         logger.info("Corrección editorial exitosa con Gemini.")
         return res
     logger.warning("Fallo en todas las claves de Gemini en corrector retroactivo. Recurriendo a Groq...")
-    return _call_groq_corrector(title, content_html)
+    res = _call_groq_corrector(title, content_html)
+    if res:
+        logger.info("Corrección editorial exitosa con Groq.")
+        return res
+    logger.warning("Fallo en Groq en corrector retroactivo. Recurriendo a OpenAI...")
+    return _call_openai_corrector(title, content_html)
 
 
 def get_featured_image_url(post: dict, wp_base_url: str, auth: HTTPBasicAuth) -> Optional[str]:

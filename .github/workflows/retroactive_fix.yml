@@ -38,6 +38,7 @@ jobs:
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           TZ: America/Argentina/Buenos_Aires
         run: |
           python -m tools.retroactive_corrector --max-posts 30

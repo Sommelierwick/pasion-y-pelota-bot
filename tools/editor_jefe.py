@@ -28,6 +28,9 @@ class WidgetData(pydantic.BaseModel):
     upcoming_matches: str = pydantic.Field(description="HTML string de los partidos programados")
     semaforo: str = pydantic.Field(description="HTML string del semáforo deportivo")
 
+class SemaforoData(pydantic.BaseModel):
+    semaforo: str = pydantic.Field(description="HTML string del semáforo deportivo lateral con exactamente 3 bloques de <a>...</a> con clase semaforo-link")
+
 class PlayerStatScorer(pydantic.BaseModel):
     name: str = pydantic.Field(description="Nombre y apellido del jugador (ej. Deniz Undav o Lionel Messi).")
     team: str = pydantic.Field(description="Nombre de la selección (ej. Alemania o Argentina). Debe coincidir con los nombres del fixture.")
@@ -88,63 +91,105 @@ def clean_schema_for_gemini(schema_dict: dict) -> dict:
     return cleaned
 
 def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
-    """Intenta llamar a Gemini para obtener JSON estructurado usando solicitudes HTTP directas."""
+    """Intenta llamar a Gemini para obtener JSON estructurado usando solicitudes HTTP directas,
+    probando con varios modelos y rotando claves en caso de rate limit."""
     if not config.GEMINI_API_KEYS:
         logger.warning("No hay claves de Gemini configuradas.")
         return {}
         
+    models_to_try = ["gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-flash-latest"]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
-    for attempt in range(num_keys * 2):
-        api_key = config.get_active_key()
-        if not api_key:
-            logger.error("No se pudo obtener una clave activa de Gemini.")
-            config.rotate_key()
-            continue
+    
+    for model_name in models_to_try:
+        for attempt in range(num_keys):
+            api_key = config.get_active_key()
+            if not api_key:
+                logger.error("No se pudo obtener una clave activa de Gemini.")
+                config.rotate_key()
+                continue
+                
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            headers = {"Content-Type": "application/json"}
             
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
-        headers = {"Content-Type": "application/json"}
-        
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }],
-            "systemInstruction": {
-                "parts": [{"text": system_instruction}]
-            }
-        }
-        
-        if schema:
-            raw_schema = schema.model_json_schema()
-            gemini_schema = clean_schema_for_gemini(raw_schema)
-            payload["generationConfig"] = {
-                "responseMimeType": "application/json",
-                "responseSchema": gemini_schema
+            payload = {
+                "contents": [{
+                    "parts": [{"text": prompt}]
+                }],
+                "systemInstruction": {
+                    "parts": [{"text": system_instruction}]
+                }
             }
             
+            if schema:
+                raw_schema = schema.model_json_schema()
+                gemini_schema = clean_schema_for_gemini(raw_schema)
+                payload["generationConfig"] = {
+                    "responseMimeType": "application/json",
+                    "responseSchema": gemini_schema
+                }
+                
+            try:
+                logger.info(f"Intentando Gemini HTTP ({model_name}) (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
+                response = requests.post(url, json=payload, headers=headers, timeout=45)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    try:
+                        content = result["candidates"][0]["content"]["parts"][0]["text"]
+                        return json.loads(content)
+                    except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
+                        logger.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
+                        config.rotate_key()
+                elif response.status_code == 429:
+                    logger.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave...")
+                    config.rotate_key()
+                    time.sleep(1)
+                else:
+                    logger.error(f"Error de Gemini HTTP ({response.status_code}) para {model_name}: {response.text}")
+                    config.rotate_key()
+            except Exception as e:
+                logger.error(f"Excepción en Gemini HTTP call ({model_name}): {e}")
+                config.rotate_key()
+    return {}
+
+def call_openai_json(prompt: str, system_instruction: str, model: str = "gpt-4o-mini") -> dict:
+    """Función auxiliar para llamar a la API de OpenAI y obtener una respuesta JSON estructurada."""
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        logger.error("No se encontró la variable OPENAI_API_KEY en el entorno.")
+        return {}
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {openai_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1,
+        "response_format": {"type": "json_object"}
+    }
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
-            logger.info(f"Intentando Gemini HTTP (Key Index: {config.ACTIVE_KEY_INDEX % num_keys})...")
-            response = requests.post(url, json=payload, headers=headers, timeout=45)
-            
+            logger.info(f"Intentando OpenAI en EditorJefe ({model})...")
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
             if response.status_code == 200:
-                result = response.json()
-                try:
-                    content = result["candidates"][0]["content"]["parts"][0]["text"]
-                    return json.loads(content)
-                except (KeyError, IndexError, json.JSONDecodeError) as parse_err:
-                    logger.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
-                    return {}
+                content = response.json()["choices"][0]["message"]["content"]
+                return json.loads(content)
             elif response.status_code == 429:
-                logger.warning(f"Gemini Rate Limit (429) detectado en EditorJefe. Rotando clave...")
-                config.rotate_key()
-                time.sleep(2)
+                logger.warning(f"OpenAI Rate Limit (429) detectado ({model}). Reintentando en 15 segundos... (Intento {attempt + 1}/{max_retries})")
+                time.sleep(15)
+                continue
             else:
-                logger.error(f"Error de Gemini HTTP ({response.status_code}): {response.text}")
-                config.rotate_key()
+                logger.error(f"Error de API de OpenAI: {response.status_code} - {response.text}")
         except Exception as e:
-            logger.error(f"Excepción al llamar a Gemini HTTP: {e}")
-            config.rotate_key()
-            
+            logger.error(f"Excepción al llamar a OpenAI: {e}")
     return {}
 
 def call_groq_json(prompt: str, system_instruction: str, model: str = "llama-3.3-70b-versatile") -> dict:
@@ -537,13 +582,106 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         """
         logger.info("El Editor Jefe está recopilando datos reales de la Copa del Mundo 2026 desde Promiedos...")
         
-        # Obtener los datos legibles para Groq
-        promiedos_html = fetch_promiedos_page("mundial")
-        
-        # Obtener datos estructurados para la página de Fixture
+        # Obtener datos estructurados para la página de Fixture y Marquesinas
         mundial_data = fetch_mundial_complete_data()
+        games = mundial_data.get("games", [])
 
+        # ─── GENERACIÓN DETERMINÍSTICA DE MARQUESINAS EN PYTHON ─────────────────
+        from datetime import datetime
+        import pytz
+        tz = pytz.timezone('America/Argentina/Buenos_Aires')
+        now = datetime.now(tz)
+        
+        live_games = []
+        upcoming_games = []
+        
+        for g in games:
+            start_time_str = g.get("start_time", "")
+            game_time = None
+            if start_time_str:
+                try:
+                    dt = datetime.strptime(start_time_str.strip(), "%d-%m-%Y %H:%M")
+                    game_time = tz.localize(dt)
+                except Exception as e:
+                    logger.warning(f"Error parsing start_time {start_time_str}: {e}")
+            
+            status_name = g.get("status", "")
+            status_sym = g.get("status_symbol", "")
+            
+            is_live_or_finished = False
+            if status_sym == "Fin" or status_name == "Finalizado":
+                is_live_or_finished = True
+            elif game_time and game_time <= now:
+                is_live_or_finished = True
+                
+            if is_live_or_finished:
+                live_games.append((game_time, g))
+            else:
+                upcoming_games.append((game_time, g))
+                
+        # Ordenar partidos
+        live_games.sort(key=lambda x: x[0] if x[0] else datetime.min.replace(tzinfo=tz), reverse=True)
+        upcoming_games.sort(key=lambda x: x[0] if x[0] else datetime.max.replace(tzinfo=tz))
+        
+        months_abbr = {
+            1: "Ene", 2: "Feb", 3: "Mar", 4: "Abr", 5: "May", 6: "Jun",
+            7: "Jul", 8: "Ago", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dic"
+        }
+        
+        # Generar HTML para Marquesina de Marcadores (live_scores)
+        live_items = []
+        for gt, g in live_games:
+            home = g.get("home", "Local")
+            away = g.get("away", "Visita")
+            home_goals = g.get("home_goals", "-")
+            away_goals = g.get("away_goals", "-")
+            status_name = g.get("status", "")
+            status_sym = g.get("status_symbol", "")
+            display_status = g.get("display_status") or g.get("game_time_status_to_display") or ""
+            
+            if status_sym == "Fin" or status_name == "Finalizado":
+                status_display = "Final"
+            elif display_status:
+                status_display = display_status
+            else:
+                status_display = "En Vivo"
+                
+            item_html = f'<div class="score-item"><span class="league-tag">MUNDIAL 2026</span> <strong>{home}</strong> {home_goals} - {away_goals} <strong>{away}</strong> <span class="match-status">{status_display}</span></div>'
+            live_items.append(item_html)
+            
+        # Generar HTML para Marquesina de Próximos Partidos (upcoming_matches)
+        upcoming_items = []
+        for gt, g in upcoming_games:
+            home = g.get("home", "Local")
+            away = g.get("away", "Visita")
+            start_time_str = g.get("start_time", "")
+            
+            if gt:
+                date_time_display = f"{gt.day} {months_abbr[gt.month]} {gt.hour:02d}:{gt.minute:02d}"
+            else:
+                date_time_display = start_time_str
+                
+            item_html = f'<div class="score-item"><span class="league-tag">PRÓXIMO ENCUENTRO</span> <strong>{home}</strong> vs. <strong>{away}</strong> <span class="match-status">{date_time_display} hs</span></div>'
+            upcoming_items.append(item_html)
+            
+        # Duplicar items para loop continuo (mínimo 8 items)
+        if live_items:
+            while len(live_items) < 8:
+                live_items.extend(list(live_items))
+            live_scores_html = "\n".join(live_items[:12])
+        else:
+            live_scores_html = ""
+            
+        if upcoming_items:
+            while len(upcoming_items) < 8:
+                upcoming_items.extend(list(upcoming_items))
+            upcoming_matches_html = "\n".join(upcoming_items[:12])
+        else:
+            upcoming_matches_html = ""
+
+        # ─── GENERACIÓN DEL SEMÁFORO DEPORTIVO (CON LLM O FALLBACK) ─────────────
         # Obtener artículos recientes desde la REST API de WordPress para el Semáforo Deportivo
+        posts_data = []
         posts_list_str = ""
         try:
             posts_url = f"{self.wp_url}/wp-json/wp/v2/posts"
@@ -579,10 +717,6 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         except Exception as e:
             logger.error(f"Excepción al obtener artículos para el Semáforo: {e}")
         
-        from datetime import datetime
-        import pytz
-        tz = pytz.timezone('America/Argentina/Buenos_Aires')
-        now = datetime.now(tz)
         current_time_str = now.strftime('%H:%M hs')
         months_es = {
             1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
@@ -590,79 +724,88 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         }
         current_date_str = f"{now.day} de {months_es[now.month]} de {now.year}"
 
-        games_json_str = json.dumps(mundial_data.get("games", []), indent=2, ensure_ascii=False)
         system_instruction = """
-Eres "El Editor Jefe", periodista experto en deportes. Debes armar el HTML de las marquesinas (tickers) y del Semáforo Deportivo para la web usando los partidos del Mundial en formato JSON y la lista de artículos publicados.
-La fecha actual de la simulación es {SIMULATION_DATE}, {SIMULATION_TIME} (Mundial de la FIFA 2026 en curso).
-""".replace("{SIMULATION_DATE}", current_date_str).replace("{SIMULATION_TIME}", current_time_str) + """
+Eres "El Editor Jefe", periodista experto en deportes. Debes armar el HTML del Semáforo Deportivo lateral para la web usando la lista de artículos recientemente publicados.
+La fecha actual es {SIMULATION_DATE}, {SIMULATION_TIME}.
 
-Debes generar tres piezas de HTML para WordPress:
-1. "live_scores": Un string conteniendo los elementos <div class="score-item">...</div> para la marquesina superior de partidos ya finalizados o en juego del día (cuyo horario de inicio ya pasó).
-   - Debes usar los partidos reales del Mundial 2026 que figuran en el JSON, extrayendo cuidadosamente sus goles actuales y estado (ej: si "home_goals" y "away_goals" están presentes, úsalos. Si el partido está "En Progreso" o similar, pon su estado real). NUNCA uses guiones vacíos '- - -' si los goles ya están disponibles en el JSON.
-   - Duplica los ítems para el loop continuo.
-   - Si no los encuentras en el JSON, usa exactamente estos reales de hoy (20 de Junio):
-     - Turquía 0 - 1 Paraguay (Finalizado)
-     - Países Bajos 5 - 1 Suecia (Finalizado)
-     - Alemania 2 - 1 Costa de Marfil (Finalizado)
+Debes generar el HTML del Semáforo Deportivo lateral.
+- Debe contener exactamente tres bloques wrapped en enlaces (tag <a>) apuntando a los artículos reales correspondientes a los 3 semáforos, con clase "semaforo-link":
+  <a href="{link_real}" class="semaforo-link">
+    <div class="semaforo-item {color}">
+      <span class="semaforo-dot">{emoji}</span>
+      <div class="semaforo-content">
+        <strong>{categoria_del_post}:</strong> {texto_breve_del_semaforo}
+      </div>
+    </div>
+  </a>
+- Colores a generar:
+  - verde: Para un artículo de éxito, victoria, Lionel Messi, Selección Argentina o gran expectativa.
+  - amarillo: Para un artículo neutral, rumores de fichajes/mercado de pases o F1.
+  - rojo: Para un artículo de deudas/crisis económica de clubes, lesiones graves o inhibiciones de la FIFA.
+- Selecciona exactamente 3 artículos reales de la "LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL" para mapear cada uno a un color.
+- El texto explicativo de cada ítem del semáforo debe ser muy corto, llamativo y adaptado a lo que dice el artículo seleccionado (máximo 15-20 palabras).
+- NUNCA uses Miguel Almirón en ningún contexto.
+- Si por alguna razón no hay suficientes artículos en la lista, puedes usar enlaces simulados a '/#', pero prioriza siempre la lista de artículos reales.
+""".replace("{SIMULATION_DATE}", current_date_str).replace("{SIMULATION_TIME}", current_time_str)
 
-2. "upcoming_matches": Un string conteniendo los elementos <div class="score-item">...</div> para la marquesina inferior de partidos programados o por jugar en el futuro.
-   - ESTRICTAMENTE PROHIBIDO: NO uses estilos inline como style="..." ni style="background-color: ..." en NINGUNA etiqueta HTML (tampoco en class="score-item"), ya que la hoja de estilos externa se encarga del diseño y los colores de contraste.
-   - Usa los encuentros reales programados del Mundial que figuren en el JSON.
-   - Dado que Alemania vs. Costa de Marfil ya se está jugando (comenzó a las 17:00 hs), NO debe aparecer en partidos programados (upcoming_matches), sino en marcadores en vivo (live_scores) con sus goles correspondientes.
-   - Duplica los ítems para el loop continuo.
-   - Si no los encuentras en el JSON, usa exactamente estos próximos partidos:
-     - Ecuador vs. Curazao (20 Jun 21:00 hs)
-     - España vs. Arabia Saudita (21 Jun 13:00 hs)
-     - Argentina vs. Austria (22 Jun 14:00 hs)
-
-3. "semaforo": HTML del Semáforo Deportivo lateral.
-   - Debe contener exactamente tres bloques wrapped en enlaces (tag <a>) apuntando a los artículos reales correspondientes a los 3 semáforos, con clase "semaforo-link":
-     <a href="{link_real}" class="semaforo-link">
-       <div class="semaforo-item {color}">
-         <span class="semaforo-dot">{emoji}</span>
-         <div class="semaforo-content">
-           <strong>{categoria_del_post}:</strong> {texto_breve_del_semaforo}
-         </div>
-       </div>
-     </a>
-   - Colores a generar:
-     - verde: Para un artículo de éxito, victoria, Lionel Messi, Selección Argentina o gran expectativa.
-     - amarillo: Para un artículo neutral, rumores de fichajes/mercado de pases o F1.
-     - rojo: Para un artículo de deudas/crisis económica de clubes, lesiones graves o inhibiciones de la FIFA.
-   - Selecciona exactamente 3 artículos reales de la "LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL" para mapear cada uno a un color.
-   - El texto explicativo de cada ítem del semáforo debe ser muy corto, llamativo y adaptado a lo que dice el artículo seleccionado (máximo 15-20 palabras).
-   - NUNCA uses Miguel Almirón en ningún contexto.
-   - Si por alguna razón no hay suficientes artículos en la lista, puedes usar enlaces simulados a '/#', pero prioriza siempre la lista de artículos reales.
-
-Devuelve un JSON con exactamente estos campos:
-{
-  "live_scores": "HTML string",
-  "upcoming_matches": "HTML string",
-  "semaforo": "HTML string"
-}
-"""
         prompt = f"""
-Partidos del Mundial (JSON):
-{games_json_str}
-
 LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el semáforo):
 {posts_list_str}
 """
-        res = call_gemini_json(prompt, system_instruction, WidgetData)
-        if not res or "live_scores" not in res:
-            logger.info("Falló Gemini en update_widgets_and_banners, usando Groq como respaldo...")
-            res = call_groq_json(prompt, system_instruction, model="llama-3.3-70b-versatile")
-        if not res or "live_scores" not in res:
-            logger.error("Error al generar marcadores dinámicos con los modelos.")
-            return False
+        
+        res_llm = None
+        if posts_list_str.strip():
+            res_llm = call_gemini_json(prompt, system_instruction, SemaforoData)
+            if not res_llm or "semaforo" not in res_llm:
+                logger.info("Falló Gemini en semáforo, usando Groq como respaldo...")
+                res_llm = call_groq_json(prompt, system_instruction, model="llama-3.3-70b-versatile")
+            if not res_llm or "semaforo" not in res_llm:
+                logger.info("Falló Groq en semáforo, usando OpenAI como respaldo final...")
+                res_llm = call_openai_json(prompt, system_instruction, model="gpt-4o-mini")
 
-        # Sanitizar backslashes escapados de las respuestas HTML de los LLMs
-        for field in ["live_scores", "upcoming_matches", "semaforo"]:
-            if field in res and isinstance(res[field], str):
-                res[field] = res[field].replace('\\"', '"').replace('\\/', '/')
+        # Fallback local determinístico de Semáforo si fallan las APIs
+        if not res_llm or "semaforo" not in res_llm:
+            logger.warning("Fallo general en APIs al generar semáforo. Recurriendo a fallback determinístico local.")
+            colors = ["verde", "amarillo", "rojo"]
+            emojis = ["🟢", "🟡", "🔴"]
+            fallback_items = []
+            for idx, p in enumerate(posts_data[:3]):
+                title = p.get("title", {}).get("rendered", "")
+                link = p.get("link", "")
+                fallback_items.append(f"""<a href="{link}" class="semaforo-link">
+  <div class="semaforo-item {colors[idx]}">
+    <span class="semaforo-dot">{emojis[idx]}</span>
+    <div class="semaforo-content">
+      <strong>Fútbol:</strong> {title}
+    </div>
+  </div>
+</a>""")
+            while len(fallback_items) < 3:
+                idx = len(fallback_items)
+                fallback_items.append(f"""<a href="/#" class="semaforo-link">
+  <div class="semaforo-item {colors[idx]}">
+    <span class="semaforo-dot">{emojis[idx]}</span>
+    <div class="semaforo-content">
+      <strong>Mundial:</strong> Copa del Mundo de la FIFA 2026 en vivo.
+    </div>
+  </div>
+</a>""")
+            semaforo_html = "\n".join(fallback_items)
+        else:
+            semaforo_html = res_llm["semaforo"]
 
-        # Agregar el mundial_data al JSON para subir
-        res["mundial_data"] = mundial_data
+        # Sanitizar saltos de línea y contrabarras en el Semáforo
+        if isinstance(semaforo_html, str):
+            semaforo_html = semaforo_html.replace('\\\\n', '\n').replace('\\n', '\n').replace('\\t', '')
+            semaforo_html = semaforo_html.replace('\\"', '"').replace('\\/', '/')
+
+        # Construir la estructura final de datos
+        res = {
+            "live_scores": live_scores_html,
+            "upcoming_matches": upcoming_matches_html,
+            "semaforo": semaforo_html,
+            "mundial_data": mundial_data
+        }
         
         # Calcular los cruces proyectados de dieciseisavos (Ronda de 32)
         projected_brackets = []

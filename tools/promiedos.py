@@ -27,20 +27,8 @@ def get_detected_timezone():
         except Exception as e:
             logging.warning(f"Zona horaria en PROMIEDOS_SOURCE_TZ '{env_tz}' inválida: {e}")
 
-    # 2. Si no está configurada, probar detectando por IP
-    try:
-        logging.info("Detectando zona horaria del scraper mediante ip-api.com...")
-        resp = requests.get('http://ip-api.com/json', timeout=5)
-        if resp.status_code == 200:
-            tz_str = resp.json().get('timezone')
-            if tz_str:
-                logging.info(f"Zona horaria detectada por IP: {tz_str}")
-                _detected_tz = pytz.timezone(tz_str)
-                return _detected_tz
-    except Exception as e:
-        logging.warning(f"No se pudo detectar la zona horaria por IP: {e}")
-        
-    # 3. Fallback final a Argentina
+    # 2. Por defecto, dado que Promiedos sirve sus horarios en la hora oficial de Argentina (UTC-3),
+    # asumimos la zona horaria de Buenos Aires para evitar desfases indeseados causados por la IP del runner de GitHub.
     _detected_tz = pytz.timezone('America/Argentina/Buenos_Aires')
     return _detected_tz
 
