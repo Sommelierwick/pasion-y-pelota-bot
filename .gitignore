@@ -6,4 +6,4 @@ pipeline.log
 *.zip
 *.log
 local_scheduler.py
-
+credenciales/
