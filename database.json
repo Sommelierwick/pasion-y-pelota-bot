@@ -76,7 +76,9 @@
     "https://upload.wikimedia.org/wikipedia/commons/c/cb/Leo_bemis_soccer_coach.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/5/50/Wm-oly-de-cr.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/3/35/USNS_Comfort_Soccer-Volleyball_Tournament_in_Manta%2C_Ecuador_%289175170%29.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/8/82/Spanish_girl_at_Las_Fallas_%28Valencia_Spain_Spring_Festival%29_2013.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/8/82/Spanish_girl_at_Las_Fallas_%28Valencia_Spain_Spring_Festival%29_2013.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/9/9f/USNS_Comfort_Soccer-Volleyball_Tournament_in_Manta%2C_Ecuador_%289175180%29.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/2/26/Toledo_Skyline_Panorama%2C_Spain_-_Dec_2006.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
@@ -120,11 +122,13 @@
     ],
     "Ecuador_vs_Curazao": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "España_vs_Arabia_Saudita": [
       "previa",
-      "durante"
+      "durante",
+      "post"
     ],
     "Bélgica_vs_Irán": [
       "previa"
