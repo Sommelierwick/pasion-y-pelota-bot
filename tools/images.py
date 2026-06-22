@@ -136,29 +136,41 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None) -
     if isinstance(player_name, list):
         for name in player_name:
             if name and isinstance(name, str) and name.lower() not in ["desconocido", "ninguno", ""]:
-                res = search_wikimedia_commons(name, exclude_urls=exclude_urls)
-                if res:
-                    return res
+                # Intentamos con sufijo deportivo primero para evitar coincidencias homónimas extrañas
+                for q in [f"{name} football", f"{name} soccer", name]:
+                    res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+                    if res:
+                        return res
         player_name = player_name[0] if player_name else ""
 
     if player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
-        res = search_wikimedia_commons(player_name, exclude_urls=exclude_urls)
-        if res:
-            return res
+        for q in [f"{player_name} football", f"{player_name} soccer", player_name]:
+            res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+            if res:
+                return res
 
-    # 2. Intentar buscar con el nombre del equipo
+    # 2. Intentar buscar con el nombre del equipo con sufijos deportivos específicos
+    teams_to_try = []
     if isinstance(team_name, list):
-        for t in team_name:
-            if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]:
-                res = search_wikimedia_commons(t, exclude_urls=exclude_urls)
-                if res:
-                    return res
-        team_name = team_name[0] if team_name else ""
+        teams_to_try = [t for t in team_name if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]]
+    elif team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
+        teams_to_try = [team_name]
 
-    if team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
-        res = search_wikimedia_commons(team_name, exclude_urls=exclude_urls)
-        if res:
-            return res
+    for t in teams_to_try:
+        # Generar queries específicas de fútbol
+        # NUNCA buscaremos el nombre del país a secas (ej. "Brasil", "Escocia") para evitar paisajes, mapas o fotos de mandatarios políticos
+        queries_to_try = [
+            f"{t} national football team",
+            f"Selección de fútbol de {t}",
+            f"{t} football club",
+            f"{t} soccer",
+            f"{t} football",
+            f"{t} stadium"
+        ]
+        for q in queries_to_try:
+            res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+            if res:
+                return res
 
     # 3. Fallback genérico de alta calidad de Wikimedia (iterando para variedad)
     generic_terms = ["association football match", "soccer stadium", "football training", "futbol"]

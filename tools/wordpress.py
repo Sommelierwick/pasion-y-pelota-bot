@@ -207,6 +207,21 @@ class WordPressPublisher:
             logging.error(f"Excepción al publicar entrada en WordPress: {e}")
             return None
 
+    def update_post(self, post_id: int, post_payload: dict) -> bool:
+        """Actualiza una entrada existente en WordPress."""
+        url = f"{self.url}/posts/{post_id}"
+        try:
+            response = requests.post(url, json=post_payload, headers=self._get_headers(), auth=self.auth)
+            if response.status_code in [200, 201]:
+                logging.info(f"Artículo ID {post_id} actualizado con éxito.")
+                return True
+            else:
+                logging.error(f"Error al actualizar entrada ID {post_id} ({response.status_code}): {response.text}")
+                return False
+        except Exception as e:
+            logging.error(f"Excepción al actualizar entrada ID {post_id} en WordPress: {e}")
+            return False
+
 # Instancia para pruebas directas si se ejecuta este archivo
 if __name__ == "__main__":
     import sys
