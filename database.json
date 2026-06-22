@@ -55,7 +55,8 @@
     "https://upload.wikimedia.org/wikipedia/commons/e/ef/Lago_Pippin%2C_Copper_Center%2C_Alaska%2C_Estados_Unidos%2C_2017-08-22%2C_DD_115-118_PAN.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/d/da/Rain_over_Beinn_Eich%2C_Luss_Hills%2C_Scotland.jpg",
     "https://upload.wikimedia.org/wikipedia/commons/5/5b/Argentina%27s_football_matches.png",
-    "https://upload.wikimedia.org/wikipedia/commons/7/72/Metropolitian_Istanbul_-_Landscapes_of_Turkey_12.jpg"
+    "https://upload.wikimedia.org/wikipedia/commons/7/72/Metropolitian_Istanbul_-_Landscapes_of_Turkey_12.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/5/5b/20180602_FIFA_Friendly_Match_Austria_vs._Germany_Team_Germany_850_0741.jpg"
   ],
   "worldcup_coverage": {
     "Republica_Checa_vs_Sudáfrica": [
@@ -89,6 +90,9 @@
     "Turquía_vs_Paraguay": [
       "previa",
       "durante"
+    ],
+    "Alemania_vs_Costa_de_Marfil": [
+      "previa"
     ]
   }
 }
