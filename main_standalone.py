@@ -268,6 +268,50 @@ def run_pipeline():
     # --- PASO 1: Obtener noticias recientes de todas las fuentes ---
     logging.info("Paso 1: Monitoreando fuentes de noticias...")
     raw_news = monitor_all_sources()
+    if raw_news is None:
+        raw_news = []
+
+    # ─── AGREGAR CANDIDATO DE RESUMEN DIARIO DEL MUNDIAL ──────────────────────
+    try:
+        from tools.promiedos import fetch_mundial_complete_data
+        import time
+        mundial_data = fetch_mundial_complete_data()
+        games = mundial_data.get("games", [])
+        if games:
+            summary_parts = []
+            for g in games:
+                h_goals = g.get("home_goals", "-")
+                a_goals = g.get("away_goals", "-")
+                status = g.get("status", "Prog.")
+                disp_time = g.get("display_time", "")
+                
+                if h_goals is None or h_goals == "": h_goals = "-"
+                if a_goals is None or a_goals == "": a_goals = "-"
+                
+                score_str = f"{h_goals} - {a_goals}"
+                if status == "Final":
+                    status_str = "Final"
+                elif status == "Prog.":
+                    status_str = f"Prog. ({disp_time})"
+                else:
+                    status_str = f"En juego ({status} - {disp_time})"
+                
+                summary_parts.append(f"{g['home']} {score_str} {g['away']} ({status_str})")
+            
+            games_summary_text = ", ".join(summary_parts)
+            current_date_str = time.strftime('%d/%m')
+            
+            mundial_summary_candidate = {
+                "title": f"Resumen del Mundial 2026: Resultados y partidos de la jornada del {current_date_str}",
+                "source": "Promiedos",
+                "link": f"https://www.promiedos.com.ar/league/fifa-world-cup/fjda?date={current_date_str.replace('/', '-')}",
+                "summary": f"Resumen completo de la jornada del Mundial 2026. Partidos y resultados del día: {games_summary_text}."
+            }
+            raw_news.insert(0, mundial_summary_candidate)
+            logging.info("Agregado candidato de resumen diario del Mundial 2026 a las fuentes.")
+    except Exception as e:
+        logging.error(f"Error al generar candidato de resumen del Mundial: {e}")
+
     if not raw_news:
         logging.info("No se encontraron noticias. Fin del proceso.")
         return
@@ -311,7 +355,7 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE CUALQUIER NOTICIA GENERAL/DEPORTIVA/DE CRÓNICAS DE PARTIDOS):
 1. LIONEL MESSI: Se acepta cualquier noticia sobre él (goles, partidos, récords en Inter Miami, lesiones, rendimiento, etc.).
 2. SELECCIÓN ARGENTINA: Se permite cobertura total de su desempeño, partidos, resultados, previas, tácticas, convocatorias y noticias en general.
-3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron o empataron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México).
+3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron o empataron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México). Si existe un candidato de "Resumen del Mundial 2026" de la jornada, se le debe dar la máxima prioridad de publicación para resumir la fecha completa.
 4. FÓRMULA 1 (F1): Se permite cobertura completa de carreras, resultados, clasificaciones y rumores de escuderías. Se debe hablar prioritariamente sobre Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen, etc.
 5. BRASILEIRÃO (FÚTBOL DE BRASIL): Dado que el torneo está en juego, se permite cobertura total de partidos, resultados, crónicas de encuentros, tablas de posiciones y noticias de los clubes brasileños (Flamengo, Palmeiras, São Paulo, etc.), no limitándose únicamente a mercado de pases.
 
@@ -319,7 +363,7 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 - Toda noticia seleccionada que provenga de los portales scrapeados debe ser reescrita por completo (cambiando drásticamente el vocabulario y estructura de las oraciones) e incorporando más datos estadísticos profundos y curiosidades históricas para superar la calidad del artículo original y evitar cualquier tipo de plagio o copia directa.
 
 🏆 JERARQUÍA DE PRIORIDAD DE SELECCIÓN (Selecciona la más importante de esta lista):
-1. Lionel Messi / Selección Argentina / Copa Mundial 2026 / Fórmula 1 (F1) (Mercedes, Alpine, Colapinto) (Máxima prioridad absoluta de la portada).
+1. Resumen diario de la jornada de la Copa Mundial 2026 (si está disponible) / Lionel Messi / Selección Argentina / Fórmula 1 (F1) (Mercedes, Alpine, Colapinto) (Máxima prioridad absoluta de la portada).
 2. Brasileirão (crónicas de partidos, resultados y noticias de clubes brasileños).
 3. Mercado de pases de la MLS (Inter Miami CF, LAFC, etc.).
 4. Mercado de pases de la Liga Profesional Argentina (Boca, River, Racing) y clubes inhibidos por FIFA.
@@ -545,7 +589,8 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    <h2>¿Qué viene ahora?</h2> → proyección del próximo partido o gran premio de F1.
 
 7. TABLA HTML DE ESTADÍSTICAS (OBLIGATORIA):
-   - Para Fútbol: Columnas relevantes: Temporada, Competición, Goles, Asistencias, Partidos, xG.
+   - Si el artículo es el "Resumen del Mundial 2026" de la jornada, la tabla HTML debe mostrar todos los partidos del día (Columnas: Local | Resultado | Visitante | Estado).
+   - Para Fútbol en general: Columnas relevantes: Temporada, Competición, Goles, Asistencias, Partidos, xG.
    - Para Fórmula 1 (F1): Columnas relevantes: Gran Premio / Escudería, Posición Final, Puntos Obtenidos, Vueltas Rápidas, etc.
    - Usar <table>, <thead> y <tbody>. Estilos inline mínimos y limpios.
 
