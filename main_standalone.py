@@ -1098,7 +1098,7 @@ Tu tarea es enriquecer la noticia con datos CONCRETOS y VERIFICABLES:
 4. LSI KEYWORDS: Devuelve 2-3 términos de búsqueda del clúster {seo_cluster} que se
    puedan integrar NATURALMENTE en el artículo (no como lista, integradas en párrafos).
 
-5. MUY IMPORTANTE: El LLM JAMÁS debe escribir cifras estadísticas directamente. Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {goles}, {asistencias}, {partidos}. Ejemplo: "Lionel Messi ha anotado {goles} goles y {asistencias} asistencias en los {partidos} partidos disputados".
+5. MUY IMPORTANTE: El LLM JAMÁS debe escribir cifras estadísticas directamente. Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {{goles}}, {{asistencias}}, {{partidos}}. Ejemplo: "Lionel Messi ha anotado {{goles}} goles y {{asistencias}} asistencias en los {{partidos}} partidos disputados".
 
 PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases como "no disponible", "no hay datos", "desconocido" o usar guiones ("-") como único contenido en las celdas de la tabla o en los campos del JSON. Si no dispones del dato exacto o en tiempo real del jugador o equipo para la temporada en curso, debes realizar una estimación periodística coherente y realista basada en su rendimiento reciente o promedio histórico. Toda la información estadística y del mercado debe estar completamente rellena con números y datos coherentes.
 """
