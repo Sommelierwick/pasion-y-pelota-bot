@@ -834,6 +834,40 @@ def run_jacinto_perplejo_analysis(db: dict):
 # 4. Flujo Principal del Pipeline
 # =============================================================================
 
+
+def get_saturated_powers(publisher) -> list:
+    """Analiza los últimos 15 posts y devuelve las potencias que superen la saturación (>=4 posts)."""
+    import re
+    titles = publisher.get_recent_titles(limit=15)
+    
+    # Mapeo de potencias a palabras clave estrictas
+    powers_keywords = {
+        "Argentina": ["argentina", "messi", "scaloni", "dibu", "albiceleste", "scaloneta"],
+        "Brasil": ["brasil", "vinicius", "rodrygo", "neymar", "dorival", "canarinha"],
+        "España": ["españa", "lamine", "yamal", "williams", "pedri", "roja"],
+        "Francia": ["francia", "mbappe", "griezmann", "deschamps", "bleus"],
+        "Inglaterra": ["inglaterra", "bellingham", "kane", "foden", "southgate"],
+        "Uruguay": ["uruguay", "bielsa", "valverde", "nunez", "celeste"],
+        "México": ["mexico", "santiago gimenez", "el tri", "lozano"]
+    }
+    
+    counts = {p: 0 for p in powers_keywords}
+    
+    for t in titles:
+        t_lower = t.lower()
+        for power, keywords in powers_keywords.items():
+            if any(kw in t_lower for kw in keywords):
+                counts[power] += 1
+                break # Contar solo una vez por título
+                
+    saturated = [p for p, c in counts.items() if c >= 4]
+    
+    if saturated:
+        import logging
+        logging.warning(f"⚠️ BLOQUEO DE EQUILIBRIO: Las siguientes potencias superaron el límite de saturación y serán bloqueadas en este ciclo: {saturated} (Distribución: {counts})")
+    
+    return saturated
+
 def run_pipeline():
     logging.info("=" * 70)
     logging.info("INICIANDO PIPELINE DE REDACCIÓN VIRTUAL — PASIÓN Y PELOTA")
@@ -972,6 +1006,8 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 3. Mercado de pases de la MLS (Inter Miami CF, LAFC, etc.).
 4. Mercado de pases de la Liga Profesional Argentina (Boca, River, Racing) y clubes inhibidos por FIFA.
 5. Mercado de pases de la Liga MX o Europa (Premier League, LaLiga, etc.).
+
+{SATURATED_POWERS_RULE}
 
 Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion, mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
 Asigna 'priority_score' del 1 (altísima) al 10 (baja).
