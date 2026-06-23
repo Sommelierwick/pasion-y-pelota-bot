@@ -36,13 +36,28 @@ def convert_to_argentina_time(start_time_str: str) -> str:
     if not start_time_str:
         return start_time_str
     try:
+        # Convertir a string por si acaso
+        start_time_str = str(start_time_str).strip()
+        
+        if "T" in start_time_str and start_time_str.endswith("Z"):
+            # Es formato ISO 8601 (ej: 2026-06-22T18:00:00Z)
+            dt = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%SZ")
+            dt = dt.replace(tzinfo=pytz.UTC)
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            dt_arg = dt.astimezone(tz_arg)
+            return dt_arg.strftime("%d-%m-%Y %H:%M")
+            
         # Formato de Promiedos: "DD-MM-YYYY HH:MM" (ej: "22-06-2026 14:00")
-        dt = datetime.strptime(start_time_str.strip(), "%d-%m-%Y %H:%M")
+        dt = datetime.strptime(start_time_str, "%d-%m-%Y %H:%M")
         tz_local = get_detected_timezone()
         tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
         
         # Convertir de zona local del IP a zona de Argentina
-        dt_local = tz_local.localize(dt)
+        if hasattr(tz_local, 'localize'):
+            dt_local = tz_local.localize(dt)
+        else:
+            dt_local = dt.replace(tzinfo=tz_local)
+            
         dt_arg = dt_local.astimezone(tz_arg)
         return dt_arg.strftime("%d-%m-%Y %H:%M")
     except Exception as e:
@@ -295,6 +310,7 @@ def fetch_mundial_complete_data() -> dict:
                         
                         team_list.append({
                             "pos": r.get("num", 1),
+                            "id": r.get("entity", {}).get("object", {}).get("id", ""),
                             "name": team_name,
                             "colors": team_colors,
                             "pts": val_map.get("Points", "0"),
@@ -344,8 +360,8 @@ def fetch_mundial_complete_data() -> dict:
                         "status": status.get("name", "Prog."),
                         "status_symbol": status.get("symbol_name", "Prog."),
                         "start_time": convert_to_argentina_time(g.get("start_time")),
-                        "display_time": g.get("game_time_to_display", ""),
-                        "display_status": g.get("game_time_status_to_display", "")
+                        "display_time": g.get("game_time_to_display") or "",
+                        "display_status": g.get("game_time_status_to_display") or ""
                     })
             
             # 3. Parsear brackets (Fase eliminatoria)
@@ -389,6 +405,7 @@ def fetch_mundial_complete_data() -> dict:
                 "groups": groups,
                 "games": games_list,
                 "brackets": brackets_stages,
+                "players_statistics": body_data.get("players_statistics", []),
                 "last_updated": active_filter.get("name", "") if active_filter else ""
             }
         else:

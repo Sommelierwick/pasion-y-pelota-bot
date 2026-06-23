@@ -1712,6 +1712,7 @@ img {
 # ── functions.php ───────────────────────────────────────────────────────────
 open(f"{THEME_DIR}/functions.php","w",encoding="utf-8").write("""\
 <?php
+date_default_timezone_set('America/Argentina/Buenos_Aires');
 function ppelota_setup(){
   add_theme_support('post-thumbnails');
   add_theme_support('title-tag');

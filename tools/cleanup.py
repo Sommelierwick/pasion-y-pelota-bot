@@ -41,27 +41,29 @@ PROTECTED_KEYWORDS = [
 ]
 
 
-def get_internet_utc_now() -> datetime:
-    """Obtiene hora UTC actual desde internet (Google header / WorldTimeAPI)."""
+def get_internet_arg_now() -> datetime:
+    """Obtiene hora actual desde internet en America/Argentina/Buenos_Aires."""
     import email.utils
+    import pytz
+    tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
     try:
         resp = requests.head("https://www.google.com", timeout=5)
         date_str = resp.headers.get("Date")
         if date_str:
             dt = email.utils.parsedate_to_datetime(date_str)
-            return dt.astimezone(timezone.utc)
+            return dt.astimezone(tz_arg)
     except Exception as e:
         logger.warning(f"No se pudo obtener hora de Google: {e}")
 
     try:
-        resp = requests.get("https://worldtimeapi.org/api/timezone/UTC", timeout=5)
+        resp = requests.get("https://worldtimeapi.org/api/timezone/America/Argentina/Buenos_Aires", timeout=5)
         if resp.status_code == 200:
             dt_str = resp.json().get("datetime", "")
-            return datetime.fromisoformat(dt_str).astimezone(timezone.utc)
+            return datetime.fromisoformat(dt_str).astimezone(tz_arg)
     except Exception:
         pass
-    logger.warning("⚠️  Usando reloj local como fallback para limpieza.")
-    return datetime.now(timezone.utc)
+    logger.warning("⚠️  Usando reloj local convertido a Arg como fallback para limpieza.")
+    return datetime.now(tz_arg)
 
 
 def is_protected(post: dict) -> bool:
@@ -94,13 +96,13 @@ def cleanup_old_posts(max_age_days: int = 3, dry_run: bool = False) -> dict:
     Returns:
         dict con contadores: deleted, protected, total_checked, errors
     """
-    internet_now = get_internet_utc_now()
+    internet_now = get_internet_arg_now()
     cutoff = internet_now - timedelta(days=max_age_days)
 
     logger.info("=" * 60)
     logger.info(f"🧹 LIMPIEZA AUTOMÁTICA DE POSTS VIEJOS")
-    logger.info(f"   Hora referencia: {internet_now.strftime('%Y-%m-%d %H:%M UTC')}")
-    logger.info(f"   Eliminar posts anteriores a: {cutoff.strftime('%Y-%m-%d %H:%M UTC')}")
+    logger.info(f"   Hora referencia: {internet_now.strftime('%Y-%m-%d %H:%M Arg')}")
+    logger.info(f"   Eliminar posts anteriores a: {cutoff.strftime('%Y-%m-%d %H:%M Arg')}")
     logger.info(f"   Modo: {'DRY RUN (sin borrar)' if dry_run else 'PRODUCCIÓN (borra realmente)'}")
     logger.info("=" * 60)
 
@@ -147,7 +149,9 @@ def cleanup_old_posts(max_age_days: int = 3, dry_run: bool = False) -> dict:
 
                 # Parsear fecha del post
                 try:
-                    post_dt = datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc)
+                    import pytz
+                    tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+                    post_dt = datetime.fromisoformat(date_str).replace(tzinfo=timezone.utc).astimezone(tz_arg)
                 except Exception:
                     logger.warning(f"  ⚠️  Post #{post_id}: No se pudo parsear fecha '{date_str}'")
                     stats["errors"] += 1

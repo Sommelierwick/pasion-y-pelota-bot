@@ -13,6 +13,7 @@ import uuid
 import base64
 import time
 import json
+import urllib.parse
 from bs4 import BeautifulSoup
 from typing import Optional, Dict
 import config
@@ -27,6 +28,61 @@ EXCLUDED_SPORTS_KEYWORDS = [
     "american football player", "pro bowl"
 ]
 
+USED_IMAGES_FILE = "used_images.json"
+
+
+def build_image_query(entity_type: str, entity_name: str) -> str:
+    """Construye el string de consulta con sufijos deportivos obligatorios."""
+    if not entity_name or entity_name.lower() in ["desconocido", "ninguno", ""]:
+        return ""
+    if entity_type == "team":
+        return f"{entity_name} national football team"
+    elif entity_type == "player":
+        return f"{entity_name} football"
+    return f"{entity_name} football"
+
+def strip_watermark(image_path: str) -> str:
+    """Recorta el 10% inferior de la imagen para despojarla de marcas de agua."""
+    try:
+        if not image_path.startswith("file://"):
+            return image_path
+            
+        local_path = image_path.replace("file://", "", 1)
+        if not os.path.exists(local_path):
+            return image_path
+            
+        with Image.open(local_path) as img:
+            width, height = img.size
+            crop_height = int(height * 0.90)  # Conserva el 90% superior
+            cropped_img = img.crop((0, 0, width, crop_height))
+            
+            # Guardamos con el mismo nombre
+            cropped_img.save(local_path, quality=95)
+        logger.info(f"Watermark strip (10% inferior) aplicado a {local_path}")
+        return image_path
+    except Exception as e:
+        logger.error(f"Error recortando watermark de {image_path}: {e}")
+        return image_path
+
+
+def get_used_images() -> set:
+    if os.path.exists(USED_IMAGES_FILE):
+        try:
+            with open(USED_IMAGES_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            pass
+    return set()
+
+def mark_image_used(url: str):
+    used = get_used_images()
+    used.add(url)
+    try:
+        with open(USED_IMAGES_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(used), f, indent=2)
+    except Exception as e:
+        logger.error(f"No se pudo guardar la imagen usada: {e}")
+
 def clean_html_text(html_str: str) -> str:
     """Elimina etiquetas HTML y limpia espacios en blanco."""
     if not html_str:
@@ -38,6 +94,65 @@ def clean_html_text(html_str: str) -> str:
     except Exception:
         # Fallback si BeautifulSoup falla
         return re.sub(r'<[^>]*>', '', html_str).strip()
+
+
+def search_tycsports_images(query: str, exclude_urls: list = None) -> Optional[Dict[str, str]]:
+    """
+    Busca imágenes en TyC Sports extrayendo de su página principal.
+    Respeta la directiva de citar la fuente y el contexto.
+    """
+    if exclude_urls is None:
+        exclude_urls = []
+        
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        # TyC Sports /busqueda endpoint gives 404 now, so we scrape the homepage for recent relevant images
+        url = "https://www.tycsports.com"
+        r = requests.get(url, headers=headers, timeout=10)
+        
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, "html.parser")
+            images = soup.find_all("img")
+            
+            # Divide query into keywords
+            keywords = [k.lower() for k in query.split() if len(k) > 2]
+            
+            for img in images:
+                src = img.get("data-src") or img.get("src")
+                if not src or src.startswith("data:"):
+                    continue
+                    
+                # Filtros estrictos para excluir banners, scoreboards y fixtures
+                forbidden_keywords = ["site_image", "default", "logo", "bombero", "dia-del-padre", "cuadro", "fixture", "resultados", "creatividad", "bloque", "semaforo", "partidos"]
+                if any(fw in src.lower() for fw in forbidden_keywords):
+                    continue
+                    
+                alt_text = img.get("alt", "").lower()
+                if any(fw in alt_text for fw in forbidden_keywords):
+                    continue
+                
+                # Check if alt text contains any of our query keywords
+                if not any(kw in alt_text for kw in keywords) and query.lower() not in src.lower():
+                    continue
+                    
+                # TyC Sports usually serves thumbnails like _416x234.webp, replace for HD
+                hd_url = src.replace("_416x234", "_862x485").replace("_416x416", "_862x485").split("?")[0]
+                
+                # Check exclusion
+                if any(hd_url == ex for ex in exclude_urls) or hd_url in get_used_images():
+                    continue
+                    
+                logger.info(f"Imagen válida encontrada en TyC Sports (Scraping Homepage): {hd_url}")
+                return {
+                    "url": hd_url,
+                    "citation": f"Foto: TyC Sports / {img.get('alt', query)}"
+                }
+    except Exception as e:
+        logger.warning(f"Error buscando en TyC Sports: {e}")
+        
+    return None
 
 def search_wikimedia_commons(query: str, exclude_urls: list = None) -> Optional[Dict[str, str]]:
     """
@@ -113,7 +228,7 @@ def search_wikimedia_commons(query: str, exclude_urls: list = None) -> Optional[
             if not url:
                 continue
 
-            if exclude_urls and url in exclude_urls:
+            if (exclude_urls and url in exclude_urls) or url in get_used_images():
                 logger.info(f"Saltando imagen duplicada ya usada anteriormente: {url}")
                 continue
 
@@ -240,7 +355,9 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         "cathedral", "castle", "church", "palace", "monument", "cityscape", "landscape", 
         "skyline", "temple", "museum", "ruins", "bridge", "street_view",
         "catedral", "castillo", "iglesia", "palacio", "monumento", "templo", "museo", "ruinas", "puente",
-        "flag_of", "map_of", "coat_of_arms", "emblem", "shield", "bandera", "mapa", "escudo"
+        "flag_of", "map_of", "coat_of_arms", "emblem", "shield", "bandera", "mapa", "escudo",
+        "canal_autorizado", "canal autorizado", "tycsports_canal_autorizado", "tyc_sports_canal_autorizado",
+        "banner", "logo", "watermark", "promo"
     ]
     for kw in reject_keywords:
         if kw in filename_clean:
@@ -284,8 +401,6 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         optimized_bytes = out_io.getvalue()
         b64_data = base64.b64encode(optimized_bytes).decode("utf-8")
 
-        # Llamar a la API Multimodal de Gemini
-        import time
         logger.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429) en validación visual...")
         time.sleep(15)
 
@@ -304,6 +419,7 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         - The image is a map, flag, document, or abstract logo/emblem (unless it's directly relevant, but generally reject flags/emblems as cover images).
         - The image is a landscape, city photo, or unrelated building.
         - The image is completely out of context for a soccer news portal.
+        - The image is the 'TyC Sports CANAL AUTORIZADO' promotional banner or placeholder with a giant FIFA World Cup 2026 logo next to the TyC Sports logo. THIS IS STRICTLY PROHIBITED.
         
         Return a JSON object with this exact structure:
         {{
@@ -385,17 +501,15 @@ def generate_image_prompt_via_llm(title: str, content: str = "") -> str:
     headers = {"Content-Type": "application/json"}
     
     prompt_payload = f"""
-    Based on the following soccer article title and content, write a highly detailed descriptive prompt in English for an AI image generator (like Flux).
-    The image must be a highly realistic, professional action sports photograph of a soccer match or soccer player, matching the style of a real live broadcast or sports magazine photo (like Getty Images).
+    You are an award-winning Sports Illustrated and Getty Images professional photographer.
+    Read the following article title and content, and output exactly ONE short paragraph (under 60 words) in ENGLISH containing a hyper-realistic, high-end photography prompt for an AI image generator.
     
-    Guidelines:
-    1. Describe the scene: action on the pitch, players contesting for the ball, or a key player exhibiting genuine emotion (e.g. celebration, disappointment).
-    2. Specify the setting: lush green grass field, massive stadium background, bright stadium lights, professional sports camera style, 16:9 aspect ratio.
-    3. Include jersey descriptions matching the teams if mentioned.
-    4. Utilize professional photographic terminology: specify lens (e.g., '85mm lens', 'f/1.8'), camera parameters ('motion blur', 'hyper-realistic', 'film grain'), and dynamic stadium lighting.
-    5. Ensure a dramatic, emotional, or epic composition that guarantees high visual engagement and viral appeal on social media.
-    6. Explicitly forbid and avoid any text/typography (except numbers on jerseys or legibly rendered scoreboards if relevant to the context), cartoons, drawings, 3D renders, or digital art style.
-    7. Output ONLY the image generation prompt as a single paragraph (maximum 120 words). No introduction, no markdown, no quotes.
+    STRICT RULES:
+    1. START WITH: "A hyper-realistic professional sports photography of..." or "Award-winning Getty Images sports photography shot on Canon EOS R3 of..."
+    2. Focus purely on realistic action on the pitch or player emotions. Mention team colors if relevant.
+    3. ABSOLUTELY PROHIBITED: No cartoons, no 3D renders, no digital art, no anime, no illustrations, no text/fonts.
+    4. ADD THESE ENFORCEMENT TAGS AT THE END: "photo-realism, 8k resolution, raw photo, highly detailed, realistic skin texture, cinematic lighting, depth of field, real life sports photo."
+    5. Output ONLY the English prompt. NO quotes, NO introductions, NO markdown.
     
     Article Title: {title}
     Article Content: {content[:800]}
@@ -409,7 +523,7 @@ def generate_image_prompt_via_llm(title: str, content: str = "") -> str:
     
     try:
         logger.info("Generando prompt de imagen premium usando Gemini 2.5 Flash...")
-        r = requests.post(url, json=payload, headers=headers, timeout=15)
+        r = requests.post(url, json=payload, headers=headers, timeout=30)
         if r.status_code == 200:
             result = r.json()
             candidates = result.get("candidates", [])
@@ -423,7 +537,9 @@ def generate_image_prompt_via_llm(title: str, content: str = "") -> str:
     except Exception as e:
         logger.error(f"Excepción al generar prompt con LLM: {e}")
         
-    return ""
+    fallback = f"Hyper-realistic professional action sports photography of {title}. High quality, stadium lighting, sharp focus, 8k resolution, Getty Images style."
+    logger.warning("Fallo en la generación de prompt con LLM. Usando fallback estático.")
+    return fallback
 
 def optimize_image_for_web(filepath: str, max_size_kb: int = 150) -> bool:
     """
@@ -481,7 +597,7 @@ def generate_pollinations_image(prompt: str) -> Optional[Dict[str, str]]:
     url = (
         f"https://image.pollinations.ai/prompt/{encoded_prompt}"
         f"?width=1024&height=576"
-        f"&model=flux&nologo=true&enhance=true&seed={seed}"
+        f"&model=flux-realism&nologo=true&enhance=true&seed={seed}"
     )
     
     try:
@@ -654,163 +770,149 @@ def generate_ai_image(prompt: str) -> Optional[Dict[str, str]]:
     o Hugging Face, luego Fal.ai/Replicate de pago y finalmente Gemini Imagen).
     Almacena los resultados optimizados en la carpeta local 'temp_images'.
     """
-    # 1. Intentar Pollinations.ai (Flux gratis sin límites ni keys)
+    # 1. Intentar Gemini Imagen (MEJOR CALIDAD / FOTOREALISMO)
+    api_key = config.get_active_key()
+    if api_key:
+        models_to_try = [
+            "imagen-4.0-generate-001",
+            "imagen-4.0-fast-generate-001",
+            "imagen-3.0-generate-002"
+        ]
+        
+        headers = {"Content-Type": "application/json"}
+        payload = {
+            "instances": [{"prompt": prompt}],
+            "parameters": {
+                "sampleCount": 1,
+                "aspectRatio": "16:9"
+            }
+        }
+        
+        for model in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={api_key}"
+            try:
+                logger.info(f"Intentando generar imagen mediante Gemini {model}...")
+                r = requests.post(url, json=payload, headers=headers, timeout=45)
+                if r.status_code == 200:
+                    data = r.json()
+                    predictions = data.get("predictions", [])
+                    if predictions:
+                        b64_data = predictions[0].get("bytesBase64Encoded")
+                        if b64_data:
+                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            temp_dir = os.path.join(project_root, "temp_images")
+                            os.makedirs(temp_dir, exist_ok=True)
+                            
+                            filename = f"ai_img_{uuid.uuid4().hex[:8]}.jpg"
+                            local_path = os.path.join(temp_dir, filename)
+                            
+                            img_bytes = base64.b64decode(b64_data)
+                            with open(local_path, "wb") as f:
+                                f.write(img_bytes)
+                            optimize_image_for_web(local_path)
+                            logger.info(f"✅ Imagen generada con éxito por Gemini Imagen ({model}) en {local_path}")
+                            return {
+                                "url": local_path,
+                                "citation": "Foto: Generada por IA (Gemini Imagen) / Licencia Libre"
+                            }
+                elif r.status_code == 400 and "only available on paid plans" in r.text:
+                    logger.warning(f"El modelo {model} requiere cuenta de pago. Saltando...")
+                else:
+                    logger.warning(f"Error de API con modelo {model} ({r.status_code}): {r.text[:200]}")
+            except Exception as e:
+                logger.error(f"Excepción al llamar al modelo {model}: {e}")
+
+    # 2. Fallbacks secundarios si falla Gemini
+    logger.info("Gemini falló o no está disponible. Pasando a opciones secundarias (Flux/Pollinations)...")
+    
     res_pollinations = generate_pollinations_image(prompt)
     if res_pollinations:
         return res_pollinations
 
-    # 2. Intentar Hugging Face Inference API (Flux.1-schnell gratis de respaldo)
     res_hf = generate_huggingface_image(prompt)
     if res_hf:
         return res_hf
 
-    # 3. Intentar Flux en la nube (si FAL_KEY o REPLICATE_API_TOKEN están configuradas)
     flux_res = generate_flux_image(prompt)
     if flux_res:
         return flux_res
-        
-    # 4. Si fallan, recurrir a Gemini Imagen
-    api_key = config.get_active_key()
-    if not api_key:
-        logger.warning("No hay API Key configurada para Gemini Imagen.")
-        return None
 
-    models_to_try = [
-        "imagen-4.0-generate-001",
-        "imagen-4.0-fast-generate-001",
-        "imagen-3.0-generate-002"
-    ]
-    
-    headers = {"Content-Type": "application/json"}
-    payload = {
-        "instances": [{"prompt": prompt}],
-        "parameters": {
-            "sampleCount": 1,
-            "aspectRatio": "16:9"
-        }
-    }
-    
-    for model in models_to_try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:predict?key={api_key}"
-        try:
-            logger.info(f"Intentando generar imagen mediante Gemini {model}...")
-            r = requests.post(url, json=payload, headers=headers, timeout=45)
-            if r.status_code == 200:
-                data = r.json()
-                predictions = data.get("predictions", [])
-                if predictions:
-                    b64_data = predictions[0].get("bytesBase64Encoded")
-                    if b64_data:
-                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        temp_dir = os.path.join(project_root, "temp_images")
-                        os.makedirs(temp_dir, exist_ok=True)
-                        
-                        filename = f"ai_img_{uuid.uuid4().hex[:8]}.jpg"
-                        local_path = os.path.join(temp_dir, filename)
-                        
-                        img_bytes = base64.b64decode(b64_data)
-                        with open(local_path, "wb") as f:
-                            f.write(img_bytes)
-                        optimize_image_for_web(local_path)
-                        logger.info(f"✅ Imagen generada con éxito por Gemini Imagen ({model}) en {local_path}")
-                        return {
-                            "url": local_path,
-                            "citation": "Foto: Generada por IA (Gemini Imagen) / Licencia Libre (Ilustración IA)"
-                        }
-            elif r.status_code == 400 and "only available on paid plans" in r.text:
-                logger.warning(f"El modelo {model} requiere una cuenta de pago (Free Tier activo).")
-            else:
-                logger.warning(f"Error de API con modelo {model} ({r.status_code}): {r.text[:200]}")
-        except Exception as e:
-            logger.error(f"Excepción al llamar al modelo {model}: {e}")
-            
-    return None
 
 def get_football_image(player_name, team_name=None, exclude_urls: list = None, article_title: str = "", article_content: str = "") -> Dict[str, str]:
     """
-    Busca una imagen real del jugador o equipo en Wikimedia Commons (con filtro anti-fútbol-americano).
+    Busca una imagen real del jugador o equipo en Wikimedia.
+    prompt_payload = f\"\"\"
+    Eres un director de fotografía deportiva trabajando para Getty Images.
+    Tu tarea es leer el Título y el Contenido del artículo deportivo que te proveeré, y crear un prompt de 1 solo párrafo, extremadamente descriptivo en INGLÉS para generar una imagen fotorrealista de hiper-alta calidad con una IA generativa.
+    
+    REGLAS ESTRICTAS PARA EL PROMPT:
+    1. DEBE comenzar con términos fotográficos profesionales como: "A hyper-realistic professional sports photography of...", "Award-winning Getty Images sports photography shot on Canon EOS R3...", etc.
+    2. DEBE incluir la acción exacta descrita en el artículo, identificando los colores y equipos involucrados, la emoción del momento y el tipo de estadio (si se menciona).
+    3. DEBE prohibir absolutamente ilustraciones, dibujos, arte digital o cartoons. Agrega términos como: "photo-realism, 8k resolution, raw photo, highly detailed, realistic skin texture, cinematic lighting, depth of field".
+    4. NO uses comillas en tu respuesta, solo devuelve el texto en inglés.
+    5. NO menciones que eres una IA o que estás creando un prompt.
+    6. MANTÉN el texto final debajo de las 60 palabras.
+    \"\"\"
     Si no encuentra una específica, y disponemos de contexto del artículo, genera una imagen hiperrealista por IA (Flux/Imagen).
     Si falla la IA, recurre a los fallbacks genéricos de Wikimedia.
     """
     try:
-        # 1. Intentar buscar con el nombre del jugador en Wikimedia Commons
-        if isinstance(player_name, list):
-            for name in player_name:
-                if name and isinstance(name, str) and name.lower() not in ["desconocido", "ninguno", ""]:
-                    # Intentamos con sufijo deportivo primero para evitar coincidencias homónimas extrañas
-                    # El filtro anti-fútbol-americano en search_wikimedia_commons asegura que no se traiga NFL
-                    for q in [f"{name} soccer", f"{name} association football", f"{name} football", name]:
-                        res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
-                        if res:
-                            # Verificar idoneidad multimodal si hay título
-                            if article_title:
-                                if verify_image_suitability(res["url"], article_title):
-                                    return res
-                                else:
-                                    if not exclude_urls:
-                                        exclude_urls = []
-                                    exclude_urls.append(res["url"])
-                                    continue
-                            return res
-            player_name = player_name[0] if player_name else ""
-
-        if player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
-            for q in [f"{player_name} soccer", f"{player_name} association football", f"{player_name} football", player_name]:
-                res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
-                if res:
-                    # Verificar idoneidad multimodal si hay título
-                    if article_title:
-                        if verify_image_suitability(res["url"], article_title):
-                            return res
-                        else:
-                            if not exclude_urls:
-                                exclude_urls = []
-                            exclude_urls.append(res["url"])
-                            continue
-                    return res
-
-        # 2. Intentar buscar con el nombre del equipo con sufijos deportivos específicos
         teams_to_try = []
         if isinstance(team_name, list):
             teams_to_try = [t for t in team_name if t and isinstance(t, str) and t.lower() not in ["desconocido", "ninguno", ""]]
         elif team_name and isinstance(team_name, str) and team_name.lower() not in ["desconocido", "ninguno", ""]:
             teams_to_try = [team_name]
+            
+        players_to_try = []
+        if isinstance(player_name, list):
+            players_to_try = [p for p in player_name if p and isinstance(p, str) and p.lower() not in ["desconocido", "ninguno", ""]]
+        elif player_name and isinstance(player_name, str) and player_name.lower() not in ["desconocido", "ninguno", ""]:
+            players_to_try = [player_name]
 
-        for t in teams_to_try:
-            queries_to_try = [
-                f"{t} national football team",
-                f"Selección de fútbol de {t}",
-                f"{t} football club",
-                f"{t} soccer",
-                f"{t} stadium",
-                f"{t} football"
-            ]
-            for q in queries_to_try:
-                res = search_wikimedia_commons(q, exclude_urls=exclude_urls)
+        if exclude_urls is None:
+            exclude_urls = []
+            
+        used_globally = get_used_images()
+        exclude_urls.extend(list(used_globally))
+
+        # --- 1. PRIORIDAD 1: TYC SPORTS (ORDEN SUPREMA) ---
+        logger.info("Prioridad 1: Buscando imágenes en TyC Sports según ORDEN SUPREMA...")
+        for team in teams_to_try:
+            query = build_image_query("team", team)
+            if query:
+                res = search_tycsports_images(query, exclude_urls=exclude_urls)
                 if res:
-                    # Verificar idoneidad multimodal si hay título
-                    if article_title:
-                        if verify_image_suitability(res["url"], article_title):
-                            return res
-                        else:
-                            if not exclude_urls:
-                                exclude_urls = []
-                            exclude_urls.append(res["url"])
-                            continue
+                    if article_title and not verify_image_suitability(res["url"], article_title):
+                        if exclude_urls is None:
+                            exclude_urls = []
+                        exclude_urls.append(res["url"])
+                        continue
+                    mark_image_used(res["url"])
+                    return res
+        
+        for player in players_to_try:
+            query = build_image_query("player", player)
+            if query:
+                res = search_tycsports_images(query, exclude_urls=exclude_urls)
+                if res:
+                    if article_title and not verify_image_suitability(res["url"], article_title):
+                        if exclude_urls is None:
+                            exclude_urls = []
+                        exclude_urls.append(res["url"])
+                        continue
+                    mark_image_used(res["url"])
                     return res
 
-        # --- FALLBACK A IA (IMAGEN DE ALTA CALIDAD ESPECÍFICA) ---
-        if article_title:
-            logger.info(f"No se encontró imagen real específica para '{player_name}' / '{team_name}'. Iniciando fallback de generación con IA...")
+        # --- 2. PRIORIDAD 2: GENERACIÓN CON IA (ÚLTIMO RECURSO LIBRE DE WIKIMEDIA) ---
+        logger.info("Prioridad 2: No se encontraron fotos. Recurriendo a IA como último recurso...")
+        if article_title or article_content:
             ai_prompt = generate_image_prompt_via_llm(article_title, article_content)
             if ai_prompt:
                 res = generate_ai_image(ai_prompt)
                 if res:
-                    # Also verify AI generated images just in case
                     if verify_image_suitability(res["url"], article_title):
                         return res
                     else:
-                        # If AI generated something invalid, delete the temporary file
                         try:
                             local_path = res["url"].replace("file://", "", 1)
                             if os.path.exists(local_path):
@@ -818,22 +920,13 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
                         except Exception:
                             pass
 
-        # 3. Fallback genérico de alta calidad de Wikimedia (si la IA falló o no había título)
-        generic_terms = ["association football match", "soccer stadium", "soccer match action", "futbol"]
-        random.shuffle(generic_terms)
-        for term in generic_terms:
-            res = search_wikimedia_commons(term, exclude_urls=exclude_urls)
-            if res:
-                return res
-
     except Exception as e:
-        logger.error(f"Excepción general en get_football_image: {e}. Recurriendo a fallback absoluto.")
+        logger.error(f"Excepción general en get_football_image: {e}. Recurriendo a fallback de IA genérico.")
 
-    # 4. Fallback absoluto cableado (imagen libre conocida de Wikimedia)
-    return {
-        "url": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Football_in_Scunthorpe.jpg",
-        "citation": "Foto: Scunthorpe (Wikimedia Commons) / Licencia CC BY-SA 2.0"
-    }
+    # 3. Fallback absoluto generado por IA (sin usar Wikimedia)
+    logger.info("Fallback absoluto: Generando imagen genérica con IA...")
+    generic_prompt = "A hyper-realistic professional sports photography of a highly detailed, modern soccer stadium filled with cheering fans during a night match, 8k resolution, photorealistic, Canon EOS R3"
+    return generate_ai_image(generic_prompt)
 
 if __name__ == "__main__":
     # Test directo

@@ -21,6 +21,7 @@ from tools.promiedos import fetch_promiedos_page, search_backup_stats, search_we
 from tools.wordpress import WordPressPublisher
 from tools.cleanup import cleanup_old_posts
 from tools.images import get_football_image
+from tools.statsbomb_api import get_player_historical_stats
 
 # Configuración de logs
 logging.basicConfig(
@@ -1097,7 +1098,7 @@ Tu tarea es enriquecer la noticia con datos CONCRETOS y VERIFICABLES:
 4. LSI KEYWORDS: Devuelve 2-3 términos de búsqueda del clúster {seo_cluster} que se
    puedan integrar NATURALMENTE en el artículo (no como lista, integradas en párrafos).
 
-5. TABLA MARKDOWN clara con columnas: Temporada | Goles | Asistencias | Partidos | xG
+5. MUY IMPORTANTE: El LLM JAMÁS debe escribir cifras estadísticas directamente. Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {goles}, {asistencias}, {partidos}. Ejemplo: "Lionel Messi ha anotado {goles} goles y {asistencias} asistencias en los {partidos} partidos disputados".
 
 PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases como "no disponible", "no hay datos", "desconocido" o usar guiones ("-") como único contenido en las celdas de la tabla o en los campos del JSON. Si no dispones del dato exacto o en tiempo real del jugador o equipo para la temporada en curso, debes realizar una estimación periodística coherente y realista basada en su rendimiento reciente o promedio histórico. Toda la información estadística y del mercado debe estar completamente rellena con números y datos coherentes.
 """
@@ -1133,6 +1134,13 @@ PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases com
 
     lsi_to_integrate = enriched_data.get("lsi_keywords", [])
     seo_cluster_name = enriched_data.get("seo_cluster", "global")
+    
+    # Obtener historial avanzado (Mundial 2022) desde StatsBomb
+    statsbomb_data = get_player_historical_stats(enriched_data.get('player'))
+    statsbomb_str = "No hay datos de StatsBomb (2022) para este jugador."
+    if statsbomb_data:
+        statsbomb_str = f"Mundial 2022 -> xG (Expected Goals): {statsbomb_data['xg']}, Tiros Totales: {statsbomb_data['shots']}, Pases Clave: {statsbomb_data['key_passes']}"
+    logging.info(f"StatsBomb Data para {enriched_data.get('player')}: {statsbomb_str}")
 
     # Mapeo clúster → categoría WordPress
     CLUSTER_TO_CATEGORY = {
@@ -1199,13 +1207,16 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    <h2>Impacto en la clasificación/campeonato</h2> → consecuencias reales en la tabla o el campeonato de escuderías.
    <h2>¿Qué viene ahora?</h2> → proyección del próximo partido o gran premio de F1.
 
-7. TABLA HTML DE ESTADÍSTICAS (OBLIGATORIA):
-   - Si el artículo es el "Resumen del Mundial 2026" de la jornada, la tabla HTML debe mostrar todos los partidos del día (Columnas: Local | Resultado | Visitante | Estado).
-   - Para Fútbol en general: Columnas relevantes: Temporada, Competición, Goles, Asistencias, Partidos, xG.
-   - Para Fórmula 1 (F1): Columnas relevantes: Gran Premio / Escudería, Posición Final, Puntos Obtenidos, Vueltas Rápidas, etc.
-   - Usar <table>, <thead> y <tbody>. Estilos inline mínimos y limpios.
+7. ESTADÍSTICAS EXACTAS (CERO ALUCINACIÓN):
+   - NO SE DEBE INVENTAR NINGUNA CIFRA ESTADÍSTICA NI TABLA.
+   - NUNCA generes una tabla HTML de estadísticas.
+   - Utiliza exclusivamente los placeholders `{goles}` y `{asistencias}` si necesitas referenciar estadísticas. El sistema los reemplazará con datos reales e inyectará la tabla oficial de Promiedos automáticamente al final del artículo.
 
-8. EVITAR ABSOLUTAMENTE:
+8. CONTEXTO HISTÓRICO AVANZADO (STATSBOMB):
+   - Si se te proporciona información de StatsBomb del Mundial 2022 (como xG o Pases Clave), úsala orgánicamente en tu redacción como un análisis periodístico de élite para comparar el rendimiento actual con el de Qatar 2022.
+   - NUNCA inventes tablas para esto. Redacta la comparativa como lo haría un analista avanzado. (ej. "Aunque hoy brilla, en 2022 ya asomaba con un Expected Goals (xG) de 2.1...").
+
+9. EVITAR ABSOLUTAMENTE:
    - Biografías estáticas ("Nacido en...")
    - "En este artículo veremos..."
    - "En conclusión..."
@@ -1221,7 +1232,11 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    - meta_description: 140-155 caracteres, con la palabra clave principal al inicio.
    - 500-700 palabras totales.
 
-10. CONTEXTO HISTÓRICO Y JERARQUÍA DEL FÚTBOL ARGENTINO (MANDATORIO):
+10. HORARIO OFICIAL (GMT-3):
+    - Todos los horarios de partidos, eventos o anuncios deben estar expresados en la zona horaria oficial del portal: GMT-3 (Hora de Argentina/Uruguay/Brasil).
+    - Si debes mencionar la hora de un partido, acompáñala de la aclaración "(hora argentina)" o "en horario GMT-3" para evitar confusiones en los lectores panamericanos.
+
+11. CONTEXTO HISTÓRICO Y JERARQUÍA DEL FÚTBOL ARGENTINO (MANDATORIO):
     Al redactar cualquier nota o análisis sobre clubes o mercado de pases del fútbol argentino, debes tener en cuenta y respetar estrictamente esta jerarquía y contexto institucional:
     - Los 6 clubes grandes de Argentina están ordenados de la siguiente manera:
       1 y 2. Boca Juniors y River Plate: Comparten el primer lugar en popularidad y relevancia histórica. Son clásicos rivales directos (Superclásico).
@@ -1253,6 +1268,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
             f"Equipos: {', '.join(enriched_data.get('teams_involved', []))}\n"
             f"Noticia original: {enriched_data.get('original_details')}\n"
             f"Estadísticas (tabla): {enriched_data.get('stats_table_markdown')}\n"
+            f"Contexto histórico avanzado (StatsBomb 2022): {statsbomb_str}\n"
             f"Valor de mercado: {enriched_data.get('market_value')}\n"
             f"Dato histórico sorprendente: {enriched_data.get('team_history_fact')}\n"
             f"LSI keywords a integrar naturalmente: {', '.join(lsi_to_integrate)}\n"
@@ -1281,8 +1297,90 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
     logging.info(f"✅ Artículo redactado: '{final_article.get('title')}'")
 
-    # --- PROCESO DE MONETIZACIÓN: Afiliados ---
+    # --- GATE: REGLA 5 (ESTADÍSTICAS EXACTAS, CERO ALUCINACIÓN) ---
+    # El LLM no debe generar tablas propias. Eliminamos cualquier tabla alucinada.
+    import re
     content_html = final_article.get("content_html", "")
+    content_html = re.sub(r'<table.*?>.*?</table>', '', content_html, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Gate: Censurar fuentes prohibidas si la IA las alucina
+    forbidden_regex = r'(?i)(seg[úu]n|de acuerdo con|reportado por|como informa|como indica)?\s*(diario ol[ée]|diario marca|diario as|mundo deportivo|tyc sports|mediotiempo|diario r[ée]cord)'
+    content_html = re.sub(forbidden_regex, '', content_html)
+
+    # --- Inyección de Estadísticas Promiedos (Reemplazo de Placeholders) ---
+    try:
+        from tools.promiedos import fetch_mundial_complete_data
+        prom_data = fetch_mundial_complete_data()
+        players_stats = prom_data.get("players_statistics", {})
+        tables = players_stats.get("tables", [])
+        
+        target_player = (player_name if 'player_name' in locals() else (enriched_data.get('player', '') if 'enriched_data' in locals() else '')).lower()
+        player_goles, player_asist, player_partidos = "0", "0", "0"
+        
+        for t in tables:
+            rows = t.get("rows", [])
+            for r in rows:
+                pname = r.get("entity", {}).get("object", {}).get("name", "").lower()
+                if target_player and (target_player in pname or pname in target_player):
+                    vals = r.get("values", [])
+                    for v in vals:
+                        if v.get("key") == "Goals":
+                            player_goles = str(v.get("value", "0"))
+                        elif v.get("key") == "Assists":
+                            player_asist = str(v.get("value", "0"))
+                        elif v.get("key") == "Matches":
+                            player_partidos = str(v.get("value", "0"))
+                
+        content_html = content_html.replace("{goles}", player_goles)
+        content_html = content_html.replace("{asistencias}", player_asist)
+        content_html = content_html.replace("{partidos}", player_partidos)
+        
+        # Append a beautiful HTML table of the Top 10 Goleadores
+        if "{goles}" not in content_html:
+            top_scorers_html = ""
+            for t in tables:
+                if t.get("name") == "Goles":
+                    for i, r in enumerate(t.get("rows", [])[:10]):
+                        pname = r.get("entity", {}).get("object", {}).get("name", "")
+                        vals = r.get("values", [])
+                        goals = vals[0].get("value") if vals else "0"
+                        row_style = "background-color: #f0f7ff; font-weight: bold;" if target_player and target_player in pname.lower() else ""
+                        top_scorers_html += f"""
+                        <tr style="border-bottom: 1px solid #eee; {row_style}">
+                            <td style="padding: 8px;">{i+1}</td>
+                            <td style="padding: 8px;">{pname}</td>
+                            <td style="padding: 8px; text-align: center;"><strong>{goals}</strong></td>
+                        </tr>
+                        """
+                    break
+                    
+            if top_scorers_html:
+                table_html = f"""
+                <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 5px solid #0056b3; font-family: sans-serif;">
+                    <h3 style="margin-top: 0; color: #0056b3; text-transform: uppercase; font-size: 1.2rem;">🏆 Tabla de Goleadores - Mundial 2026</h3>
+                    <table style="width: 100%; border-collapse: collapse; text-align: left; margin-top: 15px;">
+                        <thead>
+                            <tr style="background-color: #e9ecef; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 10px 8px; width: 10%;">#</th>
+                                <th style="padding: 10px 8px; width: 70%;">Jugador</th>
+                                <th style="padding: 10px 8px; text-align: center; width: 20%;">Goles</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {top_scorers_html}
+                        </tbody>
+                    </table>
+                    <p style="font-size: 12px; color: #6c757d; margin-top: 15px; font-style: italic;">Datos extraídos en vivo desde Promiedos.</p>
+                </div>
+                """
+                content_html += table_html
+            
+        logging.info(f"Placeholders estadísticos reemplazados con éxito para {target_player}")
+    except Exception as e_stats:
+        logging.error(f"Error inyectando estadísticas oficiales de Promiedos: {e_stats}")
+        content_html = content_html.replace("{goles}", "-").replace("{asistencias}", "-").replace("{partidos}", "-")
+
+    # --- PROCESO DE MONETIZACIÓN: Afiliados ---
     affiliate_inserted = False
 
     for team, html_code in config.AFFILIATE_LINKS.items():

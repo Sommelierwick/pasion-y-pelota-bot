@@ -24,34 +24,36 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # ─── Obtener hora actual de internet (NTP/API) ────────────────────────────────
 
-def get_internet_utc_now() -> datetime:
+def get_internet_arg_now() -> datetime:
     """
-    Obtiene la hora UTC actual desde la cabecera 'Date' de Google.com (altamente confiable).
-    Si falla, usa datetime.now(timezone.utc) como fallback (con aviso).
-    Siempre devuelve un datetime timezone-aware en UTC.
+    Obtiene la hora actual desde internet (altamente confiable).
+    Si falla, usa datetime.now(tz_arg) como fallback (con aviso).
+    Siempre devuelve un datetime timezone-aware en America/Argentina/Buenos_Aires.
     """
+    import pytz
+    tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
     try:
         resp = requests.head("https://www.google.com", timeout=5)
         date_str = resp.headers.get("Date")
         if date_str:
             dt = email.utils.parsedate_to_datetime(date_str)
-            return dt.astimezone(timezone.utc)
+            return dt.astimezone(tz_arg)
     except Exception as e:
         logging.warning(f"No se pudo obtener hora de Google: {e}")
 
     try:
-        resp = requests.get("https://worldtimeapi.org/api/timezone/UTC", timeout=5)
+        resp = requests.get("https://worldtimeapi.org/api/timezone/America/Argentina/Buenos_Aires", timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             dt_str = data.get("datetime", "")
             dt = datetime.fromisoformat(dt_str)
-            return dt.astimezone(timezone.utc)
+            return dt.astimezone(tz_arg)
     except Exception:
         pass
 
-    # Fallback: reloj del sistema (con aviso)
-    logging.warning("⚠️  No se pudo obtener hora de internet. Usando reloj local del sistema.")
-    return datetime.now(timezone.utc)
+    # Fallback: reloj del sistema (con aviso) convertido a Arg
+    logging.warning("⚠️  No se pudo obtener hora de internet. Usando reloj local convertido a Arg.")
+    return datetime.now(tz_arg)
 
 
 # ─── Parsear fecha de una entrada RSS ────────────────────────────────────────
@@ -59,13 +61,15 @@ def get_internet_utc_now() -> datetime:
 def parse_rss_date(entry) -> Optional[datetime]:
     """
     Intenta parsear la fecha de publicación de un entry RSS.
-    Devuelve un datetime timezone-aware en UTC, o None si no se puede.
+    Devuelve un datetime timezone-aware en America/Argentina/Buenos_Aires, o None si no se puede.
     """
     # feedparser a veces popula 'published_parsed' (struct_time en UTC)
     if hasattr(entry, "published_parsed") and entry.published_parsed:
         try:
             ts = calendar.timegm(entry.published_parsed)
-            return datetime.fromtimestamp(ts, tz=timezone.utc)
+            import pytz
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            return datetime.fromtimestamp(ts, tz=timezone.utc).astimezone(tz_arg)
         except Exception:
             pass
 
@@ -74,7 +78,9 @@ def parse_rss_date(entry) -> Optional[datetime]:
     if pub_str:
         try:
             tpl = email.utils.parsedate_to_datetime(pub_str)
-            return tpl.astimezone(timezone.utc)
+            import pytz
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            return tpl.astimezone(tz_arg)
         except Exception:
             pass
 
@@ -86,7 +92,7 @@ def parse_rss_date(entry) -> Optional[datetime]:
 def fetch_rss_news(internet_now: datetime, max_age_hours: int = 48) -> list:
     """
     Lee noticias RSS y devuelve solo las publicadas en las últimas `max_age_hours`.
-    La referencia temporal es `internet_now` (UTC desde internet).
+    La referencia temporal es `internet_now` (Hora de Argentina desde internet).
     """
     news_items = []
     cutoff = internet_now - timedelta(hours=max_age_hours)
@@ -109,7 +115,7 @@ def fetch_rss_news(internet_now: datetime, max_age_hours: int = 48) -> list:
                         if pub_dt < cutoff:
                             continue  # más vieja que el umbral → descartar
                         age_h = round((internet_now - pub_dt).total_seconds() / 3600, 1)
-                        pub_label = f"{pub_dt.strftime('%d/%m/%Y %H:%M')} UTC ({age_h}h atrás)"
+                        pub_label = f"{pub_dt.strftime('%d/%m/%Y %H:%M')} Arg ({age_h}h atrás)"
                     else:
                         # Sin fecha: se acepta pero con baja prioridad
                         pub_label = "sin fecha (aceptada)"
@@ -204,12 +210,12 @@ def monitor_all_sources() -> list:
     Solo devuelve noticias de las últimas 48 horas según hora de internet.
     """
     # 1. Obtener hora actual desde internet
-    internet_now = get_internet_utc_now()
+    internet_now = get_internet_arg_now()
     logging.info(
-        f"🕐 Hora de referencia (internet UTC): {internet_now.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        f"🕐 Hora de referencia (internet Arg): {internet_now.strftime('%Y-%m-%d %H:%M:%S Arg')}"
     )
     logging.info(
-        f"   Ventana temporal: noticias desde {(internet_now - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M')} UTC"
+        f"   Ventana temporal: noticias desde {(internet_now - timedelta(hours=48)).strftime('%Y-%m-%d %H:%M')} Arg"
     )
 
     all_news = []

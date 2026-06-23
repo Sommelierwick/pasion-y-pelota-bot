@@ -5,6 +5,7 @@ import os
 from typing import List, Optional
 from requests.auth import HTTPBasicAuth
 import config
+from tools.images import strip_watermark, get_used_images, mark_image_used
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -32,8 +33,17 @@ class WordPressPublisher:
         if not image_url:
             logging.warning("No se proporcionó URL o ruta de imagen para subir como destacada.")
             return None
+        
+        image_url = image_url.strip()
+        
         try:
-            is_local = not image_url.startswith(("http://", "https://"))
+            # Check if it is a local file path
+            is_local = False
+            if image_url.startswith("file://") or image_url.startswith("/") or image_url.startswith("C:\\"):
+                is_local = True
+            elif not image_url.startswith(("http://", "https://")):
+                is_local = True
+                
             if not is_local:
                 headers_get = {
                     "User-Agent": "PasionYPelotaBot/1.0 (contact: elrojobruno@gmail.com) Python-requests/2.31.0"
@@ -47,16 +57,22 @@ class WordPressPublisher:
                 local_path = image_url
                 if local_path.startswith("file://"):
                     local_path = local_path.replace("file://", "", 1)
+                
                 if not os.path.exists(local_path):
                     logging.error(f"No se encontró el archivo de imagen local: {local_path}")
                     return None
                 with open(local_path, "rb") as f:
                     img_content = f.read()
 
+            import mimetypes
+            content_type, _ = mimetypes.guess_type(filename)
+            if not content_type:
+                content_type = "image/jpeg"
+                
             media_url = f"{self.url}/media"
             headers = {
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Type": "image/jpeg"
+                "Content-Type": content_type
             }
             upload_response = requests.post(
                 media_url,
@@ -160,7 +176,7 @@ class WordPressPublisher:
                 
         return tag_ids
 
-    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, writer: Optional[str] = None) -> Optional[dict]:
+    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, writer: Optional[str] = None, date: Optional[str] = None) -> Optional[dict]:
         """
         Publica una entrada en WordPress.
         
@@ -173,6 +189,7 @@ class WordPressPublisher:
             featured_image_id: ID del attachment de imagen destacada (opcional).
             seo_desc: Meta descripción para SEO/GEO invisible (opcional).
             writer: Nombre del autor/periodista para atribución JSON-LD (opcional).
+            date: Fecha exacta de publicación en formato ISO (opcional).
         """
         if tags is None:
             tags = []
@@ -203,6 +220,9 @@ class WordPressPublisher:
             "meta": {}
         }
         
+        if date:
+            post_payload["date"] = date
+        
         if seo_desc:
             post_payload["meta"]["ppelota_seo_desc"] = seo_desc
         if writer:
@@ -221,6 +241,10 @@ class WordPressPublisher:
                 published_post = response.json()
                 post_link = published_post.get("link", "")
                 logging.info(f"¡Artículo publicado con éxito! Link: {post_link}")
+                
+                # Ejecutar purga de notas excedentes según la ORDEN SUPREMA (máximo 30)
+                self.enforce_limit(30)
+                
                 return published_post
             else:
                 logging.error(f"Error al publicar entrada en WordPress ({response.status_code}): {response.text}")
@@ -228,6 +252,41 @@ class WordPressPublisher:
         except Exception as e:
             logging.error(f"Excepción al publicar entrada en WordPress: {e}")
             return None
+
+    def enforce_limit(self, limit: int = 30):
+        """Mantiene un límite estricto de posts en el portal, eliminando los más antiguos."""
+        url = f"{self.url}/posts?per_page=100&orderby=date&order=desc"
+        try:
+            response = requests.get(url, headers=self._get_headers(), auth=self.auth, timeout=15)
+            if response.status_code != 200:
+                logging.error(f"Fallo al obtener la lista de posts para la purga: HTTP {response.status_code}")
+                return
+            
+            posts = response.json()
+            total_posts = len(posts)
+            
+            if total_posts <= limit:
+                return
+
+            posts_to_delete = posts[limit:]
+            logging.warning(f"ORDEN SUPREMA LÍMITE: Eliminando {len(posts_to_delete)} notas para mantener exactamente {limit} en portada.")
+            
+            for post in posts_to_delete:
+                post_id = post["id"]
+                update_url = f"{self.url}/posts/{post_id}"
+                try:
+                    update_payload = {"status": "draft"}
+                    r = requests.post(update_url, json=update_payload, headers=self._get_headers(), auth=self.auth, timeout=15)
+                    if r.status_code in [200, 201]:
+                        logging.info(f"Nota ID {post_id} movida a borrador exitosamente.")
+                    else:
+                        logging.error(f"Error moviendo a borrador la nota ID {post_id}: HTTP {r.status_code}")
+                except Exception as e:
+                    logging.error(f"Excepción al mover nota a borrador: {e}")
+
+                    
+        except Exception as e:
+            logging.error(f"Excepción general en enforce_limit: {e}")
 
     def update_post(self, post_id: int, post_payload: dict) -> bool:
         """Actualiza una entrada existente en WordPress."""
