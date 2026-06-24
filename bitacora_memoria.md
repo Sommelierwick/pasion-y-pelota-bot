@@ -286,4 +286,6 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
 - **Hotfix de Placeholders y Tipos de Datos (24/06/2026 19:05 GMT-3):**
   - Se escaparon los placeholders `{tactical_rating}` y `{expected_goals}` en el f-string de `main_standalone.py` para evitar crasheos de tipo `NameError`.
   - Se adaptó la función `calculate_player_stats` en `tools/editor_jefe.py` para procesar el campo `players_statistics` de forma segura tanto cuando se recibe como un diccionario (formato crudo de Promiedos) como cuando se recibe como una lista (formato adaptado).
+- **Gate de Contradicciones y Desmentidas Automático (24/06/2026 19:20 GMT-3):** Se inyectó un sistema que analiza semánticamente si una nueva noticia desmiente, contradice o hace obsoleta a una nota previa ya publicada (ej. "Jugador lesionado" vs "Se recuperó y va de titular", o previas vs crónicas definitivas). De encontrarse contradicción, el sistema cambia el estado del artículo antiguo a `draft` automáticamente en WordPress antes de publicar el nuevo. Lógica implementada en `tools/editor_jefe.py` (`retract_contradictory_posts`) e integrada en `main_standalone.py` (noticias del Mundial, Jacinto Perplejo y pipeline general).
+
 

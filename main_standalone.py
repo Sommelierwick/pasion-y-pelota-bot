@@ -669,6 +669,14 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             # 3. Firma de autor
             content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por {writer}</strong></p>'
             
+            # --- GATE DE CONTRADICCIONES ---
+            try:
+                from tools.editor_jefe import EditorJefe
+                editor = EditorJefe()
+                editor.retract_contradictory_posts(article_wc.get("title"), article_wc.get("meta_description") or "")
+            except Exception as e_contra:
+                logging.error(f"Error en Gate de Contradicciones del Mundial: {e_contra}")
+
             wp_post = publisher.publish_post(
                 title=article_wc.get("title"),
                 content=content_html,
@@ -845,6 +853,14 @@ def run_jacinto_perplejo_analysis(db: dict):
             content_html += f'\n\n<p style="font-size: 11px; color: #777; text-align: right; margin-top: 20px; font-style: italic;">{citation}</p>'
             
         content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por Jacinto Perplejo</strong></p>'
+
+        # --- GATE DE CONTRADICCIONES ---
+        try:
+            from tools.editor_jefe import EditorJefe
+            editor = EditorJefe()
+            editor.retract_contradictory_posts(article_data.get("title"), article_data.get("meta_description") or "")
+        except Exception as e_contra:
+            logging.error(f"Error en Gate de Contradicciones de Jacinto: {e_contra}")
 
         wp_post = publisher.publish_post(
             title=article_data.get("title"),
@@ -1680,6 +1696,14 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
     # Firmar la nota físicamente
     content_html += f'\n\n<p style="font-size: 13px; color: #666; margin-top: 30px; border-top: 1px solid #eee; padding-top: 15px;"><strong>Por {writer}</strong></p>'
+
+    # --- GATE DE CONTRADICCIONES ---
+    try:
+        from tools.editor_jefe import EditorJefe
+        editor = EditorJefe()
+        editor.retract_contradictory_posts(final_article.get("title"), final_article.get("meta_description") or "")
+    except Exception as e_contra:
+        logging.error(f"Error en Gate de Contradicciones general: {e_contra}")
 
     wp_post = publisher.publish_post(
         title=final_article.get("title"),

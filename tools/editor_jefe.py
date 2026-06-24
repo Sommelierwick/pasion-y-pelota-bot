@@ -818,3 +818,106 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
             logger.error(f"Error en el monitoreo estadístico: {se}")
             
         return True
+
+    def retract_contradictory_posts(self, new_title: str, new_excerpt: str) -> bool:
+        """
+        Compara la nueva noticia con las últimas 15 noticias publicadas.
+        Si la IA determina que la nueva noticia contradice o desmiente a una anterior,
+        mueve la anterior a borrador ('draft') en WordPress.
+        """
+        logger.info(f"Iniciando Gate de Contradicciones para la nueva noticia: '{new_title}'")
+        try:
+            # 1. Obtener los últimos 15 posts de WordPress
+            posts_url = f"{self.wp_url}/wp-json/wp/v2/posts"
+            resp = requests.get(posts_url, params={"per_page": 15, "_fields": "id,title,excerpt"}, auth=self.auth, timeout=15)
+            if resp.status_code != 200:
+                logger.error(f"No se pudieron obtener posts para auditoría de contradicciones (HTTP {resp.status_code})")
+                return False
+                
+            posts = resp.json()
+            if not posts:
+                logger.info("No hay posts publicados para auditar contradicciones.")
+                return False
+                
+            # 2. Formatear la lista de posts para la IA
+            posts_formatted = []
+            import re
+            for p in posts:
+                p_id = p.get("id")
+                p_title = p.get("title", {}).get("rendered", "")
+                p_excerpt = re.sub('<[^<]+?>', '', p.get("excerpt", {}).get("rendered", "")).strip()[:150]
+                posts_formatted.append(f"- ID: {p_id} | Título: '{p_title}' | Resumen: {p_excerpt}")
+            
+            posts_list_str = "\n".join(posts_formatted)
+            
+            # 3. Definir System Prompt e instrucción para el LLM
+            sys_instruction = """
+Eres el 'Editor de Consistencia y Fact-Checking' de Pasión y Pelota.
+Tu única misión es evaluar si una NUEVA NOTICIA que se va a publicar desmiente, contradice o invalida de manera inequívoca a una NOTICIA ANTERIOR que ya está publicada en el portal.
+
+Reglas de decisión:
+1. Contradicción Directa: Ocurre cuando la nueva noticia desmiente un reporte anterior (ej. "Jugador lesionado" vs "Se recuperó y juega", o "Fichaje caído" vs "Fichaje confirmado", o "Partido suspendido" vs "Partido programado normalmente").
+2. En el caso del Mundial: Una crónica final (tipo 'post') que reporta el resultado definitivo del partido contradice y hace obsoleta a la previa de ese mismo partido (tipo 'previa'). Debes marcar la previa para ser retirada.
+3. No es contradicción si son eventos diferentes, opiniones distintas sobre temas no fácticos, o si la nueva noticia simplemente expande o añade detalles sin negar lo anterior.
+
+Devuelve un JSON estrictamente estructurado según el siguiente esquema:
+{
+  "contradiction_found": bool,
+  "contradicted_post_id": int_or_null,
+  "explanation": "Breve justificación de la decisión"
+}
+"""
+            
+            prompt = f"""
+NUEVA NOTICIA A PUBLICAR:
+- Título: '{new_title}'
+- Resumen: '{new_excerpt}'
+
+LISTA DE NOTICIAS PUBLICADAS EN EL PORTAL:
+{posts_list_str}
+"""
+            
+            # 4. Definir esquema Pydantic para Gemini
+            import pydantic
+            from typing import Optional
+            class ContradictionCheck(pydantic.BaseModel):
+                contradiction_found: bool = pydantic.Field(description="True si la nueva noticia contradice o desmiente a una anterior de la lista.")
+                contradicted_post_id: Optional[int] = pydantic.Field(description="ID de la noticia anterior contradicha que debe ser retirada, o null si no hay contradicción.")
+                explanation: str = pydantic.Field(description="Breve explicación de por qué contradice o por qué no.")
+            
+            # 5. Llamar a la IA
+            res_llm = call_gemini_json(prompt, sys_instruction, ContradictionCheck)
+            if not res_llm or "contradiction_found" not in res_llm:
+                logger.info("Falló Gemini en contradicciones, usando Groq de respaldo...")
+                res_llm = call_groq_json(prompt, sys_instruction, model="llama-3.3-70b-versatile")
+            if not res_llm or "contradiction_found" not in res_llm:
+                logger.info("Falló Groq en contradicciones, usando OpenAI de respaldo final...")
+                res_llm = call_openai_json(prompt, sys_instruction, model="gpt-4o-mini")
+                
+            if not res_llm or not res_llm.get("contradiction_found"):
+                logger.info("No se detectaron contradicciones con noticias anteriores.")
+                return False
+                
+            contradicted_id = res_llm.get("contradicted_post_id")
+            explanation = res_llm.get("explanation", "Sin explicación.")
+            
+            if not contradicted_id:
+                logger.info("La IA indicó contradicción encontrada pero no suministró un ID válido.")
+                return False
+                
+            logger.warning(f"⚠️ ¡CONTRADICCIÓN DETECTADA! La nueva noticia contradice al post ID {contradicted_id}. Razón: {explanation}")
+            
+            # 6. Cambiar el estado del post anterior a 'draft' (retractación)
+            patch_url = f"{self.wp_url}/wp-json/wp/v2/posts/{contradicted_id}"
+            resp_patch = requests.patch(patch_url, json={"status": "draft"}, auth=self.auth, timeout=15)
+            if resp_patch.status_code == 200:
+                logger.info(f"✅ Post anterior ID {contradicted_id} movido exitosamente a borrador (retractado por contradicción).")
+                return True
+            else:
+                logger.error(f"Error al cambiar estado del post ID {contradicted_id} a draft (HTTP {resp_patch.status_code}): {resp_patch.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Excepción en el Gate de Contradicciones: {e}")
+            return False
+
