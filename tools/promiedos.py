@@ -222,7 +222,7 @@ def fetch_promiedos_page(league_key: str) -> str:
         
     return ""
 
-def fetch_mundial_complete_data() -> dict:
+def fetch_mundial_complete_data_static() -> dict:
     """
     Descarga la página del Mundial de Promiedos y retorna un diccionario
     con todos los grupos, fixture y brackets parseados.
@@ -446,13 +446,13 @@ def fetch_today_mundial_from_homepage() -> list:
     return []
 
 
-def fetch_mundial_complete_data_with_today() -> dict:
+def fetch_mundial_complete_data() -> dict:
     """
     Función maestra que combina los datos estáticos del Mundial (grupos, brackets, posiciones)
     con los partidos EN VIVO del día actual extraídos de la portada de Promiedos.
     """
     # 1. Obtener datos estáticos (grupos, posiciones, brackets)
-    base_data = fetch_mundial_complete_data()
+    base_data = fetch_mundial_complete_data_static()
     if not base_data:
         base_data = {"groups": [], "games": [], "brackets": {"stages": []}, "players_statistics": [], "last_updated": "Fase de Grupos"}
     
@@ -484,6 +484,14 @@ def fetch_mundial_complete_data_with_today() -> dict:
         logging.info(f"Fusión completada: {added} partidos nuevos añadidos, {len(today_games) - added} actualizados con datos en vivo.")
     
     return base_data
+
+
+def fetch_mundial_complete_data_with_today() -> dict:
+    """
+    Stub para compatibilidad hacia atrás. Llama a fetch_mundial_complete_data().
+    """
+    return fetch_mundial_complete_data()
+
 
 def search_backup_stats(query: str) -> str:
     """
