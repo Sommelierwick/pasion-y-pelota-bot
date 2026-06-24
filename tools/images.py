@@ -15,6 +15,7 @@ import time
 import json
 import urllib.parse
 from bs4 import BeautifulSoup
+from PIL import Image
 from typing import Optional, Dict
 import config
 
@@ -28,7 +29,6 @@ EXCLUDED_SPORTS_KEYWORDS = [
     "american football player", "pro bowl"
 ]
 
-USED_IMAGES_FILE = "used_images.json"
 
 
 def build_image_query(entity_type: str, entity_name: str) -> str:
@@ -65,23 +65,7 @@ def strip_watermark(image_path: str) -> str:
         return image_path
 
 
-def get_used_images() -> set:
-    if os.path.exists(USED_IMAGES_FILE):
-        try:
-            with open(USED_IMAGES_FILE, "r", encoding="utf-8") as f:
-                return set(json.load(f))
-        except Exception:
-            pass
-    return set()
 
-def mark_image_used(url: str):
-    used = get_used_images()
-    used.add(url)
-    try:
-        with open(USED_IMAGES_FILE, "w", encoding="utf-8") as f:
-            json.dump(list(used), f, indent=2)
-    except Exception as e:
-        logger.error(f"No se pudo guardar la imagen usada: {e}")
 
 def clean_html_text(html_str: str) -> str:
     """Elimina etiquetas HTML y limpia espacios en blanco."""
@@ -137,11 +121,15 @@ def search_tycsports_images(query: str, exclude_urls: list = None) -> Optional[D
                 if not any(kw in alt_text for kw in keywords) and query.lower() not in src.lower():
                     continue
                     
+                                # Exclusividad Mundial 2026 (Regla 6)
+                if "2026" not in alt_text and "mundial" not in alt_text and "2026" not in src.lower() and "mundial" not in src.lower():
+                    continue
+                
                 # TyC Sports usually serves thumbnails like _416x234.webp, replace for HD
                 hd_url = src.replace("_416x234", "_862x485").replace("_416x416", "_862x485").split("?")[0]
                 
                 # Check exclusion
-                if any(hd_url == ex for ex in exclude_urls) or hd_url in get_used_images():
+                if any(hd_url == ex for ex in exclude_urls):
                     continue
                     
                 logger.info(f"Imagen válida encontrada en TyC Sports (Scraping Homepage): {hd_url}")
@@ -154,118 +142,6 @@ def search_tycsports_images(query: str, exclude_urls: list = None) -> Optional[D
         
     return None
 
-def search_wikimedia_commons(query: str, exclude_urls: list = None) -> Optional[Dict[str, str]]:
-    """
-    Busca una imagen en Wikimedia Commons para el término dado.
-    Devuelve un diccionario con {'url': ..., 'citation': ...} o None si no hay resultados o están excluidos.
-    """
-    search_url = "https://commons.wikimedia.org/w/api.php"
-    headers = {
-        "User-Agent": "PasionYPelotaBot/1.0 (contact: elrojobruno@gmail.com) Python-requests/2.31.0"
-    }
-
-    # Intentamos primero buscar en el espacio de nombres de archivos (namespace 6)
-    params = {
-        "action": "query",
-        "format": "json",
-        "list": "search",
-        "srsearch": f"file:{query}",
-        "srnamespace": 6,
-        "srlimit": 10
-    }
-
-    try:
-        logger.info(f"Buscando imagen real en Wikimedia Commons para: '{query}'")
-        r = requests.get(search_url, params=params, headers=headers, timeout=10)
-        if r.status_code != 200:
-            logger.error(f"Error en API Wikimedia ({r.status_code})")
-            return None
-            
-        data = r.json()
-        search_results = data.get("query", {}).get("search", [])
-
-        # Si no hay resultados específicos, buscamos de forma general en Commons
-        if not search_results:
-            logger.info("Sin resultados en File:. Intentando búsqueda general...")
-            params["srsearch"] = query
-            r = requests.get(search_url, params=params, headers=headers, timeout=10)
-            if r.status_code == 200:
-                search_results = r.json().get("query", {}).get("search", [])
-
-        # Filtrar y buscar la primera imagen válida (jpg, jpeg, png)
-        for res in search_results:
-            title = res.get("title", "")
-            if not title.lower().endswith(('.jpg', '.jpeg', '.png')):
-                continue
-
-            pageid = res.get("pageid")
-            if not pageid:
-                continue
-
-            # Obtener detalles de la imagen (URL directa y metadatos)
-            info_params = {
-                "action": "query",
-                "format": "json",
-                "prop": "imageinfo",
-                "iiprop": "url|extmetadata",
-                "pageids": pageid
-            }
-            info_r = requests.get(search_url, params=info_params, headers=headers, timeout=10)
-            if info_r.status_code != 200:
-                continue
-
-            info_data = info_r.json()
-            pages = info_data.get("query", {}).get("pages", {})
-            page_info = pages.get(str(pageid), {})
-            imageinfo_list = page_info.get("imageinfo", [])
-            if not imageinfo_list:
-                continue
-
-            imageinfo = imageinfo_list[0]
-            url = imageinfo.get("url")
-            extmetadata = imageinfo.get("extmetadata", {})
-
-            if not url:
-                continue
-
-            if (exclude_urls and url in exclude_urls) or url in get_used_images():
-                logger.info(f"Saltando imagen duplicada ya usada anteriormente: {url}")
-                continue
-
-            # Extraer y limpiar metadatos de autoría y crédito
-            artist_html = extmetadata.get("Artist", {}).get("value", "")
-            license_name = extmetadata.get("LicenseShortName", {}).get("value", "CC")
-            credit_html = extmetadata.get("Credit", {}).get("value", "")
-            categories = extmetadata.get("Categories", {}).get("value", "")
-            image_desc_html = extmetadata.get("ImageDescription", {}).get("value", "")
-
-            # Limpiar HTML
-            artist = clean_html_text(artist_html) or "Colaborador de Wikimedia"
-            credit = clean_html_text(credit_html) or "Wikimedia Commons"
-            image_desc = clean_html_text(image_desc_html)
-
-            # --- FILTRO ANTI-FÚTBOL AMERICANO / RUGBY ---
-            check_text = (title + " " + url + " " + categories + " " + image_desc).lower()
-            if any(kw in check_text for kw in EXCLUDED_SPORTS_KEYWORDS):
-                logger.info(f"Filtro anti-fútbol americano activado. Saltando imagen: {title}")
-                continue
-
-            # Acortar créditos muy largos o con URLs feas
-            if "https://" in credit and len(credit) > 60:
-                credit = "Wikimedia Commons"
-
-            citation = f"Foto: {artist} ({credit}) / Licencia {license_name}"
-            
-            logger.info(f"Imagen válida de fútbol encontrada: {url} | Citación: {citation}")
-            return {
-                "url": url,
-                "citation": citation
-            }
-
-    except Exception as e:
-        logger.error(f"Excepción al buscar imagen en Wikimedia Commons: {e}")
-
-    return None
 
 def verify_image_suitability_text_fallback(filename: str, article_title: str) -> bool:
     """
@@ -871,9 +747,6 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
 
         if exclude_urls is None:
             exclude_urls = []
-            
-        used_globally = get_used_images()
-        exclude_urls.extend(list(used_globally))
 
         # --- 1. PRIORIDAD 1: TYC SPORTS (ORDEN SUPREMA) ---
         logger.info("Prioridad 1: Buscando imágenes en TyC Sports según ORDEN SUPREMA...")
@@ -887,7 +760,6 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
                             exclude_urls = []
                         exclude_urls.append(res["url"])
                         continue
-                    mark_image_used(res["url"])
                     return res
         
         for player in players_to_try:
@@ -900,7 +772,6 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
                             exclude_urls = []
                         exclude_urls.append(res["url"])
                         continue
-                    mark_image_used(res["url"])
                     return res
 
         # --- 2. PRIORIDAD 2: GENERACIÓN CON IA (ÚLTIMO RECURSO LIBRE DE WIKIMEDIA) ---

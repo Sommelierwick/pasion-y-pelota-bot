@@ -79,6 +79,7 @@ class Article(pydantic.BaseModel):
     tags: List[str] = pydantic.Field(description="4-7 etiquetas: jugador, equipos, liga, tipo de noticia, competición.")
     league_category: str = pydantic.Field(description="Categoría WP: 'LaLiga'|'Premier League'|'Brasileirão'|'Fútbol Argentino'|'MLS'|'Liga MX'|'Champions League'|'Copa Libertadores'|'Mundial 2026'|otra")
     meta_description: str = pydantic.Field(default="", description="Meta descripción SEO de 140-155 caracteres con keyword principal.")
+    seo_focuskw: str = pydantic.Field(default="", description="Palabra clave principal para posicionar en Yoast SEO (ej: 'Lionel Messi', 'Boca Juniors refuerzos').")
 
 # =============================================================================
 # 2. Base de Datos Local de Control de Duplicados
@@ -245,14 +246,10 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
         return None
         
     models_to_try = [
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-3.1-flash-lite-preview",
-        "gemini-3-flash-preview",
         "gemini-2.5-flash",
-        "gemini-3.5-flash",
+        "gemini-2.5-flash-lite",
         "gemini-2.0-flash-lite",
-        "gemini-flash-latest"
+        "gemini-1.5-flash-latest"
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
@@ -431,6 +428,16 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             if home_goals is None or home_goals == "": home_goals = "-"
             if away_goals is None or away_goals == "": away_goals = "-"
             
+            # ── FILTRO ESTRICTO DE FECHA (Directriz Suprema: solo noticias de HOY) ──
+            start_time_str = g.get("start_time", "")
+            is_today = start_time_str.startswith(today_arg) if start_time_str else False
+            partido_activo = status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-")
+            
+            # Descartar partidos de otros días que ya terminaron y no son de hoy
+            if not is_today and not partido_activo:
+                logging.info(f"Saltando {home} vs {away}: no es partido de hoy ({today_arg}) y no está activo.")
+                continue
+            
             match_id = f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}"
             published = coverage.setdefault(match_id, [])
             
@@ -513,6 +520,12 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             - durante: Crónica virtual en vivo. Cómo el marcador en juego altera el grupo en tiempo real.
             - post: Consecuencias definitivas, clasificados y eliminados oficiales de la fecha.
             
+            ⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
+            1. ACTUALIDAD: En toda la redacción debe quedar clarísimo que este partido está ocurriendo o se acaba de jugar HOY, en este día exacto. Escribe en tiempo presente inmediato o pasado reciente ("hoy", "en la jornada de hoy").
+            2. BALANCE NARRATIVO Y DES-MESSIFICACIÓN:
+               - Si escribes sobre ARGENTINA, no centres el análisis exclusivamente en Lionel Messi. Es obligatorio destacar profundamente la táctica de Lionel Scaloni y el impacto de otros jugadores clave (Emiliano "Dibu" Martínez, Julián Álvarez, Lautaro Martínez, Rodrigo De Paul, Enzo Fernández).
+               - Si escribes sobre OTRAS POTENCIAS, destaca a sus respectivas estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, etc.) para mantener un equilibrio global.
+
             REGLAS DE REDACCIÓN:
             1. Título H1: Clickbait honesto con el nombre de los equipos, el resultado y una consecuencia de clasificación.
             2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
@@ -541,6 +554,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2 y tabla HTML de posiciones del grupo.")
                 tags: List[str] = pydantic.Field(description="4-7 etiquetas relevantes.")
                 meta_description: str = pydantic.Field(description="Meta descripción SEO con keyword al inicio.")
+                seo_focuskw: str = pydantic.Field(default="", description="Palabra clave principal para posicionar en Yoast SEO.")
                 
             prompt_redactor = (
                 f"Redacta la nota de tipo '{article_type}' para {home} vs {away}.\n"
@@ -637,6 +651,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 status="publish",
                 featured_image_id=featured_image_id,
                 seo_desc=article_wc.get("meta_description"),
+                seo_focuskw=article_wc.get("seo_focuskw"),
                 writer=writer
             )
             
@@ -730,7 +745,7 @@ def run_jacinto_perplejo_analysis(db: dict):
            - Qué potencias están justas de puntos y sufriendo de más en la fase de grupos.
            - Cuáles potencias rindieron menos de lo esperado, explicando el por qué táctico o de rendimiento.
            - Cuáles de las selecciones menores (no potencias) es la revelación o sensación del torneo.
-        3. Cita y menciona a los jugadores clave de las tablas de estadísticas provistas (scorers, assists, passing) como Deniz Undav, Lionel Messi o Alexander Isak para dar solidez y sustento numérico a tu análisis.
+        3. Cita y menciona a los jugadores clave de las tablas de estadísticas provistas (scorers, assists, passing), como el máximo goleador del torneo, el líder en asistencias y el pasador más efectivo, para dar solidez y sustento numérico a tu análisis. Para Argentina, EN NINGÚN CASO debes centrar el análisis en Lionel Messi: destaca obligatoriamente la táctica de Scaloni y a otros jugadores clave (Dibu Martínez, Lautaro Martínez, De Paul, Enzo Fernández). Para otras potencias, menciona a sus estrellas globales (Mbappé en Francia, Kane o Bellingham en Inglaterra, Vinícius en Brasil).
         4. Incluye dentro del artículo una tabla HTML estilizada que resuma el Top 5 de Goleadores y Top 5 de Asistidores citados.
         5. Firma al final como Jacinto Perplejo.
         """
@@ -813,6 +828,7 @@ def run_jacinto_perplejo_analysis(db: dict):
             status="publish",
             featured_image_id=featured_image_id,
             seo_desc=article_data.get("meta_description"),
+            seo_focuskw=article_data.get("seo_focuskw"),
             writer="Jacinto Perplejo"
         )
 
@@ -978,38 +994,47 @@ def run_pipeline():
     # ─── AGENTE 1: EL OJEADOR ─────────────────────────────────────────────────
     logging.info("Agente 1 — El Ojeador: Analizando candidatos con estrategia de nodos semánticos...")
 
-    OJEADOR_SYSTEM = """
+    recent_titles = ", ".join(db.get("published_titles", [])[-5:]) if db.get("published_titles") else "Ninguno"
+    SATURATED_POWERS_RULE = f"⚠️ REGLA DE SATURACIÓN ANTI-DUPLICADOS:\n- Está ESTRICTAMENTE PROHIBIDO seleccionar noticias que traten sobre los mismos temas que acabamos de publicar.\n- Temas/Títulos ya publicados recientemente: {recent_titles}\n- Si un candidato habla de lo mismo (ej. 'Lionel Messi guía a Argentina...'), DESCÁRTALO INMEDIATAMENTE y elige una noticia sobre otro equipo o tema."
+
+    OJEADOR_SYSTEM = f"""
 Eres 'El Ojeador', editor jefe de un portal deportivo panamericano con estrategia SEO avanzada.
 
 Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTAMENTE con estas reglas:
 
-⚠️ REGLA DE LAS LIGAS DE CLUBES Y FÚTBOL ARGENTINO:
-- Para cualquier noticia de ligas o copas de clubes (MLS, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Libertadores, etc. - EXCEPTUANDO el Brasileirão que tiene cobertura total de partidos), ÚNICAMENTE se permite hablar de:
-  1. MERCADO DE PASES (fichajes, rumores de traspaso, renovaciones, salidas, llegadas de jugadores o técnicos).
-  2. CLUBES INHIBIDOS POR LA FIFA (sanciones, deudas e inhibiciones oficiales de la FIFA que les impidan incorporar jugadores).
-- REGLA DE ORO DE FÚTBOL ARGENTINO: En la categoría y temática de "Fútbol Argentino" (lpf_argentina), TODAS las notas sin excepción deben ser sobre el mercado de pases (fichajes, rumores de pases, salidas, llegadas) o sobre clubes inhibidos por la FIFA (sanciones, deudas e inhibiciones oficiales de la FIFA). No se permite ninguna otra temática (como partidos del torneo local, rendimiento deportivo, crónicas de la liga local, etc.).
-- Ignora CUALQUIER otra noticia de ligas de clubes (resultados de partidos regulares, crónicas de partidos, tablas de posiciones locales, polémicas locales, etc.) que no esté ligada a un fichaje, traspaso o inhibición de la FIFA.
+⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
+1. ACTUALIDAD ESTRICTA: ESTÁ TERMINANTEMENTE PROHIBIDO seleccionar noticias, crónicas o resultados de partidos que no hayan ocurrido el día de hoy o en las últimas 24 horas. Las noticias del día deben ser noticias de la fecha actual. Descarta cualquier noticia atrasada.
+2. EQUILIBRIO DE POTENCIAS: Las selecciones potencias mundiales (Argentina, Francia, Inglaterra, España, Brasil, Uruguay) tienen la misma prioridad. Si hay múltiples noticias, trata de diversificar. 
+3. DES-MESSIFICACIÓN Y ROTACIÓN DE ESTRELLAS: 
+   - Cuando selecciones noticias de Argentina, ESTÁ PROHIBIDO enfocarse únicamente en Lionel Messi. Debes buscar o dar prioridad a noticias que destaquen a otros jugadores (Emiliano "Dibu" Martínez, Lautaro Martínez, Julián Álvarez, Enzo Fernández, Rodrigo De Paul, Alexis Mac Allister) y la estrategia/táctica del entrenador Lionel Scaloni.
+   - Cuando selecciones noticias de otras potencias, reconoce y valora a sus estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, Lamine Yamal en España, etc.).
 
-🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE CUALQUIER NOTICIA GENERAL/DEPORTIVA/DE CRÓNICAS DE PARTIDOS):
-1. LIONEL MESSI: Se acepta cualquier noticia sobre él (goles, partidos, récords en Inter Miami, lesiones, rendimiento, etc.).
-2. SELECCIÓN ARGENTINA: Se permite cobertura total de su desempeño, partidos, resultados, previas, tácticas, convocatorias y noticias en general.
-3. COPA MUNDIAL 2026: Se permite cobertura total de partidos, resultados, fixtures, grupos, clasificaciones y selecciones nacionales. Durante el mundial, se le debe dar prioridad a las selecciones en este orden estricto: Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México. Las noticias sobre otras selecciones nacionales solo son de interés y se permite seleccionarlas si son muy importantes debido a que le ganaron o empataron un partido a alguna de las potencias mencionadas anteriormente (Argentina, Brasil, España, Francia, Inglaterra, Uruguay, México). Si existe un candidato de "Resumen del Mundial 2026" de la jornada, se le debe dar la máxima prioridad de publicación para resumir la fecha completa.
-4. FÓRMULA 1 (F1): Se permite cobertura completa de carreras, resultados, clasificaciones y rumores de escuderías. Se debe hablar prioritariamente sobre Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen, etc.
-5. BRASILEIRÃO (FÚTBOL DE BRASIL): Dado que el torneo está en juego, se permite cobertura total de partidos, resultados, crónicas de encuentros, tablas de posiciones y noticias de los clubes brasileños (Flamengo, Palmeiras, São Paulo, etc.), no limitándose únicamente a mercado de pases.
+⚠️ REGLA DE LAS LIGAS DE CLUBES Y FÚTBOL ARGENTINO:
+- Para cualquier noticia de ligas o copas de clubes (MLS, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Libertadores, etc. - EXCEPTUANDO el Brasileirão), ÚNICAMENTE se permite hablar de:
+  1. MERCADO DE PASES (fichajes, rumores de traspaso, renovaciones, salidas, llegadas).
+  2. CLUBES INHIBIDOS POR LA FIFA (sanciones, deudas).
+- REGLA DE ORO DE FÚTBOL ARGENTINO: TODAS las notas sin excepción de "Fútbol Argentino" deben ser sobre mercado de pases o inhibiciones. No se permite ninguna crónica de partidos o resultados del torneo local.
+- Ignora CUALQUIER otra noticia de ligas de clubes (resultados, polémicas) que no sea fichaje o inhibición.
+
+🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE COBERTURA TOTAL DE RESULTADOS Y PARTIDOS):
+1. POTENCIAS MUNDIALES Y SUS ESTRELLAS: Se acepta cobertura total del desempeño, partidos, resultados, tácticas y figuras de Argentina, Brasil, Francia, Inglaterra, España y Uruguay.
+2. COPA MUNDIAL 2026: Se permite cobertura total de partidos de las potencias. Para equipos menores, solo se publican si lograron una hazaña o resultado sorpresivo contra una potencia. Si existe un candidato de "Resumen del Mundial 2026" del DÍA DE HOY, tiene la máxima prioridad.
+3. FÓRMULA 1 (F1): Cobertura completa de carreras, resultados y rumores. Prioridad: Franco Colapinto, Alpine, Mercedes F1, Hamilton, Verstappen.
+4. BRASILEIRÃO: Se permite cobertura total de partidos y resultados.
 
 ⚠️ DIRECTIVA DE REESCRITURA:
-- Toda noticia seleccionada que provenga de los portales scrapeados debe ser reescrita por completo (cambiando drásticamente el vocabulario y estructura de las oraciones) e incorporando más datos estadísticos profundos y curiosidades históricas para superar la calidad del artículo original y evitar cualquier tipo de plagio o copia directa.
+- Toda noticia debe ser reescrita drásticamente incorporando datos estadísticos profundos y curiosidades históricas para evitar plagio.
 
-🏆 JERARQUÍA DE PRIORIDAD DE SELECCIÓN (Selecciona la más importante de esta lista):
-1. Resumen diario de la jornada de la Copa Mundial 2026 (si está disponible) / Lionel Messi / Selección Argentina / Fórmula 1 (F1) (Mercedes, Alpine, Colapinto) (Máxima prioridad absoluta de la portada).
-2. Brasileirão (crónicas de partidos, resultados y noticias de clubes brasileños).
-3. Mercado de pases de la MLS (Inter Miami CF, LAFC, etc.).
-4. Mercado de pases de la Liga Profesional Argentina (Boca, River, Racing) y clubes inhibidos por FIFA.
-5. Mercado de pases de la Liga MX o Europa (Premier League, LaLiga, etc.).
+🏆 JERARQUÍA DE PRIORIDAD DE SELECCIÓN:
+1. Resumen de la jornada de HOY de la Copa Mundial 2026 / Noticias de HOY de las Selecciones Potencias y sus estrellas equilibradas (Dibu Martínez, Scaloni, Mbappé, Kane, etc.) / F1 (Colapinto, Mercedes) (Máxima prioridad de portada).
+2. Brasileirão (crónicas de HOY, resultados).
+3. Mercado de pases de la MLS (Inter Miami, etc.).
+4. Mercado de pases de la Liga Profesional Argentina y clubes inhibidos.
+5. Mercado de pases de Liga MX o Europa.
 
 {SATURATED_POWERS_RULE}
 
-Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion, mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
+Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion (= Selección Argentina en su conjunto — DES-MESSIFICACIÓN: usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi), mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
 Asigna 'priority_score' del 1 (altísima) al 10 (baja).
 """
 
@@ -1134,7 +1159,7 @@ Tu tarea es enriquecer la noticia con datos CONCRETOS y VERIFICABLES:
 4. LSI KEYWORDS: Devuelve 2-3 términos de búsqueda del clúster {seo_cluster} que se
    puedan integrar NATURALMENTE en el artículo (no como lista, integradas en párrafos).
 
-5. MUY IMPORTANTE: El LLM JAMÁS debe escribir cifras estadísticas directamente. Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {{goles}}, {{asistencias}}, {{partidos}}. Ejemplo: "Lionel Messi ha anotado {{goles}} goles y {{asistencias}} asistencias en los {{partidos}} partidos disputados".
+5. MUY IMPORTANTE: El LLM JAMÁS debe escribir cifras estadísticas directamente ni el horario de los partidos ni los resultados. Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {{goles}}, {{asistencias}}, {{partidos}}, {{horario}}, {{resultado}}. Ejemplo: "Lionel Messi ha anotado {{goles}} goles en los {{partidos}} partidos disputados. El partido se jugará a las {{horario}} (hora argentina) y terminó con un {{resultado}}".
 
 PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases como "no disponible", "no hay datos", "desconocido" o usar guiones ("-") como único contenido en las celdas de la tabla o en los campos del JSON. Si no dispones del dato exacto o en tiempo real del jugador o equipo para la temporada en curso, debes realizar una estimación periodística coherente y realista basada en su rendimiento reciente o promedio histórico. Toda la información estadística y del mercado debe estar completamente rellena con números y datos coherentes.
 """
@@ -1198,6 +1223,12 @@ PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases com
     REDACTOR_SYSTEM = """
 Eres 'El Redactor SEO', periodista deportivo panamericano con dominio de Google y SEO técnico.
 Escribes para una audiencia de Argentina, México, Colombia, USA hispanic y Brasil (español neutro).
+
+⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
+1. ACTUALIDAD ESTRICTA: El artículo DEBE estar redactado asumiendo y explicitando que la noticia ocurrió el día de HOY. Usa términos como "en el día de hoy", "en la jornada actual", o "recientemente".
+2. BALANCE NARRATIVO Y DES-MESSIFICACIÓN:
+   - En noticias de ARGENTINA: No todo es Messi. Obligatoriamente debes destacar a otras figuras (Dibu Martínez, Julián Álvarez, Lautaro Martínez, De Paul, Enzo Fernández, Mac Allister) y la estrategia de Lionel Scaloni.
+   - En noticias de OTRAS POTENCIAS: Reconoce a las grandes figuras del fútbol mundial (Kylian Mbappé en Francia, Harry Kane o Bellingham en Inglaterra, Vinícius Jr. en Brasil, Lamine Yamal en España) con el mismo respeto y nivel de detalle.
 
 REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
@@ -1268,9 +1299,13 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
    - meta_description: 140-155 caracteres, con la palabra clave principal al inicio.
    - 500-700 palabras totales.
 
-10. HORARIO OFICIAL (GMT-3):
-    - Todos los horarios de partidos, eventos o anuncios deben estar expresados en la zona horaria oficial del portal: GMT-3 (Hora de Argentina/Uruguay/Brasil).
-    - Si debes mencionar la hora de un partido, acompáñala de la aclaración "(hora argentina)" o "en horario GMT-3" para evitar confusiones en los lectores panamericanos.
+10. HORARIO OFICIAL Y RESULTADOS (MANDATORIO):
+    - Todos los horarios proporcionados en el JSON YA ESTÁN en la zona horaria oficial del portal: GMT-3 (Hora de Argentina/Uruguay/Brasil).
+    - ESTÁ ABSOLUTAMENTE PROHIBIDO REALIZAR CONVERSIONES DE ZONA HORARIA O INVENTAR DATOS.
+    - El LLM JAMÁS debe escribir el horario del partido ni el resultado del mismo de forma directa.
+    - Debes redactar el texto utilizando EXACTAMENTE estos placeholders literales: {horario} y {resultado}.
+    - Ejemplo: "El partido comenzará a las {horario} (hora argentina) y actualmente tiene un {resultado}".
+    - Estos placeholders serán reemplazados después por código, cumpliendo con la regla de separación entre redacción e inyección numérica.
 
 11. CONTEXTO HISTÓRICO Y JERARQUÍA DEL FÚTBOL ARGENTINO (MANDATORIO):
     Al redactar cualquier nota o análisis sobre clubes o mercado de pases del fútbol argentino, debes tener en cuenta y respetar estrictamente esta jerarquía y contexto institucional:
@@ -1292,7 +1327,19 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     - Las noticias sobre San Lorenzo de Almagro deben ser firmadas por Carlos Four. Este redactor debe seguir activamente los problemas financieros de San Lorenzo (deudas, crisis económica, inhibiciones oficiales de la FIFA, transferencias dudosas o malas ventas, etc.).
     - Si la información proviene de los periodistas y YouTubers Agustín Muzzupappa (Muzzu) o Pablo Lafourcade, se les debe citar sobriamente al final de la nota de forma similar a la de Huracán.
 
-13. REGLA LEGAL DE "CONDICIONAL PERIODÍSTICO" (MANDATORIO PARA TODOS LOS REDACTORES):
+13. COBERTURA DE BOCA JUNIORS:
+    - Las noticias sobre Boca Juniors deben ser firmadas por Roberto Silva. Debe citar la información extraída de periodistas como Tato Aguilera o Emiliano Raddi si aplica.
+
+14. COBERTURA DE RIVER PLATE:
+    - Las noticias sobre River Plate deben ser firmadas por Matías Blanco. Debe citar la información extraída de periodistas como Juan Cortese o Hernán Castillo si aplica.
+
+15. COBERTURA DE RACING CLUB:
+    - Las noticias sobre Racing Club deben ser firmadas por Fernando Celeste. Debe citar la información extraída de periodistas como Leandro Adonio Belli o Tomás Dávila si aplica.
+
+16. COBERTURA DE INDEPENDIENTE:
+    - Las noticias sobre Independiente deben ser firmadas por Ariel Rojo. Debe citar la información extraída de periodistas como Matías Martínez o Gastón Edul si aplica.
+
+17. REGLA LEGAL DE "CONDICIONAL PERIODÍSTICO" (MANDATORIO PARA TODOS LOS REDACTORES):
     - **SI NO SE CITA LA FUENTE:** En cualquier artículo o análisis deportivo donde se mencionen rumores, acusaciones de deudas, crisis financieras, inhibiciones judiciales/FIFA, sospechas de mal manejo o ventas deficientes de jugadores, y **NO se cite la procedencia o fuente de la información**, es OBLIGATORIO utilizar el "condicional periodístico" (verbos como *habría*, *sería*, *estaría*, *tendría*, *estaría vinculado*, *estaría inhabilitado*) para proteger legalmente al portal contra demandas por difamación. Ejemplo: "El club tendría una deuda millonaria" en lugar de "El club tiene una deuda millonaria".
     - **SI SÍ SE CITA LA FUENTE:** Si el artículo cita de dónde se tomó la información, no se debe abusar del condicional periodístico, se debe escribir con asertividad y claridad. Específicamente para las notas de San Lorenzo, si la fuente está citada pero la redacción abusa del condicional, debes realizar una crítica editorial implícita al medio o periodista original por "no jugarse con la información" o faltar al compromiso informativo.
 """
@@ -1371,6 +1418,44 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         content_html = content_html.replace("{asistencias}", player_asist)
         content_html = content_html.replace("{partidos}", player_partidos)
         
+        # Reemplazo de {horario} y {resultado}
+        game_start_time = "-"
+        game_result = "-"
+        target_teams = enriched_data.get('teams_involved', []) if 'enriched_data' in locals() else (teams if 'teams' in locals() else [])
+        
+        if target_teams:
+            for g in prom_data.get("games", []):
+                # home y away son strings directos en fetch_mundial_complete_data()
+                g_home = g.get("home", "") if isinstance(g.get("home"), str) else g.get("home", {}).get("name", "")
+                g_away = g.get("away", "") if isinstance(g.get("away"), str) else g.get("away", {}).get("name", "")
+                
+                if len(target_teams) >= 2:
+                    t1, t2 = target_teams[0].lower(), target_teams[1].lower()
+                    if (t1 in g_home.lower() and t2 in g_away.lower()) or (t2 in g_home.lower() and t1 in g_away.lower()):
+                        game_start_time = g.get("start_time", "-")
+                        # home_goals y away_goals son campos directos en el game dict
+                        h_goals = g.get("home_goals", "-")
+                        a_goals = g.get("away_goals", "-")
+                        if h_goals not in [None, "", "-"] and a_goals not in [None, "", "-"]:
+                            game_result = f"{h_goals} - {a_goals}"
+                        else:
+                            game_result = g.get("status", "-")
+                        break
+                elif len(target_teams) == 1:
+                    t1 = target_teams[0].lower()
+                    if t1 in g_home.lower() or t1 in g_away.lower():
+                        game_start_time = g.get("start_time", "-")
+                        h_goals = g.get("home_goals", "-")
+                        a_goals = g.get("away_goals", "-")
+                        if h_goals not in [None, "", "-"] and a_goals not in [None, "", "-"]:
+                            game_result = f"{h_goals} - {a_goals}"
+                        else:
+                            game_result = g.get("status", "-")
+                        break
+                        
+        content_html = content_html.replace("{horario}", str(game_start_time))
+        content_html = content_html.replace("{resultado}", str(game_result))
+        
         # Append a beautiful HTML table of the Top 10 Goleadores
         if "{goles}" not in content_html:
             top_scorers_html = ""
@@ -1414,7 +1499,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         logging.info(f"Placeholders estadísticos reemplazados con éxito para {target_player}")
     except Exception as e_stats:
         logging.error(f"Error inyectando estadísticas oficiales de Promiedos: {e_stats}")
-        content_html = content_html.replace("{goles}", "-").replace("{asistencias}", "-").replace("{partidos}", "-")
+        content_html = content_html.replace("{goles}", "-").replace("{asistencias}", "-").replace("{partidos}", "-").replace("{horario}", "-").replace("{resultado}", "-")
 
     # --- PROCESO DE MONETIZACIÓN: Afiliados ---
     affiliate_inserted = False
@@ -1493,6 +1578,14 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         writer = "Juan Carlos Perrusta"
     elif "san lorenzo" in lower_title or "san lorenzo" in lower_content or any("san lorenzo" in str(t).lower() for t in teams):
         writer = "Carlos Four"
+    elif "boca" in lower_title or "boca" in lower_content or any("boca" in str(t).lower() for t in teams):
+        writer = "Roberto Silva"
+    elif "river" in lower_title or "river" in lower_content or any("river" in str(t).lower() for t in teams):
+        writer = "Matías Blanco"
+    elif "racing" in lower_title or "racing" in lower_content or any("racing" in str(t).lower() for t in teams):
+        writer = "Fernando Celeste"
+    elif "independiente" in lower_title or "independiente" in lower_content or any("independiente" in str(t).lower() for t in teams):
+        writer = "Ariel Rojo"
     elif league_cat_orig in ["Fútbol Argentino"]:
         writer = "Roberto Mancifredi"
     else:
@@ -1552,6 +1645,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         status="publish",
         featured_image_id=featured_image_id,
         seo_desc=final_article.get("meta_description"),
+        seo_focuskw=final_article.get("seo_focuskw"),
         writer=writer
     )
 
@@ -1578,6 +1672,38 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         if teams:
             for t in teams:
                 teams_covered_this_cycle.add(t)
+
+        # --- REGLA 9: Límite estricto de 30 posts publicados ---
+        try:
+            from requests.auth import HTTPBasicAuth
+            base_url_wp = config.WP_URL.rstrip("/") + "/wp-json/wp/v2"
+            auth_wp = HTTPBasicAuth(config.WP_USER, config.WP_PASSWORD)
+            check_resp = requests.get(
+                f"{base_url_wp}/posts",
+                auth=auth_wp,
+                params={"status": "publish", "per_page": 1, "orderby": "date", "order": "asc"},
+                timeout=15
+            )
+            total_posts = int(check_resp.headers.get("X-WP-Total", 0))
+            logging.info(f"Regla 9 — Total de posts publicados: {total_posts}")
+            if total_posts > 30:
+                oldest_posts = check_resp.json()
+                if oldest_posts:
+                    oldest_id = oldest_posts[0].get("id")
+                    oldest_title = oldest_posts[0].get("title", {}).get("rendered", "")[:60]
+                    draft_resp = requests.patch(
+                        f"{base_url_wp}/posts/{oldest_id}",
+                        auth=auth_wp,
+                        json={"status": "draft"},
+                        timeout=15
+                    )
+                    if draft_resp.status_code in [200, 201]:
+                        logging.info(f"✅ Regla 9 aplicada: Post más antiguo #{oldest_id} movido a draft: '{oldest_title}'")
+                    else:
+                        logging.warning(f"⚠️ Regla 9: No se pudo mover a draft el post #{oldest_id} ({draft_resp.status_code})")
+        except Exception as e_r9:
+            logging.error(f"Error aplicando Regla 9 (límite 30 posts): {e_r9}")
+
     else:
         logging.error("No se pudo publicar en WordPress.")
 

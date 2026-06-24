@@ -102,14 +102,10 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
         return {}
         
     models_to_try = [
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite",
-        "gemini-3.1-flash-lite-preview",
-        "gemini-3-flash-preview",
         "gemini-2.5-flash",
-        "gemini-3.5-flash",
+        "gemini-2.5-flash-lite",
         "gemini-2.0-flash-lite",
-        "gemini-flash-latest"
+        "gemini-1.5-flash-latest"
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
@@ -442,151 +438,43 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         return projected
 
     def calculate_player_stats(self, mundial_data: dict) -> dict:
-        from tools.promiedos import search_web_for_verification
-        logger.info("El Editor Jefe está investigando estadísticas del Mundial 2026 en la web (goleadores, asistencias, pases)...")
+        logger.info("El Editor Jefe está extrayendo estadísticas del Mundial 2026 directamente del JSON (cero alucinación)...")
         
-        # 1. Obtener coincidencia de colores de selecciones
+        # 1. Obtener coincidencia de colores y nombres de selecciones
         team_colors = {}
+        team_names = {}
         for g in mundial_data.get("groups", []):
             for t in g.get("teams", []):
-                team_colors[t["name"].lower().strip()] = t.get("colors", {})
+                team_id = t.get("id")
+                team_names[team_id] = t.get("name")
+                team_colors[team_id] = t.get("colors", {})
+
+        res = {"scorers": [], "assists": [], "passing": []}
         
-        # 2. Buscar en la web
-        search_results = ""
-        try:
-            search_results += search_web_for_verification("goleadores mundial 2026 stats") + "\n\n"
-            search_results += search_web_for_verification("asistencias mundial 2026") + "\n\n"
-            search_results += search_web_for_verification("pases correctos efectividad mundial 2026")
-        except Exception as se:
-            logger.error(f"Error al realizar búsquedas web de estadísticas: {se}")
-            
-        system_instruction = """
-        Eres un analista de datos deportivos del Mundial 2026. Tu tarea es estructurar en un JSON limpio el Top 10 de:
-        1. Goleadores (scorers)
-        2. Máximos Asistidores (assists)
-        3. Pasadores más eficientes (passing) - incluyendo cantidad de pases correctos y porcentaje de precisión.
+        stats = mundial_data.get("players_statistics", {})
+        tables = stats.get("tables", [])
         
-        Basate en los siguientes fragmentos de búsqueda de la web y en la lista de selecciones.
-        Asegúrate de que los nombres de las selecciones coincidan con los de las selecciones del fixture oficial (por ejemplo: 'Alemania', 'Argentina', 'Canadá', 'Francia', 'Brasil', 'Países Bajos', 'Suecia', 'Nueva Zelanda', 'Japón', 'España', 'Uruguay', 'Cabo Verde', etc.).
-        """
-        
-        prompt = f"""
-        Fragmentos de búsqueda web:
-        {search_results}
-        
-        Selecciones del mundial: {list(team_colors.keys())}
-        """
-        
-        res = call_gemini_json(prompt, system_instruction, PlayerStatsSchema)
-        if not res:
-            logger.info("Falló Gemini al generar estadísticas, usando datos de respaldo simulados...")
-            # Fallback simulado
-            res = {
-                "scorers": [
-                    {"name": "Deniz Undav", "team": "Alemania", "goals": 3},
-                    {"name": "Lionel Messi", "team": "Argentina", "goals": 3},
-                    {"name": "Jonathan David", "team": "Canadá", "goals": 3},
-                    {"name": "Kylian Mbappé", "team": "Francia", "goals": 2},
-                    {"name": "Harry Kane", "team": "Inglaterra", "goals": 2},
-                    {"name": "Vinicius Jr.", "team": "Brasil", "goals": 2},
-                    {"name": "Cody Gakpo", "team": "Países Bajos", "goals": 2},
-                    {"name": "Mikel Oyarzabal", "team": "España", "goals": 2},
-                    {"name": "Ayase Ueda", "team": "Japón", "goals": 2},
-                    {"name": "Erling Haaland", "team": "Noruega", "goals": 2}
-                ],
-                "assists": [
-                    {"name": "Alexander Isak", "team": "Suecia", "assists": 2},
-                    {"name": "Chris Wood", "team": "Nueva Zelanda", "assists": 2},
-                    {"name": "Deniz Undav", "team": "Alemania", "assists": 2},
-                    {"name": "Ryan Gravenberch", "team": "Países Bajos", "assists": 2},
-                    {"name": "Joshua Kimmich", "team": "Alemania", "assists": 2},
-                    {"name": "Rodrigo de Paul", "team": "Argentina", "assists": 2},
-                    {"name": "Antoine Griezmann", "team": "Francia", "assists": 1},
-                    {"name": "Bernardo Silva", "team": "Portugal", "assists": 1},
-                    {"name": "Bruno Fernandes", "team": "Portugal", "assists": 1},
-                    {"name": "Federico Valverde", "team": "Uruguay", "assists": 1}
-                ],
-                "passing": [
-                    {"name": "Toni Kroos", "team": "Alemania", "passes": 184, "accuracy": "95%"},
-                    {"name": "Rodrigo de Paul", "team": "Argentina", "passes": 162, "accuracy": "91%"},
-                    {"name": "Rodri", "team": "España", "passes": 155, "accuracy": "94%"},
-                    {"name": "Declan Rice", "team": "Inglaterra", "passes": 142, "accuracy": "92%"},
-                    {"name": "Aurélien Tchouaméni", "team": "Francia", "passes": 138, "accuracy": "93%"},
-                    {"name": "Frenkie de Jong", "team": "Países Bajos", "passes": 131, "accuracy": "92%"},
-                    {"name": "Hakan Çalhanoğlu", "team": "Turquía", "passes": 128, "accuracy": "90%"},
-                    {"name": "Granit Xhaka", "team": "Suiza", "passes": 122, "accuracy": "91%"},
-                    {"name": "Alexis Mac Allister", "team": "Argentina", "passes": 118, "accuracy": "89%"},
-                    {"name": "Joshua Kimmich", "team": "Alemania", "passes": 115, "accuracy": "92%"}
-                ]
-            }
-            
-        # Normalizar claves para que coincidan con el esquema estándar del portal
-        for cat in ["scorers", "assists", "passing"]:
-            if cat in res:
-                for item in res[cat]:
-                    # Nombre de jugador
-                    if "nombre_jugador" in item and "name" not in item:
-                        item["name"] = item["nombre_jugador"]
-                    if "player" in item and "name" not in item:
-                        item["name"] = item["player"]
-                        
-                    # Selección/equipo
-                    if "seleccion" in item and "team" not in item:
-                        item["team"] = item["seleccion"]
-                        
-                    # Goles
-                    if "goles" in item and "goals" not in item:
-                        item["goals"] = item["goles"]
-                        
-                    # Asistencias
-                    if "asistencias" in item and "assists" not in item:
-                        item["assists"] = item["asistencias"]
-                    if "assists_count" in item and "assists" not in item:
-                        item["assists"] = item["assists_count"]
-                        
-                    # Pases
-                    if "pases" in item and "passes" not in item:
-                        item["passes"] = item["pases"]
-                    if "pases_correctos" in item and "passes" not in item:
-                        item["passes"] = item["pases_correctos"]
-                    if "correct_passes" in item and "passes" not in item:
-                        item["passes"] = item["correct_passes"]
-                    if "successful_passes" in item and "passes" not in item:
-                        item["passes"] = item["successful_passes"]
-                        
-                    # Precisión/Accuracy
-                    if "precision_porcentaje" in item and "accuracy" not in item:
-                        val = item["precision_porcentaje"]
-                        if isinstance(val, (int, float)):
-                            item["accuracy"] = f"{val}%"
-                        else:
-                            item["accuracy"] = str(val)
-                    if "accuracy_percentage" in item and "accuracy" not in item:
-                        val = item["accuracy_percentage"]
-                        if isinstance(val, (int, float)):
-                            item["accuracy"] = f"{val}%"
-                        else:
-                            item["accuracy"] = str(val)
-                    if "pass_accuracy_percentage" in item and "accuracy" not in item:
-                        val = item["pass_accuracy_percentage"]
-                        if isinstance(val, (int, float)):
-                            item["accuracy"] = f"{val}%"
-                        else:
-                            item["accuracy"] = str(val)
-                    if "precision_percentage" in item and "accuracy" not in item:
-                        item["accuracy"] = item["precision_percentage"]
-                    if "precision" in item and "accuracy" not in item:
-                        item["accuracy"] = str(item["precision"])
-                    if "accuracy" in item:
-                        val = item["accuracy"]
-                        if isinstance(val, (int, float)):
-                            item["accuracy"] = f"{val}%"
-                        elif isinstance(val, str) and not val.endswith("%"):
-                            item["accuracy"] = f"{val}%"
-                        
-                    t_name = item.get("team", "").lower().strip()
-                    item["colors"] = team_colors.get(t_name, {"color": "#333"})
+        for t in tables:
+            name = t.get("name", "")
+            for r in t.get("rows", [])[:10]:
+                player_name = r.get("entity", {}).get("object", {}).get("name", "Desconocido")
+                team_id = r.get("entity", {}).get("object", {}).get("team_id", "")
+                team_name = team_names.get(team_id, "Desconocido")
+                colors = team_colors.get(team_id, {"color": "#333", "text_color": "#fff"})
+                
+                vals = r.get("values", [])
+                if not vals:
+                    continue
                     
+                val = vals[0].get("value", "0")
+                
+                if name == "Goles":
+                    res["scorers"].append({"name": player_name, "team": team_name, "goals": val, "colors": colors})
+                elif name == "Asistencias":
+                    res["assists"].append({"name": player_name, "team": team_name, "assists": val, "colors": colors})
+                elif name == "Barridas ganadas":
+                    res["passing"].append({"name": player_name, "team": team_name, "passes": val, "accuracy": "-", "colors": colors})
+        
         return res
 
     def update_widgets_and_banners(self) -> bool:
@@ -595,9 +483,37 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         """
         logger.info("El Editor Jefe está recopilando datos reales de la Copa del Mundo 2026 desde Promiedos...")
         
+        from tools.statistical_monitor import detect_statistical_anomalies
+        from tools.wordpress import WordPressPublisher
+        
         # Obtener datos estructurados para la página de Fixture y Marquesinas
         mundial_data = fetch_mundial_complete_data()
         games = mundial_data.get("games", [])
+        
+        # ORDEN SUPREMA: Inyectar partidos de fase eliminatoria (brackets) para que NUNCA deje de aparecer la data
+        for stage in mundial_data.get("brackets", {}).get("stages", []):
+            stage_name = stage.get("name", "Fase")
+            for match in stage.get("matches", []):
+                participants = match.get("participants", [])
+                home = participants[0].get("name", "Por definir") if len(participants) > 0 else "Por definir"
+                away = participants[1].get("name", "Por definir") if len(participants) > 1 else "Por definir"
+                
+                for g in match.get("games", []):
+                    # Solo agregar si tiene fecha programada
+                    if g.get("start_time"):
+                        games.append({
+                            "id": "bracket_game",
+                            "stage": stage_name,
+                            "home": home,
+                            "away": away,
+                            "home_goals": "-",
+                            "away_goals": "-",
+                            "status": g.get("status", "Prog."),
+                            "status_symbol": "Prog.",
+                            "start_time": g.get("start_time", ""),
+                            "display_time": "",
+                            "display_status": ""
+                        })
 
         # ─── GENERACIÓN DETERMINÍSTICA DE MARQUESINAS EN PYTHON ─────────────────
         from datetime import datetime
@@ -613,7 +529,8 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
             game_time = None
             if start_time_str:
                 try:
-                    dt = datetime.strptime(start_time_str.strip(), "%d-%m-%Y %H:%M")
+                    clean_time_str = start_time_str.replace(" (Hora Argentina)", "").strip()
+                    dt = datetime.strptime(clean_time_str, "%d-%m-%Y %H:%M")
                     game_time = tz.localize(dt)
                 except Exception as e:
                     logger.warning(f"Error parsing start_time {start_time_str}: {e}")
@@ -674,7 +591,7 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
             else:
                 date_time_display = start_time_str
                 
-            item_html = f'<div class="score-item"><span class="league-tag">PRÓXIMO ENCUENTRO</span> <strong>{home}</strong> vs. <strong>{away}</strong> <span class="match-status">{date_time_display} hs</span></div>'
+            item_html = f'<div class="score-item"><span class="league-tag">PRÓXIMO ENCUENTRO</span> <strong>{home}</strong> vs. <strong>{away}</strong> <span class="match-status">{date_time_display} (Hora Arg)</span></div>'
             upcoming_items.append(item_html)
             
         # Duplicar items para loop continuo (mínimo 8 items)
@@ -730,7 +647,7 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         except Exception as e:
             logger.error(f"Excepción al obtener artículos para el Semáforo: {e}")
         
-        current_time_str = now.strftime('%H:%M hs')
+        current_time_str = now.strftime('%H:%M (Hora Arg)')
         months_es = {
             1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
             7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
@@ -845,9 +762,53 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
             resp = requests.post(update_url, json=res, auth=self.auth, timeout=20)
             if resp.status_code == 200:
                 logger.info("✅ Marquesinas, Semáforo y Fixture actualizados dinámicamente en WordPress.")
-                return True
             else:
                 logger.error(f"Error al actualizar marquesinas ({resp.status_code}): {resp.text}")
         except Exception as e:
             logger.error(f"Excepción al actualizar marquesinas vía REST API: {e}")
-        return False
+            
+        # ─── MONITOREO ESTADÍSTICO PARA ALARMAS ─────────────
+        try:
+            logger.info("Iniciando monitor estadístico para detectar anomalías...")
+            anomalies = detect_statistical_anomalies(mundial_data)
+            if anomalies:
+                logger.info(f"¡Se detectaron {len(anomalies)} anomalías estadísticas! Invocando al Agente Estadístico...")
+                wp_pub = WordPressPublisher()
+                category_id = wp_pub.get_or_create_category("Estadísticas")
+                
+                for anomaly in anomalies:
+                    logger.info(f"Alerta: {anomaly['type']} - {anomaly['team']}")
+                    
+                    sys_prompt = "Eres un Agente Estadístico experto. Analiza el siguiente cambio brusco en los datos de un equipo del Mundial 2026. Escribe un reporte analítico de 3-4 párrafos. Escribe en formato HTML para WordPress sin Markdown ni etiquetas de código."
+                    
+                    user_prompt = f"El equipo {anomaly['team']} ({anomaly['group']}) ha tenido la siguiente anomalía: {anomaly['type']}.\nDetalles: {anomaly['description']}\nEscribe un artículo corto explicando lo que significa esto para su futuro en el torneo. El título debe ser impactante e ir en la primera línea precedido por 'TITULO:'."
+                    
+                    # Llamamos a Groq directamente para el reporte
+                    try:
+                        from main_standalone import call_groq
+                        content = call_groq(user_prompt, sys_prompt)
+                        if content:
+                            title = f"ALERTA ESTADÍSTICA: {anomaly['team']} y un cambio radical"
+                            body = content
+                            if "TITULO:" in content:
+                                parts = content.split("\n", 1)
+                                title = parts[0].replace("TITULO:", "").replace("TÍTULO:", "").strip()
+                                body = parts[1].strip() if len(parts) > 1 else body
+                                
+                            wp_pub.publish_post(
+                                title=title,
+                                content=body,
+                                league_category="Estadísticas",
+                                tags=[anomaly['team'], "Estadísticas", anomaly['type']],
+                                featured_image_id=None,
+                                status="publish"
+                            )
+                            logger.info(f"✅ Artículo estadístico publicado: {title}")
+                    except Exception as ge:
+                        logger.error(f"Error al generar artículo estadístico con la IA: {ge}")
+            else:
+                logger.info("No se detectaron anomalías estadísticas en este ciclo.")
+        except Exception as se:
+            logger.error(f"Error en el monitoreo estadístico: {se}")
+            
+        return True

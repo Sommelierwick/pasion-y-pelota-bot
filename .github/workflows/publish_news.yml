@@ -51,12 +51,21 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
+          CHANGED=""
           if git status --porcelain | grep -q "database.json"; then
-            echo "Database updated. Committing changes..."
             git add database.json
-            git commit -m "Auto-update database.json [skip ci]"
+            CHANGED="database.json"
+          fi
+          if git status --porcelain | grep -q "used_images.json"; then
+            git add used_images.json
+            CHANGED="$CHANGED used_images.json"
+          fi
+          
+          if [ -n "$CHANGED" ]; then
+            echo "Archivos actualizados: $CHANGED. Commiteando cambios..."
+            git commit -m "Auto-update [$CHANGED] [skip ci]"
             git pull --rebase
             git push
           else
-            echo "No database updates."
+            echo "No hay actualizaciones en database.json ni used_images.json."
           fi

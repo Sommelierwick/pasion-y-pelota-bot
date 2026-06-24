@@ -175,18 +175,18 @@ def cleanup_old_posts(max_age_days: int = 3, dry_run: bool = False) -> dict:
                 logger.info(f"  🗑️  {'[DRY RUN] ' if dry_run else ''}ELIMINANDO ({age_days}d, {age_h}h): #{post_id} — {post_title}")
 
                 if not dry_run:
-                    del_resp = requests.delete(
+                    del_resp = requests.patch(
                         f"{base_url}/posts/{post_id}",
                         auth=auth,
-                        params={"force": False},  # False = papelera, True = borrado permanente
+                        json={"status": "draft"},  # Regla 9: draft, no DELETE irreversible
                         timeout=15,
                     )
                     if del_resp.status_code in [200, 201]:
                         stats["deleted"] += 1
-                        logger.info(f"     ✅ Post #{post_id} movido a papelera.")
+                        logger.info(f"     ✅ Post #{post_id} movido a DRAFT (Regla 9).")
                     else:
                         stats["errors"] += 1
-                        logger.error(f"     ❌ Error al eliminar #{post_id}: {del_resp.status_code}")
+                        logger.error(f"     ❌ Error al mover a draft #{post_id}: {del_resp.status_code}")
                 else:
                     stats["deleted"] += 1  # contamos igual en dry run
 
