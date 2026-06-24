@@ -249,10 +249,10 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
         return None
         
     models_to_try = [
-        "gemini-2.0-flash",       # Modelo principal (razonamiento multimodal de última generación)
-        "gemini-2.0-flash-lite",  # Modelo de baja latencia
-        "gemini-1.5-flash",       # Respaldo estable garantizado
-        "gemini-1.5-flash-8b"     # Respaldo ultra-ligero para tareas rápidas
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b"
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
@@ -390,6 +390,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             g_published = coverage.get(g_match_id, [])
             
             start_time_str = game.get("start_time", "")
+            status_eval = game.get("status", "Prog.")
             is_today = False
             if start_time_str:
                 if start_time_str.startswith(today_arg) or "hoy" in start_time_str.lower():
@@ -397,8 +398,8 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 elif ":" in start_time_str and "-" not in start_time_str.split(" ")[0]:
                     is_today = True
             
-            status = game.get("status", "")
-            if status not in ["Prog.", "Progr.", "Final", "Finalizado", "Cancelado"]:
+            # Si el partido está activo ahora mismo o ya terminó, forzamos que sea de HOY
+            if status_eval not in ["Prog.", "Progr.", "Cancelado", "Postergado"]:
                 is_today = True
             
             # ¿Necesita previa hoy?
@@ -442,17 +443,16 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             
             # ── FILTRO ESTRICTO DE FECHA (Directriz Suprema: solo noticias de HOY) ──
             start_time_str = g.get("start_time", "")
+            status_eval = g.get("status", "Prog.")
             is_today = False
             if start_time_str:
                 if start_time_str.startswith(today_arg) or "hoy" in start_time_str.lower():
                     is_today = True
                 elif ":" in start_time_str and "-" not in start_time_str.split(" ")[0]:
-                    # Si tiene formato de hora pura como "16:00 (Hora Argentina)" asume que es hoy
                     is_today = True
             
-            status = g.get("status", "")
-            # Si el partido está activo ahora mismo ("En juego"), forzamos is_today a True
-            if status not in ["Prog.", "Progr.", "Final", "Finalizado", "Cancelado"]:
+            # Si el partido está activo ahora mismo o ya terminó, forzamos que sea de HOY
+            if status_eval not in ["Prog.", "Progr.", "Cancelado", "Postergado"]:
                 is_today = True
             partido_activo = status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-")
             
@@ -511,7 +511,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             1. Conoce a la perfección la escalera del torneo: Zona de Grupos -> 16avos de final -> 8vos de final -> 4tos de final -> Semi final -> Partido para definir el 3ero y 4to -> Final.
             2. Fase Actual: ZONA DE GRUPOS. Calcula los puntos virtuales/reales de cada equipo sumando los de este partido (3 por ganar, 1 por empatar, 0 por perder).
             3. Determina con precisión matemática basada en el formato oficial de 12 grupos:
-               - Quién queda CLASIFICADO a los 16avos de final (Avanzan los 2 primeros de cada grupo Y los 8 mejores terceros de toda la copa).
+               - Quién queda CLASIFICADO a la Ronda de 32 / 16avos de final (Avanzan los 2 primeros de cada grupo Y los 8 mejores terceros de toda la copa). Salir tercero no significa eliminación automática.
                - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de la diferencia de gol para entrar como uno de los mejores terceros a 16avos).
                - Quién queda ELIMINADO de la Copa del Mundo matemáticamente (quienes no pueden alcanzar ni siquiera el tercer puesto competitivo).
             4. Devuelve los resultados estructurados en JSON. Es vital que el análisis entienda que salir tercero en el grupo NO significa eliminación automática en este Mundial.

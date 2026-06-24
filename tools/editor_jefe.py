@@ -102,10 +102,10 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
         return {}
         
     models_to_try = [
-        "gemini-2.0-flash",       # Modelo principal (razonamiento multimodal de última generación)
-        "gemini-2.0-flash-lite",  # Modelo de baja latencia
-        "gemini-1.5-flash",       # Respaldo estable garantizado
-        "gemini-1.5-flash-8b"     # Respaldo ultra-ligero para tareas rápidas
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b"
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
