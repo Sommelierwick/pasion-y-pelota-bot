@@ -368,17 +368,6 @@ def fetch_mundial_complete_data() -> dict:
             else:
                 players_stats_formatted = raw_players_stats
 
-            # --- HOTFIX: INYECTAR PARTIDOS DEL 24 DE JUNIO ---
-            # La API original de Promiedos omite estos partidos, provocando que la web salte al 28 de junio.
-            hotfix_games = [
-                {"id": "hf1", "stage": "Fase de Grupos", "home": "Suiza", "away": "Canadá", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 16:00 (Hora Argentina)", "display_time": "", "display_status": ""},
-                {"id": "hf2", "stage": "Fase de Grupos", "home": "Bosnia Herzegovina", "away": "Qatar", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 16:00 (Hora Argentina)", "display_time": "", "display_status": ""},
-                {"id": "hf3", "stage": "Fase de Grupos", "home": "Escocia", "away": "Brasil", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 19:00 (Hora Argentina)", "display_time": "", "display_status": ""},
-                {"id": "hf4", "stage": "Fase de Grupos", "home": "Marruecos", "away": "Haití", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 19:00 (Hora Argentina)", "display_time": "", "display_status": ""},
-                {"id": "hf5", "stage": "Fase de Grupos", "home": "Sudáfrica", "away": "Corea del Sur", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 22:00 (Hora Argentina)", "display_time": "", "display_status": ""},
-                {"id": "hf6", "stage": "Fase de Grupos", "home": "República Checa", "away": "México", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 22:00 (Hora Argentina)", "display_time": "", "display_status": ""}
-            ]
-            games_list.extend(hotfix_games)
 
             return {
                 "groups": groups,

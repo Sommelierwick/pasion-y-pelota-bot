@@ -390,7 +390,16 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             g_published = coverage.get(g_match_id, [])
             
             start_time_str = game.get("start_time", "")
-            is_today = start_time_str.startswith(today_arg) if start_time_str else False
+            is_today = False
+            if start_time_str:
+                if start_time_str.startswith(today_arg) or "hoy" in start_time_str.lower():
+                    is_today = True
+                elif ":" in start_time_str and "-" not in start_time_str.split(" ")[0]:
+                    is_today = True
+            
+            status = game.get("status", "")
+            if status not in ["Prog.", "Progr.", "Final", "Finalizado", "Cancelado"]:
+                is_today = True
             
             # ¿Necesita previa hoy?
             needs_today_previa = is_today and ("previa" not in g_published)
@@ -433,7 +442,18 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             
             # ── FILTRO ESTRICTO DE FECHA (Directriz Suprema: solo noticias de HOY) ──
             start_time_str = g.get("start_time", "")
-            is_today = start_time_str.startswith(today_arg) if start_time_str else False
+            is_today = False
+            if start_time_str:
+                if start_time_str.startswith(today_arg) or "hoy" in start_time_str.lower():
+                    is_today = True
+                elif ":" in start_time_str and "-" not in start_time_str.split(" ")[0]:
+                    # Si tiene formato de hora pura como "16:00 (Hora Argentina)" asume que es hoy
+                    is_today = True
+            
+            status = g.get("status", "")
+            # Si el partido está activo ahora mismo ("En juego"), forzamos is_today a True
+            if status not in ["Prog.", "Progr.", "Final", "Finalizado", "Cancelado"]:
+                is_today = True
             partido_activo = status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-")
             
             # Descartar partidos de otros días que ya terminaron y no son de hoy
@@ -487,13 +507,14 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             TABLA DE POSICIONES ACTUAL DEL GRUPO:
             {group_json}
             
-            INSTRUCCIONES DE RAZONAMIENTO LÓGICO:
-            1. Calcula los puntos virtuales/reales de cada equipo en el grupo sumando los puntos de este partido (3 por ganar, 1 por empatar, 0 por perder).
-            2. Determina con precisión matemática y lógica:
-               - Quién queda CLASIFICADO a octavos de final.
-               - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de otros resultados).
-               - Quién queda ELIMINADO de la Copa del Mundo matemáticamente.
-            3. Devuelve los resultados estructurados en JSON. Está estrictamente prohibido indicar que no hay datos disponibles o dejar valores vacíos o nulos. Toda la información del análisis lógico y matemático debe ser completa y precisa, simulando las proyecciones si no las hay.
+            INSTRUCCIONES DE RAZONAMIENTO LÓGICO Y FORMATO DEL TORNEO (REGLAMENTO FIFA 2026 - 48 EQUIPOS):
+            1. Conoce a la perfección la escalera del torneo: Zona de Grupos -> 16avos de final -> 8vos de final -> 4tos de final -> Semi final -> Partido para definir el 3ero y 4to -> Final.
+            2. Fase Actual: ZONA DE GRUPOS. Calcula los puntos virtuales/reales de cada equipo sumando los de este partido (3 por ganar, 1 por empatar, 0 por perder).
+            3. Determina con precisión matemática basada en el formato oficial de 12 grupos:
+               - Quién queda CLASIFICADO a los 16avos de final (Avanzan los 2 primeros de cada grupo Y los 8 mejores terceros de toda la copa).
+               - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de la diferencia de gol para entrar como uno de los mejores terceros a 16avos).
+               - Quién queda ELIMINADO de la Copa del Mundo matemáticamente (quienes no pueden alcanzar ni siquiera el tercer puesto competitivo).
+            4. Devuelve los resultados estructurados en JSON. Es vital que el análisis entienda que salir tercero en el grupo NO significa eliminación automática en este Mundial.
             """
             
             class WCAnalysis(pydantic.BaseModel):
@@ -533,7 +554,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             1. Título H1: Clickbait honesto con el nombre de los equipos, el resultado y una consecuencia de clasificación.
             2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
             3. Debes incluir una tabla HTML de la clasificación del grupo actualizada tras este partido/resultado.
-            4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto.
+            4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto. IMPORTANTE: Proyecta explícitamente el camino de las selecciones basándote en la escalera real del torneo: 16avos de final -> 8vos -> 4tos -> Semi -> Final. Nunca menciones "octavos de final" como la primera fase eliminatoria post-grupos.
             5. REGLA DE SEDES DEL MUNDIAL 2026: El Mundial se juega en Estados Unidos, México y Canadá. NINGUNA selección juega en el estadio de su propio país de origen (excepto los tres países anfitriones en sus sedes designadas). Nunca asumas que Uruguay juega en el Estadio Centenario, que Brasil juega en el Maracaná, o que Argentina juega en el Monumental. Los partidos de otras selecciones se juegan en los estadios oficiales de Norteamérica (como el Estadio Miami / Hard Rock Stadium en Miami Gardens, Florida, MetLife Stadium en East Rutherford, etc.). Escribe asertivamente sobre la sede neutral norteamericana real.
             6. MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano) envuelta obligatoriamente en un contenedor oculto para que no sea visible para los visitantes de la página pero sí para los rastreadores e IAs (GEO):
             <div style="display: none !important;" aria-hidden="true">
