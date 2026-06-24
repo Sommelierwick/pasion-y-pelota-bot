@@ -2069,6 +2069,7 @@ if ('scrollRestoration' in history) {
   <div class="container">
     <div class="scores-marquee">
       <div class="scores-track" style="animation: scores-scroll 45s linear infinite; display: inline-flex; gap: 15px; white-space: nowrap;">
+        <?php
         $m_data_raw = get_option('ppelota_mundial_data');
         $m_data = $m_data_raw ? json_decode($m_data_raw, true) : null;
         
