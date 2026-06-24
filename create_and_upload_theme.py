@@ -2441,7 +2441,7 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
   <div class="hero-side hero-fixture-widget">
     <div class="widget-header">
       <span class="widget-icon">🏆</span>
-      <h3>Mundial 2026: Partidos de Hoy</h3>
+      <h3 id="widget-today-title">Mundial 2026: Partidos de Hoy</h3>
     </div>
     <div class="widget-content">
       <?php
@@ -2449,20 +2449,60 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
       $m_data = $m_data_raw ? json_decode($m_data_raw, true) : null;
       
       $today_matches = [];
+      $widget_title = "Mundial 2026: Partidos de Hoy";
+      
       if ($m_data && !empty($m_data['games'])) {
         $tz = new DateTimeZone('America/Argentina/Buenos_Aires');
         $dt = new DateTime('now', $tz);
-        $today_str = $dt->format('d-m-Y'); // Formato: "20-06-2026"
+        $today_str = $dt->format('d-m-Y');
         
+        // 1. Intentar buscar partidos de hoy
         foreach ($m_data['games'] as $game) {
           $game_date = substr($game['start_time'], 0, 10);
           if ($game_date === $today_str) {
             $today_matches[] = $game;
           }
         }
+        
+        // 2. Si no hay partidos hoy, buscar el próximo día con partidos
+        if (empty($today_matches)) {
+            $future_dates = [];
+            foreach ($m_data['games'] as $game) {
+                $game_date_str = substr($game['start_time'], 0, 10);
+                $game_dt = DateTime::createFromFormat('d-m-Y', $game_date_str, $tz);
+                if ($game_dt && $game_dt > $dt) {
+                    $future_dates[] = $game_date_str;
+                }
+            }
+            if (!empty($future_dates)) {
+                // Ordenar y agarrar el más cercano
+                usort($future_dates, function($a, $b) use ($tz) {
+                    $da = DateTime::createFromFormat('d-m-Y', $a, $tz);
+                    $db = DateTime::createFromFormat('d-m-Y', $b, $tz);
+                    return $da <=> $db;
+                });
+                $next_date = $future_dates[0];
+                
+                foreach ($m_data['games'] as $game) {
+                    if (substr($game['start_time'], 0, 10) === $next_date) {
+                        $today_matches[] = $game;
+                    }
+                }
+                
+                $widget_title = "Mundial 2026: Próximos Partidos";
+            }
+        }
       }
-      
+      ?>
+      <script>
+        document.getElementById('widget-today-title').innerText = "<?php echo $widget_title; ?>";
+      </script>
+      <?php
       if (!empty($today_matches)):
+        $proj_raw = get_option('ppelota_projected_brackets');
+        $proj_brackets = $proj_raw ? json_decode($proj_raw, true) : [];
+        $proj_index = 0;
+
         foreach ($today_matches as $game):
           $status_class = '';
           $status_lbl = $game['status'];
@@ -2476,11 +2516,21 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
             $status_class = 'prog';
             $status_lbl = substr($game['start_time'], 11, 5) . ' (Hora Arg)';
           }
+
+          $h_name = $game['home'];
+          $a_name = $game['away'];
+          
+          if ((stripos($h_name, 'definir') !== false || trim($h_name) === '') && !empty($proj_brackets) && isset($proj_brackets[$proj_index])) {
+              $h_name = $proj_brackets[$proj_index]['home'];
+              $a_name = $proj_brackets[$proj_index]['away'];
+              $proj_index++;
+              $status_lbl .= ' (Simulado)';
+          }
       ?>
           <div class="widget-match-item <?php echo $status_class; ?>">
             <div class="match-teams">
               <div class="team" style="text-align:right;">
-                <span class="team-name"><?php echo esc_html($game['home']); ?></span>
+                <span class="team-name"><?php echo esc_html($h_name); ?></span>
               </div>
               <div class="score">
                 <span class="score-val"><?php echo esc_html($game['home_goals']); ?></span>
@@ -2488,7 +2538,7 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
                 <span class="score-val"><?php echo esc_html($game['away_goals']); ?></span>
               </div>
               <div class="team" style="text-align:left;">
-                <span class="team-name"><?php echo esc_html($game['away']); ?></span>
+                <span class="team-name"><?php echo esc_html($a_name); ?></span>
               </div>
             </div>
             <div class="match-status"><?php echo esc_html($status_lbl); ?></div>

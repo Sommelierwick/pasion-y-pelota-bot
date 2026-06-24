@@ -22,6 +22,7 @@ from tools.wordpress import WordPressPublisher
 from tools.cleanup import cleanup_old_posts
 from tools.images import get_football_image
 from tools.statsbomb_api import get_player_historical_stats
+from tools.tactical_stats import fetch_player_tactical_stats
 
 # Configuración de logs
 logging.basicConfig(
@@ -72,6 +73,8 @@ class EnrichedNews(pydantic.BaseModel):
     original_details: List[str] = pydantic.Field(description="Detalles originales del Ojeador. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
     lsi_keywords: List[str] = pydantic.Field(default_factory=list, description="2-3 keywords LSI del clúster para integrar naturalmente en el artículo. Debe ser una lista de strings, usar [] si no aplica (NUNCA null).")
     seo_cluster: str = pydantic.Field(default="", description="Clúster SEO heredado del Ojeador")
+    tactical_rating: str = pydantic.Field(default="", description="Calificación táctica del jugador (ej. 8.2)")
+    expected_goals: str = pydantic.Field(default="", description="Goles esperados (xG) en el último partido")
 
 class Article(pydantic.BaseModel):
     title: str = pydantic.Field(description="Título H1: clickbait honesto con jugador/equipo + dato estadístico o contexto.")
@@ -246,10 +249,10 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
         return None
         
     models_to_try = [
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash-latest"
+        "gemini-2.0-flash",       # Modelo principal (razonamiento multimodal de última generación)
+        "gemini-2.0-flash-lite",  # Modelo de baja latencia
+        "gemini-1.5-flash",       # Respaldo estable garantizado
+        "gemini-1.5-flash-8b"     # Respaldo ultra-ligero para tareas rápidas
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
@@ -297,9 +300,9 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
                         logging.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
                         config.rotate_key()
                 elif response.status_code == 429:
-                    logging.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave...")
+                    logging.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave y esperando 15s...")
                     config.rotate_key()
-                    time.sleep(1)
+                    time.sleep(15)
                 else:
                     logging.error(f"Error de Gemini HTTP ({response.status_code}) para {model_name}: {response.text}")
                     config.rotate_key()
@@ -1277,7 +1280,8 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 7. ESTADÍSTICAS EXACTAS (CERO ALUCINACIÓN):
    - NO SE DEBE INVENTAR NINGUNA CIFRA ESTADÍSTICA NI TABLA.
    - NUNCA generes una tabla HTML de estadísticas.
-   - Utiliza exclusivamente los placeholders `{goles}` y `{asistencias}` si necesitas referenciar estadísticas. El sistema los reemplazará con datos reales e inyectará la tabla oficial de Promiedos automáticamente al final del artículo.
+   - Utiliza exclusivamente los placeholders `{goles}`, `{asistencias}`, `{tactical_rating}` y `{expected_goals}` si necesitas referenciar estadísticas o calificaciones tácticas. El sistema los reemplazará con datos reales.
+   - Ejemplo: "El jugador alcanzó un puntaje de {tactical_rating} con un xG de {expected_goals}."
 
 8. CONTEXTO HISTÓRICO AVANZADO (STATSBOMB):
    - Si se te proporciona información de StatsBomb del Mundial 2022 (como xG o Pases Clave), úsala orgánicamente en tu redacción como un análisis periodístico de élite para comparar el rendimiento actual con el de Qatar 2022.
@@ -1395,13 +1399,20 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
         from tools.promiedos import fetch_mundial_complete_data
         prom_data = fetch_mundial_complete_data()
         players_stats = prom_data.get("players_statistics", {})
-        tables = players_stats.get("tables", [])
+        
+        # Compatibilidad dual
+        if isinstance(players_stats, dict):
+            tables = players_stats.get("tables", [])
+        elif isinstance(players_stats, list):
+            tables = players_stats
+        else:
+            tables = []
         
         target_player = (player_name if 'player_name' in locals() else (enriched_data.get('player', '') if 'enriched_data' in locals() else '')).lower()
         player_goles, player_asist, player_partidos = "0", "0", "0"
         
         for t in tables:
-            rows = t.get("rows", [])
+            rows = t.get("rows", []) if "rows" in t else t.get("table", {}).get("rows", [])
             for r in rows:
                 pname = r.get("entity", {}).get("object", {}).get("name", "").lower()
                 if target_player and (target_player in pname or pname in target_player):
@@ -1455,6 +1466,16 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
                         
         content_html = content_html.replace("{horario}", str(game_start_time))
         content_html = content_html.replace("{resultado}", str(game_result))
+        
+        # Reemplazo de métricas tácticas avanzadas (cero alucinación)
+        try:
+            tactical_stats = fetch_player_tactical_stats(target_player)
+            content_html = content_html.replace("{tactical_rating}", str(tactical_stats.get("rating", "-")))
+            content_html = content_html.replace("{expected_goals}", str(tactical_stats.get("expected_goals", "-")))
+        except Exception as e_tac:
+            logging.error(f"Error inyectando métricas tácticas: {e_tac}")
+            content_html = content_html.replace("{tactical_rating}", "-")
+            content_html = content_html.replace("{expected_goals}", "-")
         
         # Append a beautiful HTML table of the Top 10 Goleadores
         if "{goles}" not in content_html:

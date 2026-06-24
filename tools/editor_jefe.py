@@ -102,10 +102,10 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
         return {}
         
     models_to_try = [
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash-latest"
+        "gemini-2.0-flash",       # Modelo principal (razonamiento multimodal de última generación)
+        "gemini-2.0-flash-lite",  # Modelo de baja latencia
+        "gemini-1.5-flash",       # Respaldo estable garantizado
+        "gemini-1.5-flash-8b"     # Respaldo ultra-ligero para tareas rápidas
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
@@ -151,9 +151,9 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
                         logger.error(f"Error parseando respuesta de Gemini HTTP: {parse_err}")
                         config.rotate_key()
                 elif response.status_code == 429:
-                    logger.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave...")
+                    logger.warning(f"Gemini Rate Limit (429) detectado para {model_name}. Rotando clave y esperando 15s...")
                     config.rotate_key()
-                    time.sleep(1)
+                    time.sleep(15)
                 else:
                     logger.error(f"Error de Gemini HTTP ({response.status_code}) para {model_name}: {response.text}")
                     config.rotate_key()

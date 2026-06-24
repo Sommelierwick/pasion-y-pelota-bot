@@ -4,6 +4,7 @@ import logging
 import urllib.parse
 import json
 from datetime import datetime
+import pytz
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -240,9 +241,13 @@ def fetch_mundial_complete_data() -> dict:
                 logging.error("No se encontró el script __NEXT_DATA__ en la página del Mundial.")
                 return {}
             
-            data = json.loads(next_data_script.string or "{}")
-            page_props = data.get("props", {}).get("pageProps", {})
-            body_data = page_props.get("data", {})
+            try:
+                data = json.loads(next_data_script.string or "{}")
+                page_props = data.get("props", {}).get("pageProps", {})
+                body_data = page_props.get("data", {})
+            except Exception as e:
+                logging.error(f"Error parseando __NEXT_DATA__: {e}")
+                return {}
             
             # 1. Parsear tables_groups (Posiciones de los grupos)
             groups = []
@@ -349,11 +354,37 @@ def fetch_mundial_complete_data() -> dict:
                     "matches": groups_list
                 })
                 
+            # Adaptador de formato para retrocompatibilidad con WordPress (PHP)
+            raw_players_stats = body_data.get("players_statistics", [])
+            players_stats_formatted = []
+            if isinstance(raw_players_stats, dict):
+                for t in raw_players_stats.get("tables", []):
+                    players_stats_formatted.append({
+                        "name": t.get("name"),
+                        "table": {
+                            "rows": t.get("rows", [])
+                        }
+                    })
+            else:
+                players_stats_formatted = raw_players_stats
+
+            # --- HOTFIX: INYECTAR PARTIDOS DEL 24 DE JUNIO ---
+            # La API original de Promiedos omite estos partidos, provocando que la web salte al 28 de junio.
+            hotfix_games = [
+                {"id": "hf1", "stage": "Fase de Grupos", "home": "Suiza", "away": "Canadá", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 16:00 (Hora Argentina)", "display_time": "", "display_status": ""},
+                {"id": "hf2", "stage": "Fase de Grupos", "home": "Bosnia Herzegovina", "away": "Qatar", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 16:00 (Hora Argentina)", "display_time": "", "display_status": ""},
+                {"id": "hf3", "stage": "Fase de Grupos", "home": "Escocia", "away": "Brasil", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 19:00 (Hora Argentina)", "display_time": "", "display_status": ""},
+                {"id": "hf4", "stage": "Fase de Grupos", "home": "Marruecos", "away": "Haití", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 19:00 (Hora Argentina)", "display_time": "", "display_status": ""},
+                {"id": "hf5", "stage": "Fase de Grupos", "home": "Sudáfrica", "away": "Corea del Sur", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 22:00 (Hora Argentina)", "display_time": "", "display_status": ""},
+                {"id": "hf6", "stage": "Fase de Grupos", "home": "República Checa", "away": "México", "home_goals": "-", "away_goals": "-", "status": "Prog.", "status_symbol": "Prog.", "start_time": "24-06-2026 22:00 (Hora Argentina)", "display_time": "", "display_status": ""}
+            ]
+            games_list.extend(hotfix_games)
+
             return {
                 "groups": groups,
                 "games": games_list,
                 "brackets": { "stages": brackets_stages },
-                "players_statistics": body_data.get("players_statistics", []),
+                "players_statistics": players_stats_formatted,
                 "last_updated": "Fase de Grupos"
             }
         else:
