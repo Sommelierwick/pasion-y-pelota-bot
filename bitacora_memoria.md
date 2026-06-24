@@ -275,3 +275,15 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
 **ORDEN SUPREMA: ACTUALIZACIÓN DE APIS Y HUSO HORARIO (GMT-3)**
 * Queda estrictamente establecido que los modelos de la API de Gemini deben pertenecer a la familia estable (ej. `gemini-2.0-flash`, `gemini-1.5-flash`). Está terminantemente prohibido usar alias temporales (`-latest`) o modelos alucinados (`2.5`).
 * Toda la plataforma opera inquebrantablemente en la zona horaria de **Argentina (`America/Argentina/Buenos_Aires`)**. Los extractores de Promiedos y las inyecciones de fecha a WordPress en Hostinger deben forzar explícitamente el offset GMT-3 en sus timestamps usando la librería `pytz`.
+
+## 7. Registro de ORDEN SUPREMA (24/06/2026)
+- Eliminación de Hotfix en promiedos.py para desbloquear lectura de API.
+- Variable is_today robustecida en orquestador.
+- Documentalista y Redactor SEO actualizados para reconocer formato de 48 equipos y 16avos de final.
+- Implementación de widget GTranslate Zero-Cost en footer.php.
+- Generación de PDF Arquitectónico completo a petición del usuario bajo ORDEN SUPREMA.
+- **Fusión Portada + Subpágina de Promiedos (24/06/2026 19:00 GMT-3):** Se descubrió que la subpágina del Mundial de Promiedos no cargaba los partidos en vivo de la Fecha 3, los cuales se renderizaban únicamente en la portada principal (`promiedos.com.ar`). Se modificó `tools/promiedos.py` para leer ambas URL, extraer los encuentros del Mundial del día de la portada y fusionarlos de manera automatizada en el dataset.
+- **Hotfix de Placeholders y Tipos de Datos (24/06/2026 19:05 GMT-3):**
+  - Se escaparon los placeholders `{tactical_rating}` y `{expected_goals}` en el f-string de `main_standalone.py` para evitar crasheos de tipo `NameError`.
+  - Se adaptó la función `calculate_player_stats` en `tools/editor_jefe.py` para procesar el campo `players_statistics` de forma segura tanto cuando se recibe como un diccionario (formato crudo de Promiedos) como cuando se recibe como una lista (formato adaptado).
+
