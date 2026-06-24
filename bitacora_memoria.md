@@ -215,3 +215,11 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
 | Clúster messi_seleccion mal etiquetado | 🟡 Menor | ✅ Corregido |
 
 *Última actualización: 24 de Junio de 2026 — 12:14 GMT-3*
+
+---
+
+### 🔥 HOTFIX — 24 de Junio de 2026 (12:24 GMT-3)
+**Commit de producción:** `b9c699e`
+**Archivo modificado:** `create_and_upload_theme.py`
+**Bug:** El sitio entró en "Pantalla Blanca de la Muerte" (Fatal Error de PHP, response size de 2.700 bytes) tras la refactorización de la marquesina dinámica en la "Orden Suprema 9". Se comprobó que el error era que se había cerrado un div de HTML y comenzado lógica PHP (procesando JSON) sin abrir previamente la etiqueta `<?php` en el archivo `header.php`.
+**Corrección:** Se inyectó la etiqueta `<?php` faltante en la línea 2072 del generador del tema y se procedió a re-empaquetar y subir el tema automáticamente. El sitio volvió a estar online de inmediato.
