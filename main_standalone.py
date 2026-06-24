@@ -17,7 +17,7 @@ from typing import List, Optional
 # Importaciones de nuestras herramientas locales
 import config
 from tools.scraper import monitor_all_sources
-from tools.promiedos import fetch_promiedos_page, search_backup_stats, search_web_for_verification
+from tools.promiedos import fetch_promiedos_page, search_backup_stats, search_web_for_verification, fetch_mundial_complete_data_with_today
 from tools.wordpress import WordPressPublisher
 from tools.cleanup import cleanup_old_posts
 from tools.images import get_football_image
@@ -344,7 +344,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
     import json
     import pydantic
     from typing import List
-    from tools.promiedos import fetch_mundial_complete_data
+    from tools.promiedos import fetch_mundial_complete_data_with_today
     from tools.images import get_football_image
     from tools.wordpress import WordPressPublisher
     import os
@@ -353,7 +353,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
 
     logging.info("Iniciando Motor de Cobertura en Vivo del Mundial 2026...")
     try:
-        mundial_data = fetch_mundial_complete_data()
+        mundial_data = fetch_mundial_complete_data_with_today()
         games = mundial_data.get("games", [])
         groups = mundial_data.get("groups", [])
         
@@ -953,9 +953,9 @@ def run_pipeline():
 
     # ─── AGREGAR CANDIDATO DE RESUMEN DIARIO DEL MUNDIAL ──────────────────────
     try:
-        from tools.promiedos import fetch_mundial_complete_data
+        from tools.promiedos import fetch_mundial_complete_data_with_today
         import time
-        mundial_data = fetch_mundial_complete_data()
+        mundial_data = fetch_mundial_complete_data_with_today()
         games = mundial_data.get("games", [])
         if games:
             summary_parts = []

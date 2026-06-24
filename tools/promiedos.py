@@ -382,6 +382,109 @@ def fetch_mundial_complete_data() -> dict:
         logging.error(f"Excepción al descargar datos estructurados del Mundial: {e}")
     return {}
 
+
+def fetch_today_mundial_from_homepage() -> list:
+    """
+    Descarga la PORTADA de Promiedos (promiedos.com.ar) y extrae
+    los partidos del Mundial que se juegan HOY.
+    Promiedos muestra los partidos del día actual en la portada,
+    no en la subpágina /league/fifa-world-cup/fjda que solo tiene datos estáticos.
+    """
+    url = "https://www.promiedos.com.ar"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    logging.info("Descargando portada de Promiedos para obtener partidos del Mundial de HOY...")
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            next_data_script = soup.find("script", id="__NEXT_DATA__")
+            if not next_data_script:
+                logging.warning("No se encontró __NEXT_DATA__ en la portada de Promiedos.")
+                return []
+            
+            data = json.loads(next_data_script.string or "{}")
+            page_props = data.get("props", {}).get("pageProps", {})
+            body_data = page_props.get("data", {})
+            leagues = body_data.get("leagues", [])
+            
+            mundial_games = []
+            for lg in leagues:
+                lname = lg.get("name", "").lower()
+                if any(x in lname for x in ["mundial", "world cup", "fifa"]):
+                    for g in lg.get("games", []):
+                        teams = g.get("teams", [])
+                        scores = g.get("scores", [])
+                        status = g.get("status", {})
+                        
+                        home = teams[0].get("name") if len(teams) > 0 else "Local"
+                        away = teams[1].get("name") if len(teams) > 1 else "Visita"
+                        home_goals = scores[0] if len(scores) > 0 else "-"
+                        away_goals = scores[1] if len(scores) > 1 else "-"
+                        
+                        mundial_games.append({
+                            "id": g.get("id"),
+                            "stage": "Fecha 3",
+                            "home": home,
+                            "away": away,
+                            "home_goals": home_goals,
+                            "away_goals": away_goals,
+                            "status": status.get("name", "Prog."),
+                            "status_symbol": status.get("symbol_name", "Prog."),
+                            "start_time": convert_to_argentina_time(g.get("start_time")),
+                            "display_time": g.get("game_time_to_display") or "",
+                            "display_status": g.get("game_time_status_to_display") or ""
+                        })
+            
+            logging.info(f"Portada de Promiedos: encontrados {len(mundial_games)} partidos del Mundial de HOY.")
+            return mundial_games
+        else:
+            logging.error(f"Error HTTP {response.status_code} al descargar la portada de Promiedos.")
+    except Exception as e:
+        logging.error(f"Excepción al descargar portada de Promiedos: {e}")
+    return []
+
+
+def fetch_mundial_complete_data_with_today() -> dict:
+    """
+    Función maestra que combina los datos estáticos del Mundial (grupos, brackets, posiciones)
+    con los partidos EN VIVO del día actual extraídos de la portada de Promiedos.
+    """
+    # 1. Obtener datos estáticos (grupos, posiciones, brackets)
+    base_data = fetch_mundial_complete_data()
+    if not base_data:
+        base_data = {"groups": [], "games": [], "brackets": {"stages": []}, "players_statistics": [], "last_updated": "Fase de Grupos"}
+    
+    # 2. Obtener partidos de HOY desde la portada
+    today_games = fetch_today_mundial_from_homepage()
+    
+    if today_games:
+        # Crear un set de match_ids existentes para evitar duplicados
+        existing_ids = set()
+        for g in base_data.get("games", []):
+            mid = f"{g.get('home', '')}_{g.get('away', '')}"
+            existing_ids.add(mid)
+        
+        # Fusionar solo los partidos nuevos de hoy
+        added = 0
+        for tg in today_games:
+            mid = f"{tg.get('home', '')}_{tg.get('away', '')}"
+            if mid not in existing_ids:
+                base_data["games"].append(tg)
+                existing_ids.add(mid)
+                added += 1
+            else:
+                # Si ya existe, actualizar con datos más frescos (goles en vivo, status)
+                for i, g in enumerate(base_data["games"]):
+                    if f"{g.get('home', '')}_{g.get('away', '')}" == mid:
+                        base_data["games"][i] = tg
+                        break
+        
+        logging.info(f"Fusión completada: {added} partidos nuevos añadidos, {len(today_games) - added} actualizados con datos en vivo.")
+    
+    return base_data
+
 def search_backup_stats(query: str) -> str:
     """
     Función de búsqueda web de respaldo. 
