@@ -249,10 +249,10 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
         return None
         
     models_to_try = [
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b"
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash"
     ]
     num_keys = len(config.GEMINI_API_KEYS)
     import time
