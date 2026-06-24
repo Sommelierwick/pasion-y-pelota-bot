@@ -451,8 +451,14 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
 
         res = {"scorers": [], "assists": [], "passing": []}
         
-        stats = mundial_data.get("players_statistics", {})
-        tables = stats.get("tables", [])
+        stats = mundial_data.get("players_statistics", [])
+        # Compatibilidad: stats puede ser lista (del adaptador) o dict con clave "tables"
+        if isinstance(stats, dict):
+            tables = stats.get("tables", [])
+        elif isinstance(stats, list):
+            tables = stats
+        else:
+            tables = []
         
         for t in tables:
             name = t.get("name", "")
