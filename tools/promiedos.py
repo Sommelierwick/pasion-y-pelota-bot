@@ -1,68 +1,22 @@
-import os
 import requests
 from bs4 import BeautifulSoup
 import logging
 import urllib.parse
 import json
 from datetime import datetime
-import pytz
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-_detected_tz = None
-
-def get_detected_timezone():
-    global _detected_tz
-    if _detected_tz is not None:
-        return _detected_tz
-    
-    # 1. Probar desde variable de entorno PROMIEDOS_SOURCE_TZ
-    env_tz = os.environ.get("PROMIEDOS_SOURCE_TZ")
-    if env_tz:
-        try:
-            logging.info(f"Usando zona horaria configurada en PROMIEDOS_SOURCE_TZ: {env_tz}")
-            _detected_tz = pytz.timezone(env_tz)
-            return _detected_tz
-        except Exception as e:
-            logging.warning(f"Zona horaria en PROMIEDOS_SOURCE_TZ '{env_tz}' inválida: {e}")
-
-    # 2. Por defecto, dado que Promiedos sirve sus horarios en la hora oficial de Argentina (UTC-3),
-    # asumimos la zona horaria de Buenos Aires para evitar desfases indeseados causados por la IP del runner de GitHub.
-    _detected_tz = pytz.timezone('America/Argentina/Buenos_Aires')
-    return _detected_tz
-
 def convert_to_argentina_time(start_time_str: str) -> str:
     if not start_time_str:
         return start_time_str
-    try:
-        # Convertir a string por si acaso
-        start_time_str = str(start_time_str).strip()
-        
-        if "T" in start_time_str and start_time_str.endswith("Z"):
-            # Es formato ISO 8601 (ej: 2026-06-22T18:00:00Z)
-            dt = datetime.strptime(start_time_str, "%Y-%m-%dT%H:%M:%SZ")
-            dt = dt.replace(tzinfo=pytz.UTC)
-            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
-            dt_arg = dt.astimezone(tz_arg)
-            return dt_arg.strftime("%d-%m-%Y %H:%M")
-            
-        # Formato de Promiedos: "DD-MM-YYYY HH:MM" (ej: "22-06-2026 14:00")
-        dt = datetime.strptime(start_time_str, "%d-%m-%Y %H:%M")
-        tz_local = get_detected_timezone()
-        tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
-        
-        # Convertir de zona local del IP a zona de Argentina
-        if hasattr(tz_local, 'localize'):
-            dt_local = tz_local.localize(dt)
-        else:
-            dt_local = dt.replace(tzinfo=tz_local)
-            
-        dt_arg = dt_local.astimezone(tz_arg)
-        return dt_arg.strftime("%d-%m-%Y %H:%M")
-    except Exception as e:
-        logging.warning(f"Error al convertir horario '{start_time_str}': {e}")
-        return start_time_str
+    start_time_str = str(start_time_str).strip()
+    # Promiedos publica por defecto en GMT-3 (Hora Argentina)
+    # Solo agregamos el sufijo para cumplir con la regla 11 si no lo tiene
+    if "(Hora Argentina)" not in start_time_str:
+        return f"{start_time_str} (Hora Argentina)"
+    return start_time_str
 
 
 LEAGUE_URLS = {
@@ -105,7 +59,7 @@ def parse_next_data_to_text(html_content: str, league_key: str = "") -> str:
         if not next_data_script:
             return ""
         
-        data = json.loads(next_data_script.string)
+        data = json.loads(next_data_script.string or "{}")
         page_props = data.get("props", {}).get("pageProps", {})
         body_data = page_props.get("data", {})
         
@@ -286,7 +240,7 @@ def fetch_mundial_complete_data() -> dict:
                 logging.error("No se encontró el script __NEXT_DATA__ en la página del Mundial.")
                 return {}
             
-            data = json.loads(next_data_script.string)
+            data = json.loads(next_data_script.string or "{}")
             page_props = data.get("props", {}).get("pageProps", {})
             body_data = page_props.get("data", {})
             
@@ -328,19 +282,13 @@ def fetch_mundial_complete_data() -> dict:
                         "teams": team_list
                     })
             
-            # 2. Parsear games (Partidos de la fecha activa en grupos)
+            # 2. Parsear games (Partidos de TODAS las fechas de grupos)
             games_list = []
             games_data = body_data.get("games", {})
             filters = games_data.get("filters", [])
-            active_filter = None
             for f in filters:
-                if len(f.get("games", [])) > 0:
-                    active_filter = f
-                    break
-            
-            if active_filter:
-                filter_name = active_filter.get("name", "Fase de Grupos")
-                for g in active_filter.get("games", []):
+                filter_name = f.get("name", "Fase de Grupos")
+                for g in f.get("games", []):
                     teams = g.get("teams", [])
                     scores = g.get("scores", [])
                     status = g.get("status", {})
@@ -404,12 +352,12 @@ def fetch_mundial_complete_data() -> dict:
             return {
                 "groups": groups,
                 "games": games_list,
-                "brackets": brackets_stages,
+                "brackets": { "stages": brackets_stages },
                 "players_statistics": body_data.get("players_statistics", []),
-                "last_updated": active_filter.get("name", "") if active_filter else ""
+                "last_updated": "Fase de Grupos"
             }
         else:
-            logging.error(f"Error al descargar página del mundial: {response.status_code}")
+            logging.error(f"Error HTTP {response.status_code} al descargar datos del Mundial.")
     except Exception as e:
         logging.error(f"Excepción al descargar datos estructurados del Mundial: {e}")
     return {}
@@ -434,23 +382,29 @@ def search_backup_stats(query: str) -> str:
     }
     
     logging.info(f"Realizando búsqueda de respaldo de F1 para: '{query}'")
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, "html.parser")
-            results = soup.find_all("div", class_="result")
-            snippets = []
+    import time
+    for attempt in range(3):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                results = soup.find_all("div", class_="result")
+                snippets = []
+                
+                for r in results[:8]:
+                    title = r.find("a", class_="result__snippet")
+                    link = r.find("a", class_="result__url")
+                    if title and link:
+                        snippets.append(f"Fuente: {link.get('href')} | Info: {title.get_text().strip()}")
+                
+                return "\n\n".join(snippets)
+            elif response.status_code == 403 or response.status_code == 429:
+                logging.warning(f"DuckDuckGo rate limit. Retrying in 2 seconds (attempt {attempt+1})")
+                time.sleep(2)
+        except Exception as e:
+            logging.error(f"Error en búsqueda de respaldo para '{query}': {e}")
+            time.sleep(2)
             
-            for r in results[:8]:
-                title = r.find("a", class_="result__snippet")
-                link = r.find("a", class_="result__url")
-                if title and link:
-                    snippets.append(f"Fuente: {link.get('href')} | Info: {title.get_text().strip()}")
-            
-            return "\n\n".join(snippets)
-    except Exception as e:
-        logging.error(f"Error en búsqueda de respaldo para '{query}': {e}")
-        
     return "No se pudo obtener información de F1 de respaldo."
 
 def search_web_for_verification(query: str) -> str:
@@ -465,24 +419,30 @@ def search_web_for_verification(query: str) -> str:
     }
     
     logging.info(f"Fact-Checking: buscando en la web para veracidad: '{query}'")
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, "html.parser")
-            results = soup.find_all("div", class_="result")
-            snippets = []
-            
-            for r in results[:6]:
-                title = r.find("a", class_="result__snippet")
-                link = r.find("a", class_="result__url")
-                if title and link:
-                    snippets.append(f"Fuente: {link.get('href')} | Info: {title.get_text().strip()}")
-            
-            if snippets:
-                return "\n\n".join(snippets)
-            return "No se encontraron resultados de búsqueda para corroborar la noticia."
-    except Exception as e:
-        logging.error(f"Error al realizar búsqueda de fact-check para '{query}': {e}")
+    import time
+    for attempt in range(3):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                results = soup.find_all("div", class_="result")
+                snippets = []
+                
+                for r in results[:6]:
+                    title = r.find("a", class_="result__snippet")
+                    link = r.find("a", class_="result__url")
+                    if title and link:
+                        snippets.append(f"Fuente: {link.get('href')} | Info: {title.get_text().strip()}")
+                
+                if snippets:
+                    return "\n\n".join(snippets)
+                return "No se encontraron resultados de búsqueda para corroborar la noticia."
+            elif response.status_code == 403 or response.status_code == 429:
+                logging.warning(f"DuckDuckGo rate limit. Retrying in 2 seconds (attempt {attempt+1})")
+                time.sleep(2)
+        except Exception as e:
+            logging.error(f"Error al realizar búsqueda de fact-check para '{query}': {e}")
+            time.sleep(2)
         
     return "Error al buscar fuentes de verificación en la web."
 

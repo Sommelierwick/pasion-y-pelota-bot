@@ -5,7 +5,7 @@ import os
 from typing import List, Optional
 from requests.auth import HTTPBasicAuth
 import config
-from tools.images import strip_watermark, get_used_images, mark_image_used
+from tools.images import strip_watermark
 
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -36,6 +36,23 @@ class WordPressPublisher:
         
         image_url = image_url.strip()
         
+        # --- REGLA 4: Anti-duplicado en el gate final ---
+        import json
+        import os
+        USED_IMAGES_FILE = "used_images.json"
+        
+        try:
+            used = set()
+            if os.path.exists(USED_IMAGES_FILE):
+                with open(USED_IMAGES_FILE, "r", encoding="utf-8") as f:
+                    used = set(json.load(f))
+            if image_url in used:
+                logging.warning(f"❌ Anti-duplicado: La imagen {image_url} ya fue usada. Rechazando subida para evitar duplicados.")
+                return None
+        except Exception as e:
+            logging.warning(f"Error al leer {USED_IMAGES_FILE}: {e}")
+        # ------------------------------------------------
+        
         try:
             # Check if it is a local file path
             is_local = False
@@ -52,7 +69,18 @@ class WordPressPublisher:
                 if img_response.status_code != 200:
                     logging.error(f"No se pudo descargar la imagen de portada: {image_url} (HTTP {img_response.status_code})")
                     return None
-                img_content = img_response.content
+                
+                # Guardar temporalmente para strip_watermark
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+                    tmp_file.write(img_response.content)
+                    local_path = tmp_file.name
+                
+                strip_watermark(local_path)
+                
+                with open(local_path, "rb") as f:
+                    img_content = f.read()
+                os.remove(local_path)
             else:
                 local_path = image_url
                 if local_path.startswith("file://"):
@@ -61,6 +89,8 @@ class WordPressPublisher:
                 if not os.path.exists(local_path):
                     logging.error(f"No se encontró el archivo de imagen local: {local_path}")
                     return None
+                    
+                strip_watermark(local_path)
                 with open(local_path, "rb") as f:
                     img_content = f.read()
 
@@ -83,6 +113,16 @@ class WordPressPublisher:
             if upload_response.status_code in [200, 201]:
                 media_id = upload_response.json().get("id")
                 logging.info(f"Imagen de portada subida con éxito (ID: {media_id})")
+                
+                # --- Guardar en used_images.json ---
+                try:
+                    used.add(image_url)
+                    with open(USED_IMAGES_FILE, "w", encoding="utf-8") as f:
+                        json.dump(list(used), f, indent=2)
+                except Exception as e:
+                    logging.warning(f"No se pudo guardar la imagen usada: {e}")
+                # -----------------------------------
+                
                 if is_local:
                     try:
                         os.remove(local_path)
@@ -176,7 +216,7 @@ class WordPressPublisher:
                 
         return tag_ids
 
-    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, writer: Optional[str] = None, date: Optional[str] = None) -> Optional[dict]:
+    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, seo_focuskw: Optional[str] = None, writer: Optional[str] = None, date: Optional[str] = None) -> Optional[dict]:
         """
         Publica una entrada en WordPress.
         
@@ -187,7 +227,8 @@ class WordPressPublisher:
             tags: Lista de nombres de etiquetas (jugadores, equipos).
             status: 'publish' para publicar de inmediato, 'draft' para guardarlo como borrador.
             featured_image_id: ID del attachment de imagen destacada (opcional).
-            seo_desc: Meta descripción para SEO/GEO invisible (opcional).
+            seo_desc: Meta descripción para SEO (Yoast) (opcional).
+            seo_focuskw: Palabra clave principal para SEO (Yoast) (opcional).
             writer: Nombre del autor/periodista para atribución JSON-LD (opcional).
             date: Fecha exacta de publicación en formato ISO (opcional).
         """
@@ -220,11 +261,19 @@ class WordPressPublisher:
             "meta": {}
         }
         
+        if not date:
+            import pytz
+            from datetime import datetime
+            tz = pytz.timezone('America/Argentina/Buenos_Aires')
+            date = datetime.now(tz).isoformat()
+            
         if date:
             post_payload["date"] = date
         
         if seo_desc:
-            post_payload["meta"]["ppelota_seo_desc"] = seo_desc
+            post_payload["meta"]["_yoast_wpseo_metadesc"] = seo_desc
+        if seo_focuskw:
+            post_payload["meta"]["_yoast_wpseo_focuskw"] = seo_focuskw
         if writer:
             post_payload["meta"]["ppelota_writer"] = writer
             

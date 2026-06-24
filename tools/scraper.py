@@ -41,15 +41,19 @@ def get_internet_arg_now() -> datetime:
     except Exception as e:
         logging.warning(f"No se pudo obtener hora de Google: {e}")
 
-    try:
-        resp = requests.get("https://worldtimeapi.org/api/timezone/America/Argentina/Buenos_Aires", timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            dt_str = data.get("datetime", "")
-            dt = datetime.fromisoformat(dt_str)
-            return dt.astimezone(tz_arg)
-    except Exception:
-        pass
+    import time
+    for attempt in range(3):
+        try:
+            resp = requests.get("https://worldtimeapi.org/api/timezone/America/Argentina/Buenos_Aires", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                dt_str = data.get("datetime", "")
+                dt = datetime.fromisoformat(dt_str)
+                return dt.astimezone(tz_arg)
+            elif resp.status_code in [429, 503]:
+                time.sleep(2)
+        except Exception:
+            time.sleep(2)
 
     # Fallback: reloj del sistema (con aviso) convertido a Arg
     logging.warning("⚠️  No se pudo obtener hora de internet. Usando reloj local convertido a Arg.")
@@ -102,6 +106,10 @@ def fetch_rss_news(internet_now: datetime, max_age_hours: int = 48) -> list:
             logging.info(f"Leyendo RSS de {league}: {url}")
             try:
                 feed = feedparser.parse(url)
+                if getattr(feed, 'bozo', 0) == 1:
+                    logging.warning(f"Error de red/parseo en RSS (bozo=1) para {url}: {getattr(feed, 'bozo_exception', 'Error desconocido')}")
+                    continue
+                
                 accepted = 0
                 for entry in feed.entries[:20]:  # revisar hasta 20 por feed
                     title     = entry.get("title", "").strip()
@@ -160,44 +168,50 @@ def search_tweets_via_ddg(handle: str) -> list:
     }
 
     logging.info(f"Buscando tweets de X para @{handle} en DuckDuckGo...")
-    try:
-        response = requests.get(url, headers=headers, timeout=10)
-        if response.status_code == 200:
-            soup    = BeautifulSoup(response.text, "html.parser")
-            results = soup.find_all("div", class_="result")
+    import time
+    for attempt in range(3):
+        try:
+            response = requests.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                soup    = BeautifulSoup(response.text, "html.parser")
+                results = soup.find_all("div", class_="result")
 
-            for r in results[:5]:
-                title_elem = r.find("a", class_="result__snippet")
-                link_elem  = r.find("a", class_="result__url")
-                if not title_elem or not link_elem:
-                    continue
+                for r in results[:5]:
+                    title_elem = r.find("a", class_="result__snippet")
+                    link_elem  = r.find("a", class_="result__url")
+                    if not title_elem or not link_elem:
+                        continue
 
-                snippet    = title_elem.get_text().strip()
-                tweet_link = link_elem.get("href", "").strip()
+                    snippet    = title_elem.get_text().strip()
+                    tweet_link = link_elem.get("href", "").strip()
 
-                # Desencriptar redirección DuckDuckGo
-                if "duckduckgo.com/l/?" in tweet_link:
-                    parsed = urllib.parse.urlparse(tweet_link)
-                    params = urllib.parse.parse_qs(parsed.query)
-                    if "uddg" in params:
-                        tweet_link = params["uddg"][0]
+                    # Desencriptar redirección DuckDuckGo
+                    if "duckduckgo.com/l/?" in tweet_link:
+                        parsed = urllib.parse.urlparse(tweet_link)
+                        params = urllib.parse.parse_qs(parsed.query)
+                        if "uddg" in params:
+                            tweet_link = params["uddg"][0]
 
-                # Solo tweets directos (con /status/)
-                if (f"x.com/{handle}/status/" in tweet_link or
-                        f"twitter.com/{handle}/status/" in tweet_link):
-                    tweets.append({
-                        "title":     f"Actualización de @{handle}",
-                        "link":      tweet_link,
-                        "summary":   snippet,
-                        "published": "Reciente (Monitoreo X)",
-                        "pub_dt":    None,  # sin fecha extraíble de DuckDuckGo
-                        "source":    f"X (@{handle})",
-                        "journalist": handle,
-                    })
-        else:
-            logging.error(f"Error al buscar tweets de @{handle}: Código {response.status_code}")
-    except Exception as e:
-        logging.error(f"Excepción al buscar tweets de @{handle}: {e}")
+                    # Solo tweets directos (con /status/)
+                    if (f"x.com/{handle}/status/" in tweet_link or
+                            f"twitter.com/{handle}/status/" in tweet_link):
+                        tweets.append({
+                            "title":     snippet,
+                            "link":      tweet_link,
+                            "summary":   snippet,
+                            "published": "Reciente (via DuckDuckGo)",
+                            "pub_dt":    None,
+                            "source":    f"X/Twitter @{handle}",
+                            "league":    "x_twitter",
+                        })
+                
+                return tweets
+            elif response.status_code in [403, 429]:
+                logging.warning(f"DuckDuckGo rate limit en tweets de @{handle}. Intento {attempt+1}")
+                time.sleep(2)
+        except Exception as e:
+            logging.error(f"Error buscando tweets de @{handle}: {e}")
+            time.sleep(2)
 
     return tweets
 

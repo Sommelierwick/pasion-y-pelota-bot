@@ -360,11 +360,16 @@ img {
 .hero-no-img {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, var(--marca-red), var(--dark-bg));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 80px;
+  background: linear-gradient(135deg, var(--ole-green), var(--dark-bg));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+}
+.hero-side-no-img {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--ole-green), var(--dark-bg));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
 }
 
 .hero-overlay {
@@ -1825,6 +1830,9 @@ function ppelota_update_data_callback($request) {
   $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
   $response->header('Pragma', 'no-cache');
   $response->header('Expires', '0');
+  if (has_action('litespeed_purge_all')) {
+      do_action('litespeed_purge_all');
+  }
   return $response;
 }
 
@@ -1882,7 +1890,7 @@ add_action('wp_head', function () {
     $seo_desc = get_post_meta($post_id, 'ppelota_seo_desc', true);
     $writer_name = get_post_meta($post_id, 'ppelota_writer', true);
     if (empty($writer_name)) {
-      $writer_name = get_the_author();
+      $writer_name = 'Redacción Pasión y Pelota';
     }
     
     if ($seo_desc) {
@@ -2037,7 +2045,7 @@ if ('scrollRestoration' in history) {
         <?php
         $live_scores = get_option('ppelota_live_scores');
         if ($live_scores) {
-          echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $live_scores));
+          echo wp_kses_post(stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $live_scores)));
         } else {
           // Fallback con datos reales de la Copa del Mundo del 20 de Junio
           ?>
@@ -2061,23 +2069,86 @@ if ('scrollRestoration' in history) {
   <div class="container">
     <div class="scores-marquee">
       <div class="scores-track" style="animation: scores-scroll 45s linear infinite; display: inline-flex; gap: 15px; white-space: nowrap;">
-        <?php
-        $upcoming = get_option('ppelota_upcoming_matches');
-        if ($upcoming) {
-          echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $upcoming));
+        $m_data_raw = get_option('ppelota_mundial_data');
+        $m_data = $m_data_raw ? json_decode($m_data_raw, true) : null;
+        
+        $live_games = [];
+        $upcoming_games = [];
+        
+        if ($m_data && !empty($m_data['games'])) {
+            $tz = new DateTimeZone('America/Argentina/Buenos_Aires');
+            $now = new DateTime('now', $tz);
+            
+            foreach ($m_data['games'] as $g) {
+                $status = isset($g['status_symbol']) ? $g['status_symbol'] : (isset($g['status']) ? $g['status'] : '');
+                $start_time_str = isset($g['start_time']) ? $g['start_time'] : '';
+                
+                $game_time = null;
+                if ($start_time_str) {
+                    $clean_time = trim(str_replace(['(Hora Argentina)', '(Hora Arg)'], '', $start_time_str));
+                    $game_time = DateTime::createFromFormat('d-m-Y H:i', $clean_time, $tz);
+                }
+                
+                $is_live_or_finished = false;
+                if ($status === 'Fin' || $status === 'Finalizado' || strpos(strtolower($status), 'vivo') !== false) {
+                    $is_live_or_finished = true;
+                } elseif ($game_time && $game_time <= $now) {
+                    $is_live_or_finished = true;
+                }
+                
+                if ($is_live_or_finished) {
+                    $live_games[] = ['time' => $game_time, 'game' => $g];
+                } else {
+                    $upcoming_games[] = ['time' => $game_time, 'game' => $g];
+                }
+            }
+            
+            usort($upcoming_games, function($a, $b) {
+                if (!$a['time']) return 1;
+                if (!$b['time']) return -1;
+                return $a['time'] <=> $b['time'];
+            });
+            
+            usort($live_games, function($a, $b) {
+                if (!$a['time']) return 1;
+                if (!$b['time']) return -1;
+                return $b['time'] <=> $a['time']; // Descending for live/finished
+            });
+        }
+        
+        $months_abbr = [1=>"Ene", 2=>"Feb", 3=>"Mar", 4=>"Abr", 5=>"May", 6=>"Jun", 7=>"Jul", 8=>"Ago", 9=>"Sep", 10=>"Oct", 11=>"Nov", 12=>"Dic"];
+        
+        if (!empty($upcoming_games)) {
+            $items_to_render = [];
+            foreach ($upcoming_games as $item) {
+                $g = $item['game'];
+                $gt = $item['time'];
+                $home = isset($g['home']) ? $g['home'] : 'Local';
+                $away = isset($g['away']) ? $g['away'] : 'Visita';
+                
+                if ($gt) {
+                    $date_display = $gt->format('j') . ' ' . $months_abbr[(int)$gt->format('n')] . ' ' . $gt->format('H:i');
+                } else {
+                    $date_display = isset($g['start_time']) ? $g['start_time'] : '';
+                }
+                
+                $items_to_render[] = '<div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">' . esc_html($home) . '</strong> vs. <strong style="color: #fff;">' . esc_html($away) . '</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">' . esc_html($date_display) . ' (Hora Arg)</span></div>';
+            }
+            
+            while (count($items_to_render) < 8) {
+                $items_to_render = array_merge($items_to_render, $items_to_render);
+            }
+            $items_to_render = array_slice($items_to_render, 0, 12);
+            echo implode("\n", $items_to_render);
         } else {
-          // Fallback con datos reales del 21-22 de Junio
-          ?>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">España</strong> vs. <strong style="color: #fff;">Arabia Saudí</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 12:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Bélgica</strong> vs. <strong style="color: #fff;">Irán</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 15:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Uruguay</strong> vs. <strong style="color: #fff;">Cabo Verde</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 18:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Argentina</strong> vs. <strong style="color: #fff;">Austria</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">22 Jun 13:00 hs</span></div>
-          <!-- Duplicados para loop infinito continuo -->
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">España</strong> vs. <strong style="color: #fff;">Arabia Saudí</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 12:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Bélgica</strong> vs. <strong style="color: #fff;">Irán</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 15:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Uruguay</strong> vs. <strong style="color: #fff;">Cabo Verde</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">21 Jun 18:00 hs</span></div>
-          <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Argentina</strong> vs. <strong style="color: #fff;">Austria</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">22 Jun 13:00 hs</span></div>
-          <?php
+            // Fallback en caso de que no haya próximos partidos en el JSON
+            ?>
+            <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Mundial</strong> vs. <strong style="color: #fff;">FIFA 2026</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">Próximamente</span></div>
+            <!-- Duplicados para loop infinito continuo -->
+            <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Mundial</strong> vs. <strong style="color: #fff;">FIFA 2026</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">Próximamente</span></div>
+            <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Mundial</strong> vs. <strong style="color: #fff;">FIFA 2026</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">Próximamente</span></div>
+            <div class="score-item" style="background: #2a2a2a; border: 1px solid #3a3a3a; padding: 6px 12px; border-radius: 4px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;"><span class="league-tag" style="background: var(--ole-green); color: #111; font-weight: 800; font-size: 9px; padding: 2px 5px; border-radius: 2px; letter-spacing: 0.5px;">PRÓXIMO ENCUENTRO</span> <strong style="color: #fff;">Mundial</strong> vs. <strong style="color: #fff;">FIFA 2026</strong> <span class="match-status" style="color: #ffcc00; font-weight: 700; font-size: 10px;">Próximamente</span></div>
+            <?php
         }
         ?>
       </div>
@@ -2243,7 +2314,7 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
       <?php
       $semaforo = get_option('ppelota_semaforo');
       if ($semaforo) {
-        echo stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $semaforo));
+        echo wp_kses_post(stripslashes(str_replace(array('\\\\n', '\\n', '\n'), "\n", $semaforo)));
       } else {
         ?>
         <a href="<?php echo esc_url(home_url('/')); ?>" class="semaforo-link">
@@ -2330,7 +2401,7 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
         <span class="sb-num"><?php echo $i+1; ?></span>
         <div>
           <div class="sb-post-title"><a href="<?php echo esc_url(get_permalink($p)); ?>"><?php echo esc_html($p->post_title); ?></a></div>
-          <div class="sb-post-time"><?php echo get_the_date('j M Y, H:i',$p); ?> hs</div>
+          <div class="sb-post-time"><?php echo get_the_date('j M Y, H:i',$p); ?> (Hora Arg)</div>
         </div>
       </div>
       <?php endforeach; ?>
@@ -2402,7 +2473,7 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
             $status_lbl = 'Final';
           } else {
             $status_class = 'prog';
-            $status_lbl = substr($game['start_time'], 11, 5) . ' hs';
+            $status_lbl = substr($game['start_time'], 11, 5) . ' (Hora Arg)';
           }
       ?>
           <div class="widget-match-item <?php echo $status_class; ?>">
@@ -2436,11 +2507,44 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
   </div>
 </div>
 
+<?php 
+// Obtener categoría de Estadísticas
+$stat_cat = get_term_by('name', 'Estadísticas', 'category');
+$stat_cat_id = $stat_cat ? $stat_cat->term_id : -1;
+
+$stats_posts = get_posts([
+  'posts_per_page'=>3,
+  'category'=>$stat_cat_id,
+  'post_status'=>'publish'
+]);
+if (!empty($stats_posts) && $stat_cat_id != -1):
+?>
+<div class="section-heading" style="color: #ffcc00; margin-top: 30px;">📊 Informes Estadísticos</div>
+<div class="articles-grid" style="margin-bottom: 30px;">
+<?php foreach($stats_posts as $sp):
+  $sp_cat=get_the_category($sp->ID);$sp_cn=$sp_cat?$sp_cat[0]->name:'Estadísticas';
+  $sp_ex=wp_trim_words(strip_tags($sp->post_content),25,'...');
+?>
+<div class="art-card" style="border: 1px solid #ffcc00;">
+  <a href="<?php echo esc_url(get_permalink($sp)); ?>">
+    <div class="art-card-body">
+      <span class="art-cat" style="background: #ffcc00; color: #000;"><?php echo esc_html($sp_cn); ?></span>
+      <h3 class="art-title" style="color: #ffcc00;"><?php echo esc_html($sp->post_title); ?></h3>
+      <div class="art-excerpt" style="color: #ccc;"><?php echo esc_html($sp_ex); ?></div>
+      <div class="art-meta"><?php echo get_the_date('',$sp); ?></div>
+    </div>
+  </a>
+</div>
+<?php endforeach; ?>
+</div>
+<?php endif; ?>
+
 <div class="section-heading">📰 Últimas Noticias</div>
 <?php $grid=get_posts([
   'posts_per_page'=>9,
   'offset'=>0,
-  'post_status'=>'publish'
+  'post_status'=>'publish',
+  'category__not'=> $stat_cat_id != -1 ? [$stat_cat_id] : []
 ]);?>
 <div class="articles-grid">
 <?php foreach($grid as $g):
@@ -2784,14 +2888,14 @@ get_header();
 
             <!-- PASES -->
             <div style="background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 20px;">
-              <h3 style="color: #ffaa00; margin-top: 0; margin-bottom: 15px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700; border-bottom: 2px solid #2d2d2d; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">🎯 PASES Y EFECTIVIDAD</h3>
+              <h3 style="color: #ffaa00; margin-top: 0; margin-bottom: 15px; font-family: 'Roboto Condensed', sans-serif; font-weight: 700; border-bottom: 2px solid #2d2d2d; padding-bottom: 10px; display: flex; align-items: center; gap: 8px;">🛑 RECUPERACIONES</h3>
               <table class="group-table" style="width: 100%;">
                 <thead>
                   <tr>
                     <th>#</th>
                     <th style="text-align: left;">Jugador</th>
-                    <th>Pases</th>
-                    <th>Efect.</th>
+                    <th>Recup.</th>
+                    <th>-</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2989,8 +3093,11 @@ $tags=get_the_tags();
   <h1 class="single-title"><?php the_title();?></h1>
   <div class="single-meta">
     <span>📅 <?php the_date('j F Y');?></span>
-    <span>🕐 <?php the_time('H:i');?> hs</span>
-    <span>✍️ Vicente Salvarredi</span>
+    <span>🕐 <?php the_time('H:i');?> (Hora Arg)</span>
+    <span>✍️ <?php 
+      $writer = get_post_meta(get_the_ID(), 'ppelota_writer', true); 
+      echo esc_html($writer ?: 'Redacción Pasión y Pelota'); 
+    ?></span>
   </div>
 </div>
 <?php if(has_post_thumbnail()):?>

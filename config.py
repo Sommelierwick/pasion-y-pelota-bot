@@ -114,6 +114,10 @@ JOURNALISTS_TO_MONITOR = [
     {"name": "Brian Pécora",        "handle": "BrianEPecora",    "region": "argentina"},
     {"name": "Agustín Muzzu",       "handle": "AgustinMuzzu",    "region": "argentina"},
     {"name": "Pablo Lafourcade",    "handle": "PabloLafourcade", "region": "argentina"},
+    {"name": "Tato Aguilera",       "handle": "Tato_Aguilera",   "region": "argentina"},
+    {"name": "Juan Cortese",        "handle": "juancortese",     "region": "argentina"},
+    {"name": "Leandro Adonio Belli","handle": "LeandroAdonio",   "region": "argentina"},
+    {"name": "Matías Martínez",     "handle": "Mati_Martinez",   "region": "argentina"},
     # Brasil
     {"name": "Jorge Nicola",        "handle": "jorgenicola",     "region": "brasil"},
     # México / MLS
