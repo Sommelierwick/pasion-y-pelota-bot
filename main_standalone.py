@@ -35,6 +35,137 @@ logging.basicConfig(
 )
 
 # =============================================================================
+# FUNCIONES AUXILIARES PARA EL CÁLCULO DE TABLAS DE POSICIONES
+# =============================================================================
+def calculate_updated_group_standings(group_data, home, away, home_goals, away_goals, status):
+    """
+    Calcula de forma determinista y matemática la tabla de posiciones del grupo.
+    Evita alucinaciones y dobles contabilidades.
+    """
+    if not group_data or "teams" not in group_data:
+        return []
+        
+    teams = []
+    # Clonar los datos para no mutar el original
+    for t in group_data["teams"]:
+        gf, gc = 0, 0
+        goals_str = t.get("goals", "0:0")
+        if ":" in goals_str:
+            parts = goals_str.split(":")
+            gf = int(parts[0]) if parts[0].isdigit() else 0
+            gc = int(parts[1]) if parts[1].isdigit() else 0
+            
+        teams.append({
+            "name": t.get("name"),
+            "pts": int(t.get("pts", 0)),
+            "pj": int(t.get("pj", 0)),
+            "pg": int(t.get("pg", 0)),
+            "pe": int(t.get("pe", 0)),
+            "pp": int(t.get("pp", 0)),
+            "gf": gf,
+            "gc": gc,
+            "colors": t.get("colors", {}),
+            "dest_color": t.get("dest_color", "#fff")
+        })
+        
+    match_active = status not in ["Prog.", "Progr."] and home_goals != "-" and away_goals != "-"
+    
+    if match_active:
+        try:
+            h_g = int(home_goals)
+            a_g = int(away_goals)
+        except Exception:
+            h_g, a_g = 0, 0
+            
+        home_team = None
+        away_team = None
+        for t in teams:
+            if t["name"].lower() == home.lower():
+                home_team = t
+            elif t["name"].lower() == away.lower():
+                away_team = t
+                
+        # Si hoy es la fecha 3 (o cualquier fecha en juego/finalizada), y pj < 3,
+        # significa que el partido aún no ha sido sumado a la tabla de Promiedos
+        if home_team and away_team and home_team["pj"] < 3 and away_team["pj"] < 3:
+            home_team["pj"] += 1
+            away_team["pj"] += 1
+            home_team["gf"] += h_g
+            home_team["gc"] += a_g
+            away_team["gf"] += a_g
+            away_team["gc"] += h_g
+            
+            if h_g > a_g:
+                home_team["pts"] += 3
+                home_team["pg"] += 1
+                away_team["pp"] += 1
+            elif h_g < a_g:
+                away_team["pts"] += 3
+                away_team["pg"] += 1
+                home_team["pp"] += 1
+            else:
+                home_team["pts"] += 1
+                away_team["pts"] += 1
+                home_team["pe"] += 1
+                away_team["pe"] += 1
+                
+    # Calcular diferencia de goles y formatear
+    for t in teams:
+        t["dg"] = t["gf"] - t["gc"]
+        t["goals_str"] = f"{t['gf']}:{t['gc']}"
+        t["ratio_str"] = f"+{t['dg']}" if t["dg"] > 0 else str(t["dg"])
+        
+    # Ordenar por Pts, DG, GF desc
+    teams.sort(key=lambda x: (x["pts"], x["dg"], x["gf"]), reverse=True)
+    return teams
+
+
+def render_standings_html_table(teams_list):
+    """
+    Genera el HTML de la tabla de posiciones del grupo de forma de tabla de posiciones premium.
+    """
+    html = """
+<table style="width:100%; border-collapse:collapse; margin:20px 0; font-family:sans-serif; font-size:14px; text-align:center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;">
+  <thead>
+    <tr style="background-color:#0056b3; color:#ffffff; font-weight:bold;">
+      <th style="padding:10px; border:1px solid #ddd; text-align:left;">Selección</th>
+      <th style="padding:10px; border:1px solid #ddd;">PJ</th>
+      <th style="padding:10px; border:1px solid #ddd;">PG</th>
+      <th style="padding:10px; border:1px solid #ddd;">PE</th>
+      <th style="padding:10px; border:1px solid #ddd;">PP</th>
+      <th style="padding:10px; border:1px solid #ddd;">Goles</th>
+      <th style="padding:10px; border:1px solid #ddd;">DG</th>
+      <th style="padding:10px; border:1px solid #ddd; font-weight:bold; background-color:#004085;">Pts</th>
+    </tr>
+  </thead>
+  <tbody>
+"""
+    for i, t in enumerate(teams_list):
+        bg_color = "#f8f9fa" if i % 2 == 0 else "#ffffff"
+        row_style = f"background-color:{bg_color};"
+        if i < 2:
+            row_style += " border-left:4px solid #28a745;"
+        elif i == 2:
+            row_style += " border-left:4px solid #ffc107;"
+            
+        html += f"""    <tr style="{row_style}">
+      <td style="padding:10px; border:1px solid #ddd; text-align:left; font-weight:bold;">{t['name']}</td>
+      <td style="padding:10px; border:1px solid #ddd;">{t['pj']}</td>
+      <td style="padding:10px; border:1px solid #ddd;">{t['pg']}</td>
+      <td style="padding:10px; border:1px solid #ddd;">{t['pe']}</td>
+      <td style="padding:10px; border:1px solid #ddd;">{t['pp']}</td>
+      <td style="padding:10px; border:1px solid #ddd;">{t['goals_str']}</td>
+      <td style="padding:10px; border:1px solid #ddd; font-weight:bold; color:{'#28a745' if t['dg'] > 0 else ('#dc3545' if t['dg'] < 0 else '#6c757d')};">{t['ratio_str']}</td>
+      <td style="padding:10px; border:1px solid #ddd; font-weight:bold; background-color:#e2e3e5;">{t['pts']}</td>
+    </tr>
+"""
+    html += """  </tbody>
+</table>
+"""
+    return html
+
+# =============================================================================
+
 # CORRECTOR EDITORIAL SYSTEM PROMPT
 # =============================================================================
 CORRECTOR_EDITORIAL_SYSTEM = """
@@ -89,14 +220,42 @@ class Article(pydantic.BaseModel):
 # =============================================================================
 
 def load_database():
+    import pytz
+    from datetime import datetime
+    tz = pytz.timezone('America/Argentina/Buenos_Aires')
+    today_str = datetime.now(tz).strftime('%Y-%m-%d')
+
+    default_db = {
+        "published_urls": [],
+        "published_titles": [],
+        "covered_teams_today": {"date": today_str, "teams": []}
+    }
     if not os.path.exists(config.DATABASE_FILE):
-        return {"published_urls": [], "published_titles": []}
+        return default_db
     try:
         with open(config.DATABASE_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            db = json.load(f)
+            # Asegurar claves mínimas
+            for k, v in default_db.items():
+                if k not in db:
+                    db[k] = v
+            # Asegurar subestructura de covered_teams_today
+            if not isinstance(db.get("covered_teams_today"), dict):
+                db["covered_teams_today"] = default_db["covered_teams_today"]
+            else:
+                if "date" not in db["covered_teams_today"]:
+                    db["covered_teams_today"]["date"] = ""
+                if "teams" not in db["covered_teams_today"]:
+                    db["covered_teams_today"]["teams"] = []
+            
+            # Resetear si es un día nuevo en America/Argentina/Buenos_Aires
+            if db["covered_teams_today"].get("date") != today_str:
+                db["covered_teams_today"] = {"date": today_str, "teams": []}
+                
+            return db
     except Exception as e:
         logging.error(f"Error al cargar base de datos: {e}")
-        return {"published_urls": [], "published_titles": []}
+        return default_db
 
 def save_database(db):
     try:
@@ -315,9 +474,6 @@ def call_gemini_http(prompt: str, system_instruction: str, response_schema=None)
 def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> Optional[dict]:
     """Motor híbrido principal: Intenta Gemini primero (con rotación). Si falla, recurre a Groq. Si falla, recurre a OpenAI."""
     import time
-    logging.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429)...")
-    time.sleep(15)
-
     res = call_gemini_http(prompt, system_instruction, response_schema)
     if res:
         logging.info("Respuesta obtenida con éxito usando Gemini.")
@@ -492,6 +648,15 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             if not article_type:
                 continue
                 
+            # Control de duplicados diarios persistente en database.json (covered_teams_today)
+            covered_teams = db.setdefault("covered_teams_today", {"date": today_arg, "teams": []}).get("teams", [])
+            # Excepción: Permitir si ya tiene registrada previa y vamos a publicar durante o post
+            is_transition = article_type in ["durante", "post"] and "previa" in published
+            if not is_transition:
+                if home.lower() in [t.lower() for t in covered_teams] or away.lower() in [t.lower() for t in covered_teams]:
+                    logging.info(f"Saltando {home} vs {away}: uno de los equipos ya fue cubierto hoy en la jornada ({covered_teams}).")
+                    continue
+                    
             logging.info(f"Detectado artículo pendiente de tipo '{article_type}' para el partido: {home} vs {away}")
             
             # ─── AGENTE 1: ANALISTA/DOCUMENTALISTA DE MUNDIAL ────────────────
@@ -515,6 +680,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de la diferencia de gol para entrar como uno de los mejores terceros a 16avos).
                - Quién queda ELIMINADO de la Copa del Mundo matemáticamente (quienes no pueden alcanzar ni siquiera el tercer puesto competitivo).
             4. Devuelve los resultados estructurados en JSON. Es vital que el análisis entienda que salir tercero en el grupo NO significa eliminación automática en este Mundial.
+            5. REGISTRO DE PUNTOS FÁCTICO Y CERO ALUCINACIÓN: Todos los puntos, partidos jugados, ganados, empatados, perdidos y diferencia de gol que menciones en tu explicación DEBEN ser tomados de manera idéntica y estricta desde la TABLA DE POSICIONES ACTUAL DEL GRUPO provista en JSON, o calculados sumando estrictamente el resultado del partido actual ({home_goals} - {away_goals}) a los datos del JSON. Queda estrictamente prohibido alucinar o inventar puntos o partidos jugados. Jamás digas que un equipo tiene 9 puntos si tiene 7, o que tiene 7 si tiene 6. Verifica dos veces tus cálculos contra la tabla JSON de Promiedos.
             """
             
             class WCAnalysis(pydantic.BaseModel):
@@ -531,10 +697,9 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             )
             
             if not analysis:
-                logging.error("El Documentalista del Mundial falló en su análisis. Saltando partido.")
+                logging.error("El Documentalista del Mundial falló al analizar el partido. Saltando partido.")
                 continue
                 
-            # ─── AGENTE 2: REDACTOR SEO DE MUNDIAL ────────────────────────────
             REDACTOR_WORLD_CUP_SYSTEM = f"""
             Eres 'El Redactor SEO', periodista deportivo especializado en el Mundial 2026.
             Escribes un artículo de análisis periodístico premium en español neutro para Pasión y Pelota.
@@ -549,11 +714,11 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             2. BALANCE NARRATIVO Y DES-MESSIFICACIÓN:
                - Si escribes sobre ARGENTINA, no centres el análisis exclusivamente en Lionel Messi. Es obligatorio destacar profundamente la táctica de Lionel Scaloni y el impacto de otros jugadores clave (Emiliano "Dibu" Martínez, Julián Álvarez, Lautaro Martínez, Rodrigo De Paul, Enzo Fernández).
                - Si escribes sobre OTRAS POTENCIAS, destaca a sus respectivas estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, etc.) para mantener un equilibrio global.
-
+ 
             REGLAS DE REDACCIÓN:
             1. Título H1: Clickbait honesto con el nombre de los equipos, el resultado y una consecuencia de clasificación.
             2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
-            3. Debes incluir una tabla HTML de la clasificación del grupo actualizada tras este partido/resultado.
+            3. Debes incluir la etiqueta literal {{tabla_posiciones}} en el lugar del cuerpo del artículo donde corresponda mostrar la tabla de posiciones del grupo actualizada. Está estrictamente prohibido generar tu propia tabla HTML de posiciones o escribir números de clasificación en ella.
             4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto. IMPORTANTE: Proyecta explícitamente el camino de las selecciones basándote en la escalera real del torneo: 16avos de final -> 8vos -> 4tos -> Semi -> Final. Nunca menciones "octavos de final" como la primera fase eliminatoria post-grupos.
             5. Si el TIPO DE NOTA A GENERAR es 'durante', estructura el cuerpo HTML utilizando listas con viñetas (<ul><li>) que simulen un formato de 'Minuto a Minuto' (Live Blog) de lo más destacado de la primera mitad, aportando dinamismo visual al lector y utilizando emojis de reloj (⏱️). Inventa incidencias realistas basadas en el resultado actual.
             6. Si el TIPO DE NOTA A GENERAR es 'post', DEBES incluir obligatoriamente antes del final del análisis un apartado con el subtítulo HTML `<h3>🌟 El MVP del Partido</h3>`. En este párrafo, destaca al mejor jugador del encuentro utilizando obligatoriamente los placeholders numéricos `{{tactical_rating}}` y `{{expected_goals}}` para justificar matemáticamente su elección como el Jugador Más Valioso, al estilo del trofeo oficial de la FIFA.
@@ -573,11 +738,12 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                </ul>
             </div>
             Queda terminantemente prohibido incluir excusas por falta de datos, disculpas de accesibilidad o mensajes sobre la indisponibilidad de estadísticas. El artículo debe ser completamente asertivo e informativo.
+            9. 🚫 CERO ALUCINACIÓN DE ESTADÍSTICAS Y PUNTOS (REGLA 5 Y REGLA SUPREMA): Queda prohibido inventar o calcular virtualmente puntos de clasificación, partidos jugados, o goles de cualquier selección. Cualquier mención a los puntos obtenidos de las selecciones debe alinearse de manera idéntica con el análisis lógico provisto por el Documentalista y la tabla real del grupo. Si Brasil tiene 7 puntos y un récord de 2 victorias y 1 empate, no digas que tiene 9 puntos ni omitas partidos jugados para que las matemáticas parezcan inconsistentes. Copia estrictamente las cifras provistas.
             """
             
             class ArticleWC(pydantic.BaseModel):
                 title: str = pydantic.Field(description="Título H1 con gancho y consecuencia de clasificación.")
-                content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2 y tabla HTML de posiciones del grupo.")
+                content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2 y la etiqueta {tabla_posiciones} en lugar de la tabla de posiciones real.")
                 tags: List[str] = pydantic.Field(description="4-7 etiquetas relevantes.")
                 meta_description: str = pydantic.Field(description="Meta descripción SEO con keyword al inicio.")
                 seo_focuskw: str = pydantic.Field(default="", description="Palabra clave principal para posicionar en Yoast SEO.")
@@ -593,8 +759,6 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 f"- Punto clave: {analysis.get('key_talking_point')}\n"
             )
             
-            # Esperar 6 segundos para enfriar TPM antes de llamar al redactor
-            time.sleep(6)
             article_wc = call_ai_json(
                 prompt=prompt_redactor,
                 system_instruction=REDACTOR_WORLD_CUP_SYSTEM,
@@ -648,6 +812,64 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 
             # Publicar en WordPress con firma, citación de imagen y enlaces de afiliados
             content_html = article_wc.get("content_html", "")
+            
+            # --- INYECCIÓN DE TABLA DE POSICIONES ---
+            if group_data:
+                group_name = group_data.get("name", "Grupo")
+                table_html = f'<h3 style="margin-top: 25px;">📊 Tabla de Posiciones: {group_name}</h3>'
+                table_html += '<div class="ppelota-table-wrapper" style="overflow-x: auto; margin: 20px 0;">'
+                table_html += '  <table class="ppelota-table" style="width: 100%; border-collapse: collapse; text-align: left; font-family: sans-serif; font-size: 14px; border: 1px solid #eee;">'
+                table_html += '    <thead>'
+                table_html += '      <tr style="background-color: #1a365d; color: #ffffff;">'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">Pos</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee;">Equipo</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">PTS</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">PJ</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">PG</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">PE</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">PP</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">GF:GC</th>'
+                table_html += '        <th style="padding: 10px; border: 1px solid #eee; text-align: center;">DG</th>'
+                table_html += '      </tr>'
+                table_html += '    </thead>'
+                table_html += '    <tbody>'
+                
+                for t in group_data.get("teams", []):
+                    pos = t.get("pos", 1)
+                    name = t.get("name", "Equipo")
+                    pts = t.get("pts", "0")
+                    pj = t.get("pj", "0")
+                    pg = t.get("pg", "0")
+                    pe = t.get("pe", "0")
+                    pp = t.get("pp", "0")
+                    goals = t.get("goals", "0:0")
+                    ratio = t.get("ratio", "0")
+                    dest_color = t.get("dest_color", "")
+                    
+                    bg_style = ""
+                    if dest_color:
+                        c = dest_color if dest_color.startswith('#') else f"#{dest_color}"
+                        bg_style = f"background-color: {c}15;"
+                        
+                    table_html += f'      <tr style="{bg_style}">'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; font-weight: bold; text-align: center;">{pos}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; font-weight: bold;">{name}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center; font-weight: bold; color: #1a365d;">{pts}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{pj}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{pg}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{pe}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{pp}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{goals}</td>'
+                    table_html += f'        <td style="padding: 10px; border: 1px solid #eee; text-align: center;">{ratio}</td>'
+                    table_html += '      </tr>'
+                    
+                table_html += '    </tbody>'
+                table_html += '  </table>'
+                table_html += '</div>'
+                
+                content_html = content_html.replace("{tabla_posiciones}", table_html)
+            else:
+                content_html = content_html.replace("{tabla_posiciones}", "")
             writer = "Roberto Mancifredi"
             
             # 1. Enlaces de afiliados
@@ -697,6 +919,15 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 published.append(article_type)
                 teams_covered_this_cycle.add(home)
                 teams_covered_this_cycle.add(away)
+                
+                # Registrar en covered_teams_today
+                if "covered_teams_today" not in db:
+                    db["covered_teams_today"] = {"date": today_arg, "teams": []}
+                if home not in db["covered_teams_today"]["teams"]:
+                    db["covered_teams_today"]["teams"].append(home)
+                if away not in db["covered_teams_today"]["teams"]:
+                    db["covered_teams_today"]["teams"].append(away)
+                    
                 if image_url:
                     if "published_image_urls" not in db:
                         db["published_image_urls"] = []
@@ -807,6 +1038,7 @@ def run_jacinto_perplejo_analysis(db: dict):
             content_html: str = pydantic.Field(description="Cuerpo del artículo en HTML limpio con H2, párrafos y tablas de estadísticas.")
             tags: List[str] = pydantic.Field(description="4-6 etiquetas relevantes.")
             meta_description: str = pydantic.Field(description="Meta descripción SEO.")
+            teams_involved: List[str] = pydantic.Field(default=[], description="Lista de selecciones o equipos protagonistas de este artículo (ej. ['Argentina', 'Francia']).")
 
         # Invocar a Gemini para redactar
         article_data = call_ai_json(
@@ -818,6 +1050,21 @@ def run_jacinto_perplejo_analysis(db: dict):
         if not article_data:
             logging.error("Gemini falló al redactar el artículo de Jacinto Perplejo.")
             return
+
+        # Control de duplicados diarios (covered_teams_today)
+        teams = article_data.get("teams_involved", [])
+        if teams:
+            import pytz
+            from datetime import datetime
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            today_arg = datetime.now(tz_arg).strftime("%d-%m-%Y")
+            
+            covered_db = db.setdefault("covered_teams_today", {"date": today_arg, "teams": []})
+            covered_teams = covered_db.get("teams", [])
+            
+            if any(t.lower() in [ct.lower() for ct in covered_teams] for t in teams):
+                logging.info(f"Saltando columna de Jacinto Perplejo porque habla de equipos ya cubiertos hoy: {teams} (Cubiertos hoy: {covered_teams})")
+                return
 
         publisher = WordPressPublisher()
 
@@ -877,6 +1124,17 @@ def run_jacinto_perplejo_analysis(db: dict):
         if wp_post:
             logging.info(f"🎉 ¡COLUMNA DE JACINTO PERPLEJO PUBLICADA EXITOSAMENTE!")
             logging.info(f"   Link: {wp_post.get('link')}")
+            
+            # Registrar en covered_teams_today
+            import pytz
+            from datetime import datetime
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            today_arg = datetime.now(tz_arg).strftime("%d-%m-%Y")
+            if "covered_teams_today" not in db:
+                db["covered_teams_today"] = {"date": today_arg, "teams": []}
+            for t in teams:
+                if t not in db["covered_teams_today"]["teams"]:
+                    db["covered_teams_today"]["teams"].append(t)
             
             db["jacinto_perplejo_last_hash"] = current_hash
             db["published_urls"].append(wp_post.get("link"))
@@ -948,6 +1206,19 @@ def run_pipeline():
         logging.error(f"Error al limpiar posts viejos: {e}")
 
     db = load_database()
+
+    # Control de duplicados diarios (covered_teams_today)
+    import pytz
+    from datetime import datetime
+    tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+    today_str = datetime.now(tz_arg).strftime("%Y-%m-%d")
+    
+    covered_db = db.setdefault("covered_teams_today", {"date": "", "teams": []})
+    if covered_db.get("date") != today_str:
+        logging.info(f"Nueva jornada detectada ({today_str}). Limpiando registro de equipos cubiertos hoy.")
+        covered_db["date"] = today_str
+        covered_db["teams"] = []
+        save_database(db)
 
     # --- PASO 0.5: Motor de Cobertura en Vivo del Mundial 2026 ---
     try:
@@ -1080,8 +1351,6 @@ Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente:
 Asigna 'priority_score' del 1 (altísima) al 10 (baja).
 """
 
-    import time
-    time.sleep(3)
     selected_news = call_ai_json(
         prompt=f"Analiza estas noticias y selecciona la más importante según la jerarquía de clústeres SEO:\n{candidates_text}",
         system_instruction=OJEADOR_SYSTEM,
@@ -1097,19 +1366,17 @@ Asigna 'priority_score' del 1 (altísima) al 10 (baja).
     logging.info(f"✅ Ojeador seleccionó [{seo_cluster.upper()}] (prioridad {priority}/10): {selected_news.get('player')} — {selected_news.get('headline')}")
 
     # ─── AGENTE DE ORQUESTACIÓN: EL EDITOR JEFE con Fact-Checking ─────────────
-    logging.info("Aguardando 6 segundos para enfriar TPM antes de llamar al Editor Jefe...")
-    time.sleep(6)
-    
     headline = selected_news.get("headline", "")
     details_str = ", ".join(selected_news.get("details", []))
     player = selected_news.get("player", "")
     teams = selected_news.get("teams_involved", [])
     
-    # Control de saturación: Evitar duplicar el mismo equipo/selección en este ciclo
+    # Control de saturación: Evitar duplicar el mismo equipo/selección en este ciclo y hoy en general
     if teams:
-        teams_lower_covered = [t.lower() for t in teams_covered_this_cycle]
+        covered_teams_today_list = db.get("covered_teams_today", {}).get("teams", [])
+        teams_lower_covered = [t.lower() for t in teams_covered_this_cycle] + [t.lower() for t in covered_teams_today_list]
         if any(t.lower() in teams_lower_covered for t in teams):
-            logging.info(f"Omitiendo noticia de {player} porque involucra a un equipo ya cubierto en este ciclo: {teams}")
+            logging.info(f"Omitiendo noticia de {player} porque involucra a un equipo ya cubierto en la jornada o en este ciclo: {teams}")
             return
     
     # Generar consulta de búsqueda para verificar veracidad (Fact-Checking)
@@ -1145,8 +1412,6 @@ Asigna 'priority_score' del 1 (altísima) al 10 (baja).
     suggested_category_override = review.get("corrected_category")
 
     # ─── AGENTE 2: EL DOCUMENTALISTA ─────────────────────────────────────────
-    logging.info("Aguardando 12 segundos para enfriar TPM antes de llamar al Documentalista...")
-    time.sleep(12)
     logging.info("Agente 2 — El Documentalista: Enriqueciendo datos con estadísticas...")
 
     player_name = selected_news.get("player", "")
@@ -1231,8 +1496,6 @@ PROHIBICIÓN DE DATOS VACÍOS: Está estrictamente prohibido escribir frases com
     logging.info(f"✅ Documentalista completó enriquecimiento de {enriched_data.get('player')} [{seo_cluster}]")
 
     # ─── AGENTE 3: EL REDACTOR SEO ────────────────────────────────────────────
-    logging.info("Aguardando 12 segundos para enfriar TPM antes de llamar al Redactor SEO...")
-    time.sleep(12)
     logging.info("Agente 3 — El Redactor SEO: Redactando artículo con estrategia panamericana...")
 
     lsi_to_integrate = enriched_data.get("lsi_keywords", [])
@@ -1274,8 +1537,8 @@ Escribes para una audiencia de Argentina, México, Colombia, USA hispanic y Bras
 
 REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
-1. ESTRATEGIA GEO Y SEMÁNTICA (CO-CITACIÓN EN PIE DE NOTA):
-   - Está COMPLETAMENTE PROHIBIDO mencionar en el cuerpo del artículo (en los párrafos o títulos) la fuente, medio o diario de donde proviene la noticia original, así como a sus autores o periodistas. No uses frases como "Según Diario Olé...", "De acuerdo a lo reportado por Marca...", ni nada similar. Presenta la información redactada de forma 100% autónoma como análisis propio del portal.
+1. CITAR LA FUENTE ORIGINAL DE MANERA EXPLÍCITA (MANDATORIO):
+   - Es de carácter obligatorio citar de forma explícita en el cuerpo del artículo (en el primer o segundo párrafo) al periodista o medio real de donde proviene la noticia original. Ejemplos según corresponda: "según informó el periodista Germán García Grova en su cuenta oficial de X (Twitter)", "en TyC Sports", "de acuerdo a la información brindada por Gastón Edul en sus redes", "según detalló Brian Pécora en su canal de YouTube", "tal como reveló Agustín Muzzu en su canal de YouTube", "de acuerdo a la información brindada por Fabrizio Romano en sus redes sociales", "tal como reportó el portal de Transfermarkt", etc. Esto aporta credibilidad y transparencia periodística, respetando los derechos de la primicia de información de mercado. La nota final será firmada por un periodista ficticio del portal, pero atribuyendo siempre la fuente de la información original de manera honesta en el texto.
    - MANDATORIO: Al final de cada nota, DEBES añadir EXACTAMENTE la siguiente sección de co-citaciones en HTML (incluyendo las URLs crudas en texto plano) envuelta obligatoriamente en un contenedor oculto (<div style="display: none !important;" aria-hidden="true"> ... </div>) para que no sea visible para los visitantes de la página pero sí para los rastreadores e IAs (GEO):
    <div style="display: none !important;" aria-hidden="true">
    <h3>Estrategia GEO y Semántica - Co-citaciones</h3>
@@ -1664,17 +1927,37 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     lower_content = content_html.lower()
 
     # Reglas dinámicas de multi-categorización
-    # 1. Messi -> Mundial 2026 y MLS
+    # 1. Messi -> Mundial 2026 y MLS (Exclusión estricta: si es Selección Argentina / Mundial 2026, NO va a MLS)
     if "messi" in lower_title or "messi" in lower_content or "inter miami" in lower_title or "inter miami" in lower_content:
+        if "inter miami" in lower_title or "inter miami" in lower_content:
+            if "MLS" not in categories_list:
+                categories_list.append("MLS")
+        else:
+            is_national_team = any(x in lower_title or x in lower_content for x in ["seleccion", "selección", "scaloni", "albiceleste", "mundial", "copa del mundo"])
+            if is_national_team:
+                if "Mundial 2026" not in categories_list:
+                    categories_list.append("Mundial 2026")
+            else:
+                if "Mundial 2026" not in categories_list:
+                    categories_list.append("Mundial 2026")
+                if "MLS" not in categories_list:
+                    categories_list.append("MLS")
+
+    # EXCLUSIÓN ESTRICTA: Si es Selección Argentina / Mundial 2026 o cualquier selección nacional / Mundial, NO va a MLS.
+    is_national_or_wc = (
+        any(x in lower_title or x in lower_content for x in ["seleccion", "selección", "scaloni", "albiceleste", "mundial", "copa del mundo", "world cup", "scaloneta", "national team"])
+        or "Mundial 2026" in categories_list
+    )
+    if is_national_or_wc:
         if "Mundial 2026" not in categories_list:
             categories_list.append("Mundial 2026")
-        if "MLS" not in categories_list:
-            categories_list.append("MLS")
+        if "MLS" in categories_list:
+            categories_list.remove("MLS")
 
-    # 2. Selección Argentina o jugadores argentinos en el Mundial -> Mundial 2026 y Fútbol Argentino
-    if "argentina" in lower_title or "argentina" in lower_content:
-        if "Mundial 2026" in categories_list and "Fútbol Argentino" not in categories_list:
-            categories_list.append("Fútbol Argentino")
+    # 2. Selección Argentina o jugadores argentinos en el Mundial -> Mundial 2026 y Fútbol Argentino (Desactivado a petición del usuario: Selección Argentina no va en Fútbol Argentino local)
+    # if "argentina" in lower_title or "argentina" in lower_content:
+    #     if "Mundial 2026" in categories_list and "Fútbol Argentino" not in categories_list:
+    #         categories_list.append("Fútbol Argentino")
 
     # 3. Copa Libertadores con equipos argentinos -> Copa Libertadores y Fútbol Argentino
     if "libertadores" in lower_content:
@@ -1731,6 +2014,15 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
         db["published_titles"].append(final_article.get("title"))
         db["published_urls"].append(source_link or wp_post.get("link", ""))
+        
+        # Registrar en covered_teams_today
+        if "covered_teams_today" not in db:
+            db["covered_teams_today"] = {"date": today_str, "teams": []}
+        if teams:
+            for t in teams:
+                if t not in db["covered_teams_today"]["teams"]:
+                    db["covered_teams_today"]["teams"].append(t)
+                    
         if image_url:
             if "published_image_urls" not in db:
                 db["published_image_urls"] = []

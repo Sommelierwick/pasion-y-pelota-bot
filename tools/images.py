@@ -143,6 +143,75 @@ def search_tycsports_images(query: str, exclude_urls: list = None) -> Optional[D
     return None
 
 
+def search_cadena3_images(query: str, exclude_urls: list = None) -> Optional[Dict[str, str]]:
+    """
+    Busca imágenes en Cadena 3 Deportes (sección 45) extraídas de sus notas de Deportes.
+    Respeta la directiva de citar la fuente y el contexto.
+    """
+    if exclude_urls is None:
+        exclude_urls = []
+        
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        url = "https://www.cadena3.com/seccion/deportes/45"
+        r = requests.get(url, headers=headers, timeout=10)
+        
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, "html.parser")
+            pictures = soup.find_all("picture", attrs={"data-src": True})
+            
+            # Divide query into keywords
+            keywords = [k.lower() for k in query.split() if len(k) > 2]
+            
+            for pic in pictures:
+                src = pic.get("data-src")
+                if not src or "logo" in src.lower() or "header" in src.lower():
+                    continue
+                
+                # Check surrounding text context (parent, article or card)
+                card = pic.find_parent("article") or pic.find_parent("div", class_=lambda x: x and ('card' in x.lower() or 'nota' in x.lower() or 'item' in x.lower()))
+                if card:
+                    text_content = card.get_text(separator=" ").strip()
+                else:
+                    text_content = pic.parent.get_text(separator=" ").strip()
+                    
+                text_content_lower = text_content.lower()
+                
+                # Check if it contains keywords
+                match_count = sum(1 for kw in keywords if kw in text_content_lower)
+                if match_count == 0:
+                    continue
+                
+                # Exclusividad Mundial 2026 (Regla 6)
+                is_mundial = any(w in text_content_lower or w in src.lower() for w in ["2026", "mundial", "copa del mundo"])
+                if not is_mundial:
+                    continue
+                
+                # Clean URL
+                hd_url = src.split("?")[0]
+                if "?" in src:
+                    hd_url = hd_url + "?width=800"
+                
+                if any(hd_url == ex for ex in exclude_urls):
+                    continue
+                    
+                logger.info(f"Imagen válida encontrada en Cadena 3 Deportes: {hd_url}")
+                title_text = text_content.split(".")[0].strip()
+                if "Fútbol" in title_text:
+                    title_text = title_text.replace("Fútbol Fútbol", "Fútbol").replace("Fútbol", "").strip()
+                
+                return {
+                    "url": hd_url,
+                    "citation": f"Foto: Cadena 3 Deportes / {title_text}"
+                }
+    except Exception as e:
+        logger.warning(f"Error buscando en Cadena 3: {e}")
+        
+    return None
+
+
 def verify_image_suitability_text_fallback(filename: str, article_title: str) -> bool:
     """
     Usa Groq (Llama 3.3 70B) como fallback para evaluar si la imagen es apta basándose únicamente
@@ -207,12 +276,12 @@ def verify_image_suitability_text_fallback(filename: str, article_title: str) ->
     return True
 
 
-def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool:
+def verify_image_suitability(image_url_or_path: str, article_title: str, is_scraped: bool = True) -> bool:
     """
     Verifica si una imagen es apta para el artículo de fútbol asociación:
     1. Filtra localmente por palabras clave prohibidas en el nombre de archivo/URL.
     2. Usa el modelo multimodal de Gemini para inspección visual.
-    3. Si Gemini falla (429/500), recurre a Groq para análisis de texto basado en el nombre del archivo.
+    3. Si Gemini falla (429/500/etc.) y es una imagen scrapeada, se rechaza estrictamente (retorna False).
     """
     if not article_title:
         return True
@@ -242,8 +311,12 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
 
     api_key = config.get_active_key()
     if not api_key:
-        logger.warning("No hay API Key activa para Gemini. Aprobando por regla Regex (Fallback).")
-        return True
+        if is_scraped:
+            logger.warning("No hay API Key activa para Gemini. Rechazando imagen scrapeada debido a ORDEN SUPREMA.")
+            return False
+        else:
+            logger.warning("No hay API Key activa para Gemini. Aprobando imagen generada por IA por defecto.")
+            return True
 
     try:
         # Obtener los bytes de la imagen
@@ -276,9 +349,6 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
         img.save(out_io, format="JPEG", quality=75)
         optimized_bytes = out_io.getvalue()
         b64_data = base64.b64encode(optimized_bytes).decode("utf-8")
-
-        logger.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429) en validación visual...")
-        time.sleep(15)
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
@@ -346,17 +416,38 @@ def verify_image_suitability(image_url_or_path: str, article_title: str) -> bool
                 else:
                     logger.info(f"✅ Imagen aprobada por el inspector multimodal: {reason}")
                     return True
+            else:
+                logger.warning("Fallo en llamada a la API de verificación de imagen de Gemini (vacío).")
+                if is_scraped:
+                    logger.warning("Rechazando imagen scrapeada por falta de candidatos.")
+                    return False
+                return True
         elif r_api.status_code == 429:
-            logger.warning("Quota límite excedida (429) en verificación de imagen de Gemini. Aprobando por regla Regex (Fallback).")
+            logger.warning("Quota límite excedida (429) en verificación de imagen de Gemini.")
             config.rotate_key()
-            return True
+            if is_scraped:
+                logger.warning("Rechazando imagen scrapeada por quota excedida (429) de Gemini.")
+                return False
+            else:
+                logger.warning("Aprobando imagen generada por IA (429 fallback).")
+                return True
         else:
-            logger.warning(f"Fallo en llamada a la API de verificación de imagen de Gemini ({r_api.status_code}). Aprobando por regla Regex (Fallback).")
-            return True
+            logger.warning(f"Fallo en llamada a la API de verificación de imagen de Gemini ({r_api.status_code}).")
+            if is_scraped:
+                logger.warning("Rechazando imagen scrapeada por fallo de API.")
+                return False
+            else:
+                logger.warning("Aprobando imagen generada por IA (Fallo API fallback).")
+                return True
 
     except Exception as e:
-        logger.error(f"Excepción al verificar idoneidad de imagen con Gemini: {e}. Aprobando por regla Regex (Fallback).")
-        return True
+        logger.error(f"Excepción al verificar idoneidad de imagen con Gemini: {e}.")
+        if is_scraped:
+            logger.warning("Rechazando imagen scrapeada por excepción en verificación.")
+            return False
+        else:
+            logger.warning("Aprobando imagen generada por IA (Excepción fallback).")
+            return True
 
     return True
 
@@ -365,9 +456,6 @@ def generate_image_prompt_via_llm(title: str, content: str = "") -> str:
     Usa gemini-2.5-flash para generar un prompt detallado en inglés para la generación de imágenes con Imagen/Flux.
     """
     import time
-    logger.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429)...")
-    time.sleep(15)
-
     api_key = config.get_active_key()
     if not api_key:
         logger.warning("No hay API Key activa de Gemini para generar el prompt.")
@@ -755,7 +843,7 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
             if query:
                 res = search_tycsports_images(query, exclude_urls=exclude_urls)
                 if res:
-                    if article_title and not verify_image_suitability(res["url"], article_title):
+                    if article_title and not verify_image_suitability(res["url"], article_title, is_scraped=True):
                         if exclude_urls is None:
                             exclude_urls = []
                         exclude_urls.append(res["url"])
@@ -767,9 +855,31 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
             if query:
                 res = search_tycsports_images(query, exclude_urls=exclude_urls)
                 if res:
-                    if article_title and not verify_image_suitability(res["url"], article_title):
+                    if article_title and not verify_image_suitability(res["url"], article_title, is_scraped=True):
                         if exclude_urls is None:
                             exclude_urls = []
+                        exclude_urls.append(res["url"])
+                        continue
+                    return res
+
+        # --- 1.5. PRIORIDAD 1.5: CADENA 3 DEPORTES (ORDEN SUPREMA) ---
+        logger.info("Prioridad 1.5: Buscando imágenes en Cadena 3 Deportes según ORDEN SUPREMA...")
+        for team in teams_to_try:
+            query = build_image_query("team", team)
+            if query:
+                res = search_cadena3_images(query, exclude_urls=exclude_urls)
+                if res:
+                    if article_title and not verify_image_suitability(res["url"], article_title, is_scraped=True):
+                        exclude_urls.append(res["url"])
+                        continue
+                    return res
+        
+        for player in players_to_try:
+            query = build_image_query("player", player)
+            if query:
+                res = search_cadena3_images(query, exclude_urls=exclude_urls)
+                if res:
+                    if article_title and not verify_image_suitability(res["url"], article_title, is_scraped=True):
                         exclude_urls.append(res["url"])
                         continue
                     return res
@@ -781,7 +891,7 @@ def get_football_image(player_name, team_name=None, exclude_urls: list = None, a
             if ai_prompt:
                 res = generate_ai_image(ai_prompt)
                 if res:
-                    if verify_image_suitability(res["url"], article_title):
+                    if verify_image_suitability(res["url"], article_title, is_scraped=False):
                         return res
                     else:
                         try:

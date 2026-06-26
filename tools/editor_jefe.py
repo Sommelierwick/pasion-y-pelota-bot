@@ -94,9 +94,6 @@ def call_gemini_json(prompt: str, system_instruction: str, schema) -> dict:
     """Intenta llamar a Gemini para obtener JSON estructurado usando solicitudes HTTP directas,
     probando con varios modelos y rotando claves en caso de rate limit."""
     import time
-    logger.info("⏳ Aplicando Delay Inteligente de 15 segundos para evitar Rate Limits (429)...")
-    time.sleep(15)
-    
     if not config.GEMINI_API_KEYS:
         logger.warning("No hay claves de Gemini configuradas.")
         return {}
@@ -253,7 +250,7 @@ Eres "El Editor Jefe", periodista deportivo y fact-checker de fútbol y F1 para 
 Tu rol es asegurar que CUALQUIER noticia cumpla estrictamente con el plan y sea verídica.
 
 Reglas Editoriales Estrictas:
-1. LIGAS PERMITIDAS: Solo MLS, Brasileirão, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Copa Libertadores y Copa Mundial 2026.
+1. LIGAS PERMITIDAS: Solo MLS, Brasileirão, Liga Profesional Argentina, Liga MX, Liga Colombiana, Premier League, LaLiga, Serie A, Champions League, Copa Libertadores y Copa Mundial 2026.
    - CUALQUIER otra liga (ej: Liga Turca, Superliga turca, Griega, Escocesa, Saudí, etc.) está TERMINANTEMENTE PROHIBIDA. Si la noticia trata de un traspaso a/desde un club de estas ligas prohibidas (como Fenerbahçe, Galatasaray, Al-Nassr, etc.), debes desaprobarla.
 2. ENTIDADES PROHIBIDAS: Miguel Almirón está completamente prohibido en cualquier contexto en el Mundial 2026 o en la tapa. Si se le menciona o si la noticia lo involucra, debes desaprobar.
 3. EXCEPCIÓN MESSI/ARGENTINA: Se permite cualquier noticia sobre Messi o Selección Argentina. Sin embargo, NUNCA deben categorizarse bajo "MLS" ni bajo "Fútbol Argentino" (para evitar mezclar la temática de la liga local); si provienen de Inter Miami, MLS o Selección Argentina, debes corregir la categoría a "Mundial 2026".
@@ -462,7 +459,13 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
         
         for t in tables:
             name = t.get("name", "")
-            for r in t.get("rows", [])[:10]:
+            rows = t.get("rows")
+            if not rows and "table" in t:
+                rows = t.get("table", {}).get("rows", [])
+            if not rows:
+                rows = []
+                
+            for r in rows[:10]:
                 player_name = r.get("entity", {}).get("object", {}).get("name", "Desconocido")
                 team_id = r.get("entity", {}).get("object", {}).get("team_id", "")
                 team_name = team_names.get(team_id, "Desconocido")
@@ -760,6 +763,28 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
         except Exception as se:
             logger.error(f"Error al calcular las estadísticas de jugadores: {se}")
         res["player_stats"] = player_stats
+
+        # Sincronizar datos estructurados para el resto de las ligas (MLS, Brasileirao, etc.)
+        from tools.promiedos import fetch_league_complete_data
+        leagues_to_update = {
+            "mls": "mls",
+            "brasileirao": "brasileirao",
+            "futbol-argentino": "futbol-argentino",
+            "champions-league": "champions",
+            "premier-league": "premier",
+            "laliga": "laliga",
+            "liga-mx": "mexico",
+            "liga-colombiana": "liga-betplay"
+        }
+        for res_key, league_key in leagues_to_update.items():
+            try:
+                logger.info(f"Editor Jefe scrapeando datos en vivo para la liga: {res_key} ({league_key})...")
+                league_data = fetch_league_complete_data(league_key)
+                if league_data:
+                    res[f"{res_key}_data"] = league_data
+                    logger.info(f"Datos de {res_key} obtenidos con éxito (grupos: {len(league_data.get('groups', []))}, partidos: {len(league_data.get('games', []))}).")
+            except Exception as le_err:
+                logger.error(f"Error al obtener datos de la liga {res_key}: {le_err}")
 
         # Subir los datos generados a WordPress
         update_url = f"{self.wp_url}/wp-json/ppelota/v1/update-data"
