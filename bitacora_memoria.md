@@ -339,3 +339,9 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
   - Se inyectó el método `generate_social_title` que utiliza la API de Gemini para redactar un título optimizado para X (Twitter), con ganchos emocionales, emojis y menciones oficiales de selecciones (handles cruzados de Twitter).
   - Al completar la publicación original, el sistema realiza una llamada recursiva a `publish_post` para publicar automáticamente una copia del artículo asignada a la categoría privada **"Social Share" (ID 303)**. Make.com lee el feed RSS de esta categoría y postea automáticamente a X (Twitter).
 
+- **CORRECCIÓN DE FALLO EN GITHUB ACTIONS (26/06/2026 22:47 GMT-3):**
+  - Se diagnosticó que el pipeline de GitHub Actions (`Publish News Bot`) fallaba inmediatamente tras 12 segundos debido a `ModuleNotFoundError` de `tools.statistical_monitor` y `tools.tactical_stats`.
+  - Se constató que estos archivos clave (`tools/statistical_monitor.py`, `tools/tactical_stats.py` y `agente_estadistico.py`) estaban sin commitear ("untracked") localmente.
+  - Se agregaron, commitearon y pushearon a GitHub todos los archivos huérfanos junto al archivo de caché inicial (`historical_stats.json`).
+  - Se corrigió `.github/workflows/agente_estadistico.yml` para que apunte a las credenciales y llaves oficiales (`GEMINI_API_KEYS` y `WP_PASSWORD`) que utiliza `config.py`.
+
