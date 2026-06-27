@@ -477,16 +477,25 @@ def call_ai_json(prompt: str, system_instruction: str, response_schema=None) -> 
     res = call_gemini_http(prompt, system_instruction, response_schema)
     if res:
         logging.info("Respuesta obtenida con éxito usando Gemini.")
+        if not isinstance(res, dict):
+            res = {"text": res}
         return res
         
     logging.warning("Fallo en todas las claves de Gemini. Recurriendo a Groq como respaldo...")
     res = call_groq(prompt, system_instruction, response_schema)
     if res:
         logging.info("Respuesta obtenida con éxito usando Groq.")
+        if not isinstance(res, dict):
+            res = {"text": res}
         return res
 
     logging.warning("Fallo en Groq. Recurriendo a OpenAI como respaldo final...")
-    return call_openai(prompt, system_instruction, response_schema)
+    res = call_openai(prompt, system_instruction, response_schema)
+    if res:
+        if not isinstance(res, dict):
+            res = {"text": res}
+        return res
+    return None
 
 # =============================================================================
 # 3.5. Motor de Cobertura en Vivo del Mundial 2026

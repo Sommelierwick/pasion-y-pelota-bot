@@ -28,8 +28,10 @@ def translate_to_english(html_content: str) -> str:
     
     try:
         res = call_ai_json(prompt, sys_prompt)
-        if res and "text" in res:
+        if isinstance(res, dict) and "text" in res:
             return res["text"]
+        elif isinstance(res, str):
+            return res
     except Exception as e:
         logger.error(f"Error al traducir artículo a inglés: {e}")
         
@@ -79,9 +81,11 @@ def generate_tts_google(text: str, lang: str, api_key: str) -> Optional[bytes]:
     import base64
     url = f"https://texttospeech.googleapis.com/v1/text:synthesize?key={api_key}"
     
-    # Voces de Google (Studio: altísima fidelidad y realismo natural)
-    voice_name = "es-US-Studio-B" if lang == "es" else "en-GB-Studio-B"
+    # Voces de Google (Neural2-B seleccionada por el usuario)
+    voice_name = "es-US-Neural2-B" if lang == "es" else "en-GB-Neural2-B"
     language_code = "es-US" if lang == "es" else "en-GB"
+    speaking_rate = 0.93 if lang == "es" else 1.0
+    pitch_val = -2.0 if lang == "es" else 0.0
     
     payload = {
         'input': {'text': text[:4500]},
@@ -91,8 +95,8 @@ def generate_tts_google(text: str, lang: str, api_key: str) -> Optional[bytes]:
         },
         'audioConfig': {
             'audioEncoding': 'MP3',
-            'speakingRate': 1.04,
-            'pitch': -2.0
+            'speakingRate': speaking_rate,
+            'pitch': pitch_val
         }
     }
     
@@ -132,9 +136,12 @@ def rewrite_for_sports_narrator(title: str, text: str) -> str:
     
     try:
         res = call_ai_json(prompt, sys_prompt)
-        if res and "text" in res:
+        if isinstance(res, dict) and "text" in res:
             logger.info("Texto adaptado al estilo Mariano Closs con éxito.")
             return res["text"]
+        elif isinstance(res, str):
+            logger.info("Texto adaptado al estilo Mariano Closs con éxito.")
+            return res
     except Exception as e:
         logger.error(f"Error al reescribir nota al estilo Closs: {e}")
     return text
@@ -236,14 +243,14 @@ def generate_tts(text: str, lang: str = "es", voice: str = "onyx", model: str = 
     audio_bytes = None
     
     if lang == "es":
-        # Opción 1: Gemini TTS con la voz Puck ralentizada/bajado de tono a 21KHz
-        logger.info("Generando audio en español usando Gemini TTS (Puck Grave 21KHz)...")
-        audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
+        # Usar Google Cloud TTS con la voz de relator pagada es-US-Neural2-B
+        logger.info("Generando audio en español usando Google Cloud TTS (es-US-Neural2-B)...")
+        audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
         
-        # Fallback a Edge TTS si Gemini falla
+        # Fallback a Edge TTS si Google Cloud TTS falla
         if not audio_bytes:
             edge_voice = "es-AR-TomasNeural"
-            logger.warning(f"Fallback a Edge TTS ({edge_voice}) por fallo en Gemini TTS.")
+            logger.warning(f"Fallback a Edge TTS ({edge_voice}) por fallo en Google Cloud TTS.")
             audio_bytes = generate_tts_edge(text, edge_voice)
     else:
         # Para inglés, usar directamente la opción gratuita (Edge TTS) para ahorrar costos
@@ -319,7 +326,7 @@ def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str
     timestamp = int(time.time())
     clean_title = re.sub(r'[^a-zA-Z0-9]', '_', title_es)[:30].strip('_').lower()
     
-    filename_es = f"audio_es_{clean_title}_{timestamp}.wav"
+    filename_es = f"audio_es_{clean_title}_{timestamp}.mp3"
     filename_en = f"audio_en_{clean_title}_{timestamp}.mp3"
     
     # 4. Subir a WordPress
