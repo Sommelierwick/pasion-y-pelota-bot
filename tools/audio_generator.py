@@ -137,59 +137,96 @@ def rewrite_for_sports_narrator(title: str, text: str) -> str:
             return res["text"]
     except Exception as e:
         logger.error(f"Error al reescribir nota al estilo Closs: {e}")
-        
     return text
 
 def generate_tts_gemini(text: str, voice_name: str, sample_rate: int) -> Optional[bytes]:
     """Genera audio nativo usando el modelo gemini-3.1-flash-tts-preview de la API de Gemini
-    y lo formatea como un archivo WAV reproducible con la tasa de muestreo (sample_rate) deseada."""
+    de forma segmentada (evitando timeouts por textos largos) y lo formatea como un archivo WAV."""
     import base64
     import wave
     import io
+    import re
     
+    # 1. Dividir el texto en fragmentos menores a 450 caracteres para evitar timeouts de API
+    chunks = []
+    paragraphs = text.split("\n\n")
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        if len(para) <= 450:
+            chunks.append(para)
+        else:
+            sentences = re.split(r'(?<=[.!?])\s+', para)
+            current_chunk = ""
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if len(current_chunk) + len(sentence) + 1 <= 450:
+                    current_chunk += (" " if current_chunk else "") + sentence
+                else:
+                    if current_chunk:
+                        chunks.append(current_chunk)
+                    current_chunk = sentence
+            if current_chunk:
+                chunks.append(current_chunk)
+                
+    if not chunks:
+        return None
+        
     api_key = config.GEMINI_API_KEYS[0]
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
     
-    payload = {
-        "contents": [{
-            "parts": [{"text": text}]
-        }],
-        "generationConfig": {
-            "responseModalities": ["AUDIO"],
-            "speechConfig": {
-                "voiceConfig": {
-                    "prebuiltVoiceConfig": {
-                        "voiceName": voice_name
+    pcm_data = bytearray()
+    logger.info(f"Sintetizando {len(chunks)} fragmentos de texto con Gemini TTS...")
+    
+    try:
+        for idx, chunk in enumerate(chunks):
+            payload = {
+                "contents": [{
+                    "parts": [{"text": chunk}]
+                }],
+                "generationConfig": {
+                    "responseModalities": ["AUDIO"],
+                    "speechConfig": {
+                        "voiceConfig": {
+                            "prebuiltVoiceConfig": {
+                                                    "voiceName": voice_name
+                            }
+                        }
                     }
                 }
             }
-        }
-    }
-    
-    headers = {"Content-Type": "application/json"}
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
-        if response.status_code == 200:
-            data = response.json()
-            parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
-            for part in parts:
-                if "inlineData" in part and "audio" in part["inlineData"].get("mimeType", ""):
-                    raw_pcm = base64.b64decode(part["inlineData"]["data"])
-                    
-                    # Convertir los bytes crudos PCM a formato WAV estándar
-                    wav_io = io.BytesIO()
-                    with wave.open(wav_io, "wb") as w:
-                        w.setnchannels(1)       # Mono
-                        w.setsampwidth(2)       # 16-bit
-                        w.setframerate(sample_rate) # Tasa de muestreo (ej: 21000 para tono grave)
-                        w.writeframes(raw_pcm)
-                    
-                    return wav_io.getvalue()
-            logger.error("No se encontraron datos de audio en la respuesta de Gemini.")
-        else:
-            logger.error(f"Error en la API de Gemini TTS: {response.status_code} - {response.text}")
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=60)
+            if response.status_code == 200:
+                data = response.json()
+                parts = data.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+                chunk_added = False
+                for part in parts:
+                    if "inlineData" in part and "audio" in part["inlineData"].get("mimeType", ""):
+                        raw_pcm = base64.b64decode(part["inlineData"]["data"])
+                        pcm_data.extend(raw_pcm)
+                        chunk_added = True
+                        break
+                if not chunk_added:
+                    logger.warning(f"No se obtuvieron bytes de audio para el fragmento {idx}.")
+            else:
+                logger.error(f"Error en Gemini TTS (Fragmento {idx}): HTTP {response.status_code} - {response.text}")
+                
+        if pcm_data:
+            # Convertir los bytes crudos PCM concatenados a formato WAV estándar
+            wav_io = io.BytesIO()
+            with wave.open(wav_io, "wb") as w:
+                w.setnchannels(1)       # Mono
+                w.setsampwidth(2)       # 16-bit
+                w.setframerate(sample_rate) # Tasa de muestreo (ej: 21000 para tono grave)
+                w.writeframes(pcm_data)
+            
+            return wav_io.getvalue()
+        
     except Exception as e:
-        logger.error(f"Excepción al llamar a Gemini TTS: {e}")
+        logger.error(f"Excepción al sintetizar audio segmentado con Gemini: {e}")
         
     return None
 
