@@ -379,5 +379,10 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
     4. **Actualización de Límite en WordPress:** Modificamos la función `enforce_limit` en [tools/wordpress.py](file:///Users/cristianbruno/Downloads/PAGINA%20WEB%20FUTBOL/tools/wordpress.py) para que, en lugar de pasar los artículos viejos a `draft`, cambie sus categorías únicamente a `[303]` (Social Share) manteniendo su estado como `publish`. De esta forma, se ocultan del portal automáticamente (se excluyen de todas las secciones) pero su URL retorna `200 OK` de forma nativa sin romper ningún tweet previo.
     5. **Restauración Retroactiva:** Ejecutamos un script en lote que restauró los 98 borradores previos del portal, convirtiéndolos a estado `publish` dentro de la categoría `[303]`, reparando retroactivamente todas las tarjetas grises/rotas del perfil de X.
 
+- **Deduplicación del Portal y Saneamiento de Clones Sociales (27/06/2026 12:42 GMT-3):**
+  - **Diagnóstico:** Se identificó que la API de Twitter/X arrojaba error 400 por posts recientes duplicados. Esto se debía a que existían múltiples crónicas del partido de Bélgica en el Mundial y duplicaciones en las notas de pases de clubes que ya se habían publicado a las 5:00 AM y volvieron a redactarse en el ciclo de las 12:00 PM.
+  - **Resolución:** Se diseñó y ejecutó el script `deduplicate_portal.py` para agrupar semánticamente los artículos del día por temas clave. El sistema identificó 47 posts redundantes (tanto notas principales como clones sociales de la categoría 303), manteniendo únicamente la versión más reciente/completa de cada noticia y moviendo las 47 notas antiguas/duplicadas a estado `draft` (borrador). Esto saneó el feed RSS de la categoría 303 dejándolo con exactamente 10 noticias 100% únicas y listas para ser procesadas en Make.com sin errores de duplicación en X.
+
+
 
 
