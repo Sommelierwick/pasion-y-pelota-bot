@@ -1845,9 +1845,9 @@ function ppelota_filter_category_queries($query) {
 }
 add_action('pre_get_posts', 'ppelota_filter_category_queries');
 
-// Excluir posts de la categoría Social Share (ID 303) de todas las consultas excepto de su feed específico
+// Excluir posts de la categoría Social Share (ID 303) de todas las consultas excepto de su feed específico y páginas individuales
 function ppelota_filter_social_share_query($query) {
-  if (!is_admin() && $query->is_main_query()) {
+  if (!is_admin() && $query->is_main_query() && !$query->is_single()) {
     $is_social_share = false;
     if ($query->is_category('social-share') || $query->get('category_name') === 'social-share' || $query->get('cat') == 303) {
       $is_social_share = true;
@@ -2172,6 +2172,54 @@ function ppelota_add_utm_to_rss_permalink($permalink) {
     return $permalink;
 }
 add_filter('the_permalink_rss', 'ppelota_add_utm_to_rss_permalink');
+
+// Permitir ver entradas en estado 'draft' por permalink directo (evita 404 en redes sociales / Twitter Cards)
+function ppelota_allow_drafts_in_single_queries($query) {
+  if (!is_admin() && $query->is_main_query() && ($query->is_single() || $query->get('p') || $query->get('name'))) {
+    $query->set('post_status', array('publish', 'draft'));
+  }
+}
+add_action('pre_get_posts', 'ppelota_allow_drafts_in_single_queries');
+
+function ppelota_make_drafts_public_in_memory($posts, $query) {
+  if (!is_admin() && $query->is_main_query() && ($query->is_single() || $query->get('p') || $query->get('name'))) {
+    if (!empty($posts)) {
+      $has_draft = false;
+      foreach ($posts as $post) {
+        if ($post->post_status === 'draft') {
+          $post->post_status = 'publish';
+          $has_draft = true;
+        }
+      }
+      if ($has_draft) {
+        global $wp_query;
+        if (isset($wp_query)) {
+          $wp_query->is_404 = false;
+        }
+        $query->is_404 = false;
+        status_header(200);
+      }
+    }
+  }
+  return $posts;
+}
+add_filter('the_posts', 'ppelota_make_drafts_public_in_memory', 10, 2);
+
+// Corregir cabeceras 404 para borradores
+function ppelota_filter_status_header($status_header, $code, $description, $protocol) {
+  if ($code == 404) {
+    global $wp_query;
+    if (isset($wp_query) && !empty($wp_query->posts)) {
+      foreach ($wp_query->posts as $post) {
+        if ($post->post_status === 'draft') {
+          return "HTTP/1.1 200 OK";
+        }
+      }
+    }
+  }
+  return $status_header;
+}
+add_filter('status_header', 'ppelota_filter_status_header', 10, 4);
 """)
 
 # ── header.php ──────────────────────────────────────────────────────────────
@@ -3592,7 +3640,11 @@ open(f"{THEME_DIR}/index.php","w",encoding="utf-8").write("""\
 
 # ── single.php ───────────────────────────────────────────────────────────────
 open(f"{THEME_DIR}/single.php","w",encoding="utf-8").write("""\
-<?php get_header();?>
+<?php
+if (get_post_status(get_the_ID()) === 'draft') {
+  header("HTTP/1.1 200 OK", true, 200);
+}
+get_header();?>
 <div class="site-content"><div class="container"><div class="content-wrap">
 <main class="main-content">
 <?php while(have_posts()):the_post();

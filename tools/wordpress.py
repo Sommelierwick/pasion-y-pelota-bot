@@ -352,8 +352,8 @@ class WordPressPublisher:
             return None
 
     def enforce_limit(self, limit: int = 50):
-        """Mantiene un límite estricto de posts en el portal, eliminando los más antiguos."""
-        url = f"{self.url}/posts?per_page=100&orderby=id&order=desc"
+        """Mantiene un límite estricto de posts en el portal, archivando los más antiguos en la categoría Social Share (303)."""
+        url = f"{self.url}/posts?per_page=100&orderby=id&order=desc&categories_exclude=303"
         try:
             response = requests.get(url, headers=self._get_headers(), auth=self.auth, timeout=15)
             if response.status_code != 200:
@@ -367,20 +367,23 @@ class WordPressPublisher:
                 return
 
             posts_to_delete = posts[limit:]
-            logging.warning(f"ORDEN SUPREMA LÍMITE: Eliminando {len(posts_to_delete)} notas para mantener exactamente {limit} en portada.")
+            logging.warning(f"ORDEN SUPREMA LÍMITE: Archivando {len(posts_to_delete)} notas para mantener exactamente {limit} en portada.")
             
             for post in posts_to_delete:
                 post_id = post["id"]
                 update_url = f"{self.url}/posts/{post_id}"
                 try:
-                    update_payload = {"status": "draft"}
+                    # En lugar de mover a borrador (draft) lo cual rompe las Twitter Cards con 404,
+                    # lo movemos a la categoría Social Share (303) manteniéndolo público.
+                    # Esto lo oculta del portal y loops, pero mantiene activa su URL y tarjeta en X.
+                    update_payload = {"categories": [303]}
                     r = requests.post(update_url, json=update_payload, headers=self._get_headers(), auth=self.auth, timeout=15)
                     if r.status_code in [200, 201]:
-                        logging.info(f"Nota ID {post_id} movida a borrador exitosamente.")
+                        logging.info(f"Nota ID {post_id} archivada en la categoría Social Share (303) exitosamente.")
                     else:
-                        logging.error(f"Error moviendo a borrador la nota ID {post_id}: HTTP {r.status_code}")
+                        logging.error(f"Error archivando la nota ID {post_id}: HTTP {r.status_code}")
                 except Exception as e:
-                    logging.error(f"Excepción al mover nota a borrador: {e}")
+                    logging.error(f"Excepción al archivar nota: {e}")
 
                     
         except Exception as e:
