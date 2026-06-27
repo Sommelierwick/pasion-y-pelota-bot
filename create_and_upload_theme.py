@@ -2159,6 +2159,19 @@ function ppelota_hybrid_nosnippet_filter($content) {
   return $content;
 }
 add_filter('the_content', 'ppelota_hybrid_nosnippet_filter', 99);
+
+// Filtro para agregar parámetros UTM automáticamente a los enlaces de los feeds RSS (los que lee Make)
+function ppelota_add_utm_to_rss_permalink($permalink) {
+    if (is_feed()) {
+        $permalink = add_query_arg(array(
+            'utm_source' => 'twitter',
+            'utm_medium' => 'social',
+            'utm_campaign' => 'bot_editorial'
+        ), $permalink);
+    }
+    return $permalink;
+}
+add_filter('the_permalink_rss', 'ppelota_add_utm_to_rss_permalink');
 """)
 
 # ── header.php ──────────────────────────────────────────────────────────────
@@ -2169,6 +2182,7 @@ open(f"{THEME_DIR}/header.php","w",encoding="utf-8").write("""\
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="monetag" content="812ed7836cedd78e5ed84678aff019c2">
+<script src="https://quge5.com/88/tag.min.js" data-zone="253869" async data-cfasync="false"></script>
 <script>
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
