@@ -407,7 +407,10 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
     - Se auditó el código de `tools/audio_generator.py` en busca de mejoras de rendimiento de I/O y procesamiento de audio.
     - **Refactorización a Memoria Pura (Edge TTS):** Se modificó `generate_tts_edge` (locución en inglés / fallback en español) para que transmita el audio de forma interactiva directo a RAM usando `communicate.stream()`. 
     - **Resultado:** Se eliminaron las importaciones de `tempfile` y `os` y la creación de archivos temporales en disco. El audio ahora se genera completamente en memoria, lo que acelera notablemente la generación (evitando latencia de lectura/escritura) y elimina de raíz posibles errores de permisos en servidores de producción y Actions.
-    - Se validaron y commitearon los cambios en Git local.
+    - **Optimización de Fragmentación (Gemini TTS):** Para evitar los timeouts de lectura (Read Timeout) de la API de Gemini al enviar textos largos, se implementó una lógica de fragmentación en `generate_tts_gemini` que segmenta el texto en bloques de un máximo de **450 caracteres** (cortando de forma limpia por oraciones y párrafos). Cada fragmento se sintetiza de forma secuencial y los bytes PCM crudos se concatenan en memoria para conformar un único WAV a **21000 Hz** (tono grave). Se aumentó el timeout de requests de la API a **60 segundos** por seguridad.
+    - Se ejecutó un script retroactivo (`apply_premium_podcast_retroactive.py`) para actualizar las últimas 15 notas del portal a este nuevo estándar.
+    - Se validaron y commitearon todos los cambios en el Git local.
+
 
 
 
