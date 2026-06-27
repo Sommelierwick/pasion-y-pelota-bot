@@ -391,7 +391,7 @@ class WordPressPublisher:
 
     def generate_social_title(self, original_title: str, content_snippet: str) -> Optional[str]:
         """Genera un título optimizado para redes sociales a partir del original y el resumen."""
-        models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
+        models = ["gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
         
         TEAM_HANDLES = {
             "Argentina": "@Argentina",
