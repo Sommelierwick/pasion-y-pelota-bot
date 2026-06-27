@@ -2182,7 +2182,7 @@ open(f"{THEME_DIR}/header.php","w",encoding="utf-8").write("""\
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="monetag" content="812ed7836cedd78e5ed84678aff019c2">
-<script src="https://quge5.com/88/tag.min.js" data-zone="253869" async data-cfasync="false"></script>
+<script src="https://quge5.com/88/tag.min.js" data-zone="11206055" async data-cfasync="false"></script>
 <script>
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
