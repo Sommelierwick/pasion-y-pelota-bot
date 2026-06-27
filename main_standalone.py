@@ -2042,7 +2042,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
             check_resp = requests.get(
                 f"{base_url_wp}/posts",
                 auth=auth_wp,
-                params={"status": "publish", "per_page": 1, "orderby": "date", "order": "asc"},
+                params={"status": "publish", "per_page": 1, "orderby": "id", "order": "asc"},
                 timeout=15
             )
             total_posts = int(check_resp.headers.get("X-WP-Total", 0))

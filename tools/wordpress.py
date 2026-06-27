@@ -353,7 +353,7 @@ class WordPressPublisher:
 
     def enforce_limit(self, limit: int = 50):
         """Mantiene un límite estricto de posts en el portal, eliminando los más antiguos."""
-        url = f"{self.url}/posts?per_page=100&orderby=date&order=desc"
+        url = f"{self.url}/posts?per_page=100&orderby=id&order=desc"
         try:
             response = requests.get(url, headers=self._get_headers(), auth=self.auth, timeout=15)
             if response.status_code != 200:
