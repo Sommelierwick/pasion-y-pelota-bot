@@ -401,6 +401,14 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
   - **Mecanismo de Fallback:** Si la API de Gemini TTS falla o se queda sin cuota, el bot de español retrocederá de forma automática a Edge TTS con la voz argentina `es-AR-TomasNeural` (calibrada a velocidad `+10%` y tono `-2Hz` para asemejar el ritmo deportivo).
   - **Archivos modificados:** `tools/audio_generator.py` y `credenciales/credenciales.md`. La configuración quedó completamente funcional y en producción.
 
+- **ORDEN SUPREMA: ACTUALIZACIÓN CLIENTE ANTIGRAVITY VER. 2.2.1 (27/06/2026 16:29 GMT-3):**
+  - **Directiva de Actualización:** El usuario va a proceder a aplicar la actualización del cliente de escritorio de Antigravity (versión 2.2.1) haciendo clic en `Restart to Update`.
+  - **Acción Obligatoria para la Próxima Sesión:** Una vez que el cliente esté actualizado y se inicie la próxima sesión de chat, el agente tiene la obligación absoluta de:
+    1. Revisar y auditar la documentación y capacidades de la versión 2.2.1.
+    2. Comprobar si las nuevas herramientas visuales, las capacidades nativas de renderizado de audio o los nuevos skills incorporados permiten mejorar, simplificar o acelerar el pipeline de generación de audio, la inyección del reproductor o el procesamiento táctico implementado hoy.
+    3. Aplicar cualquier optimización que aproveche al máximo el nuevo ecosistema actualizado.
+
+
 
 
 
