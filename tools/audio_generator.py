@@ -49,29 +49,23 @@ def clean_html_for_speech(html: str) -> str:
     return text.strip()
 
 def generate_tts_edge(text: str, voice: str) -> Optional[bytes]:
-    """Genera audio MP3 usando la API gratuita de Microsoft Edge TTS."""
+    """Genera audio MP3 usando la API gratuita de Microsoft Edge TTS (streaming a memoria)."""
     import edge_tts
-    import tempfile
-    import os
     
     # Calibración específica para lograr el estilo de relato deportivo argentino (rápido y grave)
     rate = "+10%" if voice == "es-AR-TomasNeural" else "+0%"
     pitch = "-2Hz" if voice == "es-AR-TomasNeural" else "+0Hz"
     
     async def amain():
-        communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
-            tmp_path = tmp.name
         try:
-            await communicate.save(tmp_path)
-            with open(tmp_path, "rb") as f:
-                content = f.read()
-            os.remove(tmp_path)
-            return content
+            communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+            audio_data = bytearray()
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_data.extend(chunk["data"])
+            return bytes(audio_data)
         except Exception as e:
-            logger.error(f"Error en Edge TTS ({voice}): {e}")
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+            logger.error(f"Error en Edge TTS streaming ({voice}): {e}")
             return None
             
     try:
