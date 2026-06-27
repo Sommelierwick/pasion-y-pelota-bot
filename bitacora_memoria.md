@@ -410,12 +410,11 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
     - **Optimización de Fragmentación (Gemini TTS):** Para evitar los timeouts de lectura (Read Timeout) de la API de Gemini al enviar textos largos, se implementó una lógica de fragmentación en `generate_tts_gemini` que segmenta el texto en bloques de un máximo de **450 caracteres** (cortando de forma limpia por oraciones y párrafos). Cada fragmento se sintetiza de forma secuencial y los bytes PCM crudos se concatenan en memoria para conformar un único WAV a **21000 Hz** (tono grave). Se aumentó el timeout de requests de la API a **60 segundos** por seguridad.
     - Se ejecutó un script retroactivo (`apply_premium_podcast_retroactive.py`) para actualizar las últimas 15 notas del portal a este nuevo estándar.
     - Se validaron y commitearon todos los cambios en el Git local.
-
-
-
-
-
-
-
-
-
+- **RESOLUCIÓN DE CONTRASTE Y TRIPLE MOTOR DE RESPALDO DE NARRACIÓN (27/06/2026 17:28 GMT-3):**
+  - **Sanidad de Contraste y Maquetación:** Se detectó que las notas del portal perdían el contraste de letras y diseño de fondo. La causa raíz fue un error en la expresión regular original de borrado (`.*?` no codicioso) que dejaba etiquetas `</div>` huérfanas en el inicio del post, rompiendo la estructura de contenedores de la plantilla de WordPress. Implementamos la función `clean_all_legacy_players` que barre todos los residuos históricos y descarta de forma absoluta cualquier tag roto antes del primer párrafo real del artículo (`<p>` o `<h2>`), reparando el contraste del portal inmediatamente.
+  - **Alineación de Voz Deportiva (Gemini Puck 21KHz):** Se confirmó que la voz favorita del usuario es la de **Gemini TTS Puck 21KHz** (comprobada en el post de Junior de Barranquilla). Reconfiguramos `tools/audio_generator.py` para devolver a Puck como la voz primaria.
+  - **Jerarquía de Fallback Triple:** Para garantizar la disponibilidad total, se implementó una estructura triple en español:
+    1. **Gemini TTS Puck 21KHz** (Voz preferida).
+    2. **Google Cloud TTS es-US-Neural2-B** (Respaldo pago vía API Key, configurada a velocidad `0.93` y tono `-2.0`).
+    3. **Edge TTS es-AR-TomasNeural** (Respaldo gratuito final).
+  - **Actualización Total Exitosa:** Se ejecutaron los scripts de procesamiento en lote (`apply_premium_podcast_retroactive.py` y `fix_remaining.py`), actualizando con éxito los **15 artículos publicados** del portal con reproductores limpios, traducción impecable y los audios correspondientes en español e inglés, volviendo a dejar el sitio en perfecto estado estético y operativo.

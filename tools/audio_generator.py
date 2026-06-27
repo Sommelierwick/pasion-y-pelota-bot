@@ -243,14 +243,19 @@ def generate_tts(text: str, lang: str = "es", voice: str = "onyx", model: str = 
     audio_bytes = None
     
     if lang == "es":
-        # Usar Google Cloud TTS con la voz de relator pagada es-US-Neural2-B
-        logger.info("Generando audio en español usando Google Cloud TTS (es-US-Neural2-B)...")
-        audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
+        # 1. Opción Preferida: Gemini TTS con la voz Puck ralentizada/bajado de tono a 21KHz (Voz del post Junior de Barranquilla)
+        logger.info("Generando audio en español usando Gemini TTS (Puck Grave 21KHz)...")
+        audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
         
-        # Fallback a Edge TTS si Google Cloud TTS falla
+        # 2. Respaldo Pago: Google Cloud TTS es-US-Neural2-B
+        if not audio_bytes:
+            logger.warning("Fallo en Gemini TTS. Usando Google Cloud TTS (es-US-Neural2-B) como respaldo pago...")
+            audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
+            
+        # 3. Respaldo Gratuito Final: Edge TTS es-AR-TomasNeural
         if not audio_bytes:
             edge_voice = "es-AR-TomasNeural"
-            logger.warning(f"Fallback a Edge TTS ({edge_voice}) por fallo en Google Cloud TTS.")
+            logger.warning(f"Fallo en Google APIs. Usando Edge TTS ({edge_voice}) como respaldo gratuito final...")
             audio_bytes = generate_tts_edge(text, edge_voice)
     else:
         # Para inglés, usar directamente la opción gratuita (Edge TTS) para ahorrar costos
@@ -326,7 +331,7 @@ def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str
     timestamp = int(time.time())
     clean_title = re.sub(r'[^a-zA-Z0-9]', '_', title_es)[:30].strip('_').lower()
     
-    filename_es = f"audio_es_{clean_title}_{timestamp}.mp3"
+    filename_es = f"audio_es_{clean_title}_{timestamp}.wav"
     filename_en = f"audio_en_{clean_title}_{timestamp}.mp3"
     
     # 4. Subir a WordPress
