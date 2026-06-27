@@ -1325,9 +1325,10 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 ⚠️ REGLA DE LAS LIGAS DE CLUBES Y FÚTBOL ARGENTINO:
 - Para cualquier noticia de ligas o copas de clubes (MLS, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Libertadores, etc. - EXCEPTUANDO el Brasileirão), ÚNICAMENTE se permite hablar de:
   1. MERCADO DE PASES (fichajes, rumores de traspaso, renovaciones, salidas, llegadas).
-  2. CLUBES INHIBIDOS POR LA FIFA (sanciones, deudas).
-- REGLA DE ORO DE FÚTBOL ARGENTINO: TODAS las notas sin excepción de "Fútbol Argentino" deben ser sobre mercado de pases o inhibiciones. No se permite ninguna crónica de partidos o resultados del torneo local.
-- Ignora CUALQUIER otra noticia de ligas de clubes (resultados, polémicas) que no sea fichaje o inhibición.
+  2. LESIONES de jugadores clave o figuras (informes médicos, evolución, tiempos de recuperación).
+  3. PROBLEMAS DE CLUBES, crisis institucionales, deudas, sanciones o inhibiciones de la FIFA.
+- REGLA DE ORO DE FÚTBOL ARGENTINO: TODAS las notas sin excepción de "Fútbol Argentino" deben ser sobre mercado de pases, lesiones importantes o problemas/inhibiciones de clubes. No se permite ninguna crónica de partidos o resultados ordinarios del torneo local.
+- Ignora CUALQUIER otra noticia de ligas de clubes (crónicas de partidos comunes, resultados comunes, etc.) que no pertenezca a pases, lesiones o crisis.
 
 🌟 EXCEPCIONES ABSOLUTAS (SE PERMITE COBERTURA TOTAL DE RESULTADOS Y PARTIDOS):
 1. POTENCIAS MUNDIALES Y SUS ESTRELLAS: Se acepta cobertura total del desempeño, partidos, resultados, tácticas y figuras de Argentina, Brasil, Francia, Inglaterra, España y Uruguay.
@@ -2033,7 +2034,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
             for t in teams:
                 teams_covered_this_cycle.add(t)
 
-        # --- REGLA 9: Límite estricto de 30 posts publicados ---
+        # --- REGLA 9: Límite estricto de 50 posts publicados ---
         try:
             from requests.auth import HTTPBasicAuth
             base_url_wp = config.WP_URL.rstrip("/") + "/wp-json/wp/v2"
@@ -2046,7 +2047,7 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
             )
             total_posts = int(check_resp.headers.get("X-WP-Total", 0))
             logging.info(f"Regla 9 — Total de posts publicados: {total_posts}")
-            if total_posts > 30:
+            if total_posts > 50:
                 oldest_posts = check_resp.json()
                 if oldest_posts:
                     oldest_id = oldest_posts[0].get("id")

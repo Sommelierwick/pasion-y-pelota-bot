@@ -310,8 +310,8 @@ class WordPressPublisher:
                 post_link = published_post.get("link", "")
                 logging.info(f"¡Artículo publicado con éxito! Link: {post_link}")
                 
-                # Ejecutar purga de notas excedentes según la ORDEN SUPREMA (máximo 30)
-                self.enforce_limit(30)
+                # Ejecutar purga de notas excedentes según la ORDEN SUPREMA (máximo 50)
+                self.enforce_limit(50)
                 
                 # --- ORDEN SUPREMA: TODO LO QUE SE SUBE SE PUBLICA EN REDES ---
                 # Si el estado es publicado y no es ya una nota de la categoría Social Share,
@@ -351,7 +351,7 @@ class WordPressPublisher:
             logging.error(f"Excepción al publicar entrada en WordPress: {e}")
             return None
 
-    def enforce_limit(self, limit: int = 30):
+    def enforce_limit(self, limit: int = 50):
         """Mantiene un límite estricto de posts en el portal, eliminando los más antiguos."""
         url = f"{self.url}/posts?per_page=100&orderby=date&order=desc"
         try:
