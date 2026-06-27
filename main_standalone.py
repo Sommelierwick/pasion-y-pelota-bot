@@ -1219,6 +1219,15 @@ def run_pipeline():
         covered_db["date"] = today_str
         covered_db["teams"] = []
         save_database(db)
+        
+        # Publicar el posteo publicitario diario del Mundial 2026 en X (Social Share)
+        try:
+            logging.info("Ejecutando publicación automática del posteo publicitario diario del Mundial 2026...")
+            import subprocess
+            script_path = os.path.join(os.path.dirname(__file__), "scratch", "publish_daily_wc_promo.py")
+            subprocess.run(["python3", script_path], check=True)
+        except Exception as e_promo:
+            logging.error(f"Error al ejecutar posteo publicitario diario del Mundial: {e_promo}")
 
     # --- PASO 0.5: Motor de Cobertura en Vivo del Mundial 2026 ---
     try:
