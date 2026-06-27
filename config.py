@@ -20,10 +20,18 @@ def rotate_key():
     import logging
     logging.info(f"Rotando API Key de Gemini (Index: {ACTIVE_KEY_INDEX % len(GEMINI_API_KEYS)})")
 
-# ─── Credenciales de WordPress ───────────────────────────────────────────────
 WP_URL      = os.getenv("WP_URL", "https://pasionypelota.com").strip()
 WP_USER     = os.getenv("WP_USER", "elrojobruno@gmail.com").strip()
 WP_PASSWORD = (os.getenv("WP_PASSWORD") or "").strip()
+
+# ─── Configuración de Audio Narración (Podcast) ────────────────────────────────
+ENABLE_AUDIO_NARRATION = True
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+GOOGLE_CLOUD_API_KEY = os.getenv("GOOGLE_CLOUD_API_KEY", "").strip()
+TTS_MODEL = "tts-1"
+TTS_VOICE = "onyx"
+FLAG_ES = "🇪🇸"
+FLAG_EN = "🇬🇧"
 
 # ─── Canales RSS por clúster semántico ──────────────────────────────────────
 # Prioridad SEO: Messi/Selección >= Mundial 2026 > MLS > Brasileirão > LPF Argentina > Liga MX

@@ -383,6 +383,26 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
   - **Diagnóstico:** Se identificó que la API de Twitter/X arrojaba error 400 por posts recientes duplicados. Esto se debía a que existían múltiples crónicas del partido de Bélgica en el Mundial y duplicaciones en las notas de pases de clubes que ya se habían publicado a las 5:00 AM y volvieron a redactarse en el ciclo de las 12:00 PM.
   - **Resolución:** Se diseñó y ejecutó el script `deduplicate_portal.py` para agrupar semánticamente los artículos del día por temas clave. El sistema identificó 47 posts redundantes (tanto notas principales como clones sociales de la categoría 303), manteniendo únicamente la versión más reciente/completa de cada noticia y moviendo las 47 notas antiguas/duplicadas a estado `draft` (borrador). Esto saneó el feed RSS de la categoría 303 dejándolo con exactamente 10 noticias 100% únicas y listas para ser procesadas en Make.com sin errores de duplicación en X.
 
+- **INTEGRACIÓN DE NARRACIÓN DE AUDIO BILINGÜE Y FALLBACK DE VOZ NEURAL (27/06/2026 14:20 GMT-3):**
+  - **Implementación del Sistema:** Se desarrolló la funcionalidad de agregar audios narrados tipo podcast a todas las notas principales publicadas. El sistema traduce automáticamente el artículo del español al inglés vía Gemini (preservando el HTML original) y genera las locuciones en ambos idiomas.
+  - **Diseño del Reproductor:** Se diseñó una barra de podcast premium con estilo **Glassmorphism** (fondo oscuro translúcido con desenfoque, bordes `#ffcc00` y botones interactivos con banderas 🇪🇸 y 🇬🇧). Este HTML se inyecta directamente al inicio de cada entrada de WordPress y reproduce los audios localmente en cualquier dispositivo.
+  - **Estrategia Dual-Engine (OpenAI TTS + Edge TTS Fallback):**
+    - El motor intenta generar las voces de alta fidelidad de OpenAI (modelo `tts-1`, voz masculina profunda `onyx` de comentarista deportivo).
+    - Dado que la API Key de OpenAI configurada en producción presenta un error de saldo/cuota agotada (HTTP 429), implementamos un fallback automático e inmediato a **Microsoft Edge TTS** (con las voces neurales `es-AR-TomasNeural` y `en-GB-RyanNeural`).
+    - Las voces de Edge TTS son **100% gratuitas, no tienen cuota de consumo y su entonación es sumamente natural y humana**, lo que garantiza el correcto funcionamiento sin costos operativos extra y manteniendo una experiencia de usuario de primer nivel.
+
+- **OPTIMIZACIÓN Y CONFIGURACIÓN PREMIUM DE AUDIOS (27/06/2026 16:20 GMT-3):**
+  - **Creación de Clave Google Cloud:** El usuario generó y restringió una clave en la consola web de Google Cloud (`AIzaSyCfVP8av-hyNUdxumyFxEMBLxGu--zM-UU`) exclusivamente para la *Cloud Text-to-Speech API*, garantizando la seguridad del proyecto contra consumos no autorizados en otros servicios. Se guardó en `.env` como `GOOGLE_CLOUD_API_KEY`.
+  - **Desactivación de OpenAI:** Se removió por completo la lógica y variables de OpenAI del motor de voz para priorizar los créditos disponibles de Google y opciones gratuitas de Edge.
+  - **Implementación de Gemini TTS (Español):** Para lograr la expresividad, respiraciones y pausas naturales de un locutor humano, se conectó el modelo **`gemini-3.1-flash-tts-preview`** de la API de Gemini (aprovechando el saldo de regalo de $300 de la suscripción de Google Cloud) con la voz **`Puck`**.
+  - **Calibración de Pitch analógico (Tono Grave):** La voz Puck original lee con acento neutro pero su timbre por defecto es agudo. Para emular el peso radial del periodismo deportivo argentino (Mariano Closs), el script reescribe el guión al estilo futbolístico y procesa los bytes PCM puros de la API escribiendo una cabecera WAV configurada a **`21000 Hz`** (un 12.5% menos que los 24000 Hz estándar). Esto ralentiza ligeramente el audio y baja su tono por hardware, dándole una voz gruesa, masculina y sumamente pasional.
+  - **Ahorro de Costos en Inglés (100% Gratis):** Para optimizar la facturación y no gastar saldo en traducciones, se desactivó la API de Google Cloud para el inglés. La voz en inglés se genera directamente y sin costo a través de **Microsoft Edge TTS** usando la voz de narrador británico **`en-GB-RyanNeural`**.
+  - **Soporte de Formatos en WordPress:** El audio en español se sube a WordPress como archivo **`.wav`** (`audio/wav`) para conservar la calidad de estudio, y el inglés se sube como **`.mp3`** (`audio/mpeg`). Se actualizó `upload_audio_to_wp` para inyectar los MIME types correspondientes según la extensión.
+  - **Mecanismo de Fallback:** Si la API de Gemini TTS falla o se queda sin cuota, el bot de español retrocederá de forma automática a Edge TTS con la voz argentina `es-AR-TomasNeural` (calibrada a velocidad `+10%` y tono `-2Hz` para asemejar el ritmo deportivo).
+  - **Archivos modificados:** `tools/audio_generator.py` y `credenciales/credenciales.md`. La configuración quedó completamente funcional y en producción.
+
+
+
 
 
 

@@ -252,6 +252,82 @@ class WordPressPublisher:
         # 2. Obtener o crear los IDs de las etiquetas
         tag_ids = self.get_or_create_tags(tags)
         
+        # ─── Generación de Audio Narración (Podcast) ───
+        is_social_share = False
+        if isinstance(league_category, str):
+            is_social_share = (league_category.strip().lower() in ["social share", "social-share", "303"])
+        elif isinstance(league_category, list):
+            is_social_share = any(str(c).strip().lower() in ["social share", "social-share", "303"] for c in league_category)
+            
+        if config.ENABLE_AUDIO_NARRATION and status == "publish" and not is_social_share:
+            try:
+                from tools.audio_generator import generate_and_upload_audios
+                url_es, url_en = generate_and_upload_audios(self, title, content)
+                if url_es and url_en:
+                    # Inyectar el HTML del reproductor al principio del contenido
+                    player_html = f"""<!-- wp:html -->
+<div class="pyp-podcast-bar" style="background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid #ffcc00; border-radius: 12px; padding: 15px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+  <div style="display: flex; align-items: center; gap: 12px;">
+    <span style="font-size: 26px; filter: drop-shadow(0 0 5px #ffcc00);">🎙️</span>
+    <div>
+      <h4 style="margin: 0; color: #ffcc00; font-family: 'Outfit', sans-serif; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">Nota Narrada</h4>
+      <p style="margin: 2px 0 0 0; color: #bbb; font-size: 11px;">Escuchá este artículo con voz experta</p>
+    </div>
+  </div>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+     <!-- Botón Español -->
+     <div id="pyp-btn-es" onclick="togglePypAudio('es')" style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #222; border: 1px solid #ffcc00; border-radius: 20px; padding: 8px 16px; color: #fff; font-size: 12px; font-weight: 600; transition: all 0.3s ease;">
+       <span>{config.FLAG_ES}</span> <span>Escuchar (ES)</span>
+     </div>
+     <!-- Botón Inglés -->
+     <div id="pyp-btn-en" onclick="togglePypAudio('en')" style="cursor: pointer; display: flex; align-items: center; gap: 8px; background: #222; border: 1px solid #444; border-radius: 20px; padding: 8px 16px; color: #ccc; font-size: 12px; font-weight: 600; transition: all 0.3s ease;">
+       <span>{config.FLAG_EN}</span> <span>Listen (EN)</span>
+     </div>
+  </div>
+  
+  <audio id="pyp-audio-es" src="{url_es}" onended="resetPypButtons()"></audio>
+  <audio id="pyp-audio-en" src="{url_en}" onended="resetPypButtons()"></audio>
+  
+  <script>
+    function togglePypAudio(lang) {{
+      var es = document.getElementById('pyp-audio-es');
+      var en = document.getElementById('pyp-audio-en');
+      var btnEs = document.getElementById('pyp-btn-es');
+      var btnEn = document.getElementById('pyp-btn-en');
+      
+      if (lang === 'es') {{
+        if (es.paused) {{
+          es.play(); en.pause();
+          btnEs.style.background = '#ffcc00'; btnEs.style.color = '#000'; btnEs.innerHTML = '<span>{config.FLAG_ES}</span> <b>Pausar (ES)</b>';
+          btnEn.style.background = '#222'; btnEn.style.color = '#ccc'; btnEn.style.borderColor = '#444'; btnEn.innerHTML = '<span>{config.FLAG_EN}</span> Listen (EN)';
+        }} else {{
+          es.pause();
+          btnEs.style.background = '#222'; btnEs.style.color = '#fff'; btnEs.style.borderColor = '#ffcc00'; btnEs.innerHTML = '<span>{config.FLAG_ES}</span> Escuchar (ES)';
+        }}
+      }} else {{
+        if (en.paused) {{
+          en.play(); es.pause();
+          btnEn.style.background = '#ffcc00'; btnEn.style.color = '#000'; btnEn.style.borderColor = '#ffcc00'; btnEn.innerHTML = '<span>{config.FLAG_EN}</span> <b>Pause (EN)</b>';
+          btnEs.style.background = '#222'; btnEs.style.color = '#fff'; btnEs.style.borderColor = '#ffcc00'; btnEs.innerHTML = '<span>{config.FLAG_ES}</span> Escuchar (ES)';
+        }} else {{
+          en.pause();
+          btnEn.style.background = '#222'; btnEn.style.color = '#ccc'; btnEn.style.borderColor = '#444'; btnEn.innerHTML = '<span>{config.FLAG_EN}</span> Listen (EN)';
+        }}
+      }}
+    }}
+    function resetPypButtons() {{
+      document.getElementById('pyp-btn-es').style.background = '#222'; document.getElementById('pyp-btn-es').style.color = '#fff'; document.getElementById('pyp-btn-es').style.borderColor = '#ffcc00'; document.getElementById('pyp-btn-es').innerHTML = '<span>{config.FLAG_ES}</span> Escuchar (ES)';
+      document.getElementById('pyp-btn-en').style.background = '#222'; document.getElementById('pyp-btn-en').style.color = '#ccc'; document.getElementById('pyp-btn-en').style.borderColor = '#444'; document.getElementById('pyp-btn-en').innerHTML = '<span>{config.FLAG_EN}</span> Listen (EN)';
+    }}
+  </script>
+</div>
+<!-- /wp:html -->
+"""
+                    content = player_html + "\n\n" + content
+                    logging.info("HTML del reproductor de podcast inyectado exitosamente al inicio de la nota.")
+            except Exception as e:
+                logging.error(f"Error durante el proceso de generación/inyección de audio: {e}")
+
         # 3. Preparar payload de la entrada
         post_payload = {
             "title": title,
