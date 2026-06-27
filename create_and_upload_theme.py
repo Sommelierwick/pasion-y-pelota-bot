@@ -3347,14 +3347,14 @@ open(f"{THEME_DIR}/category.php","w",encoding="utf-8").write("""\
     </div>
 
     <div class="fixture-tabs" style="margin-bottom: 25px;">
-      <button class="fixture-tab-btn active" onclick="openLeagueTab(event, 'tab-posiciones')">📊 Clasificación</button>
+      <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-posiciones')">📊 Clasificación</button>
       <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-partidos')">⚽ Partidos y Resultados</button>
       <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-estadisticas')">🔥 Goleadores</button>
-      <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-noticias')">📰 Noticias y Fichajes</button>
+      <button class="fixture-tab-btn active" onclick="openLeagueTab(event, 'tab-noticias')">📰 Noticias y Fichajes</button>
     </div>
 
     <!-- TAB 1: CLASIFICACION -->
-    <div id="tab-posiciones" class="fixture-tab-content active">
+    <div id="tab-posiciones" class="fixture-tab-content">
       <?php if ($data && !empty($data['groups'])): ?>
         <div class="groups-grid">
           <?php foreach ($data['groups'] as $group): ?>
@@ -3510,7 +3510,7 @@ open(f"{THEME_DIR}/category.php","w",encoding="utf-8").write("""\
     </div>
 
     <!-- TAB 4: NOTICIAS -->
-    <div id="tab-noticias" class="fixture-tab-content">
+    <div id="tab-noticias" class="fixture-tab-content active">
       <?php if (have_posts()): ?>
         <div class="articles-grid">
           <?php while (have_posts()): the_post(); 
@@ -3780,26 +3780,37 @@ data = resp.json()
 uploaded_zip_url = data.get("source_url")
 print(f"✅ ZIP subido. URL: {uploaded_zip_url}")
 
+import urllib.parse
+parsed_url = urllib.parse.urlparse(uploaded_zip_url)
+relative_zip_path = parsed_url.path.lstrip('/')
+
 # ── Actualizar e Instalar Snippet PHP ─────────────────────────────────────────
 print("⚙️ Actualizando Snippet PHP para instalar tema...")
 
 php_code = f"""
-$zip_url = "{uploaded_zip_url}";
-$zip_local = WP_CONTENT_DIR . "/uploads/pasion-pelota-install.zip";
-$upload_dir = get_home_path() . "wp-content/themes/";
-
-// Download ZIP
-$response = wp_remote_get($zip_url, ["timeout"=>30]);
-if (!is_wp_error($response)) {{
-    file_put_contents($zip_local, wp_remote_retrieve_body($response));
+if (isset($_GET['trigger_install'])) {{
+    $zip_local = ABSPATH . "{relative_zip_path}";
+    $upload_dir = WP_CONTENT_DIR . "/themes/";
+    
+    echo "INSTALLER LOG:\\n";
+    echo "Local ZIP: " . $zip_local . "\\n";
+    
+    if (!file_exists($zip_local)) {{
+        echo "Error: Local ZIP file not found!\\n";
+        exit;
+    }}
+    
     // Unzip
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     WP_Filesystem();
+    
+    echo "Extracting to: " . $upload_dir . "\\n";
     $unzip = unzip_file($zip_local, $upload_dir);
     if (!is_wp_error($unzip)) {{
-        // Activate
+        echo "Unzip successful!\\n";
         switch_theme("pasion-pelota");
-        error_log("TEMA PASION PELOTA INSTALADO Y ACTIVADO");
+        echo "Active Theme Template: " . get_option('template') . "\\n";
+        
         $files_to_invalidate = [
             $upload_dir . "pasion-pelota/functions.php",
             $upload_dir . "pasion-pelota/header.php",
@@ -3811,61 +3822,97 @@ if (!is_wp_error($response)) {{
         foreach ($files_to_invalidate as $f) {{
             if (file_exists($f)) {{
                 if (function_exists('opcache_invalidate')) {{
-                    opcache_invalidate($f, true);
+                    $res = opcache_invalidate($f, true);
+                    echo "OPcache invalidate for " . basename($f) . ": " . ($res ? 'OK' : 'FAILED') . "\\n";
                 }}
             }}
         }}
-        if (class_exists('LiteSpeed\\\\Purge')) {{
-            LiteSpeed\\\\Purge::purge_all();
+        $ls_class = 'LiteSpeed' . chr(92) . 'Purge';
+        if (class_exists($ls_class)) {{
+            $ls_class::purge_all();
+            echo "LiteSpeed Cache purged!\\n";
         }}
     }} else {{
-        error_log("Error unzip: " . $unzip->get_error_message());
+        echo "Error unzip: " . $unzip->get_error_message() . "\\n";
     }}
-    unlink($zip_local);
+    if (file_exists($zip_local)) {{
+        unlink($zip_local);
+    }}
+    echo "INSTALLATION PROCESS COMPLETED SUCCESSFULLY\\n";
+    exit;
 }}
 """
 
+# ── Obtener el código original del Snippet 7 ────────────────────────────────
+print("🔍 Obteniendo código original de Snippet 7...")
+r_get = requests.get(
+    f"{WP_URL}/wp-json/code-snippets/v1/snippets/7",
+    headers=auth_headers,
+    timeout=30
+)
+if r_get.status_code != 200:
+    print(f"❌ Error al obtener snippet 7: {r_get.status_code}")
+    sys.exit(1)
+
+original_snippet7 = r_get.json().get('code')
+
+# Combinar nuestro instalador con el despertador original
+injected_code = php_code + "\n" + original_snippet7
+
 snippet_payload = {
-    'name': 'Instalar Tema Pasion Pelota',
-    'code': php_code,
+    'name': 'Despertador de Bot GitHub Actions',
+    'code': injected_code,
     'scope': 'global',
     'active': True
 }
 
-# Update snippet #5
+# ── Actualizar Snippet 7 ────────────────────────────────────────────────────
+print("⚙️ Actualizando Snippet 7 con la lógica de instalación...")
 update_resp = requests.post(
-    f"{WP_URL}/wp-json/code-snippets/v1/snippets/5",
+    f"{WP_URL}/wp-json/code-snippets/v1/snippets/7",
     headers={**auth_headers, "Content-Type": "application/json"},
     json=snippet_payload,
     timeout=30
 )
 
 if update_resp.status_code not in [200, 201]:
-    print(f"❌ Error al actualizar snippet: {update_resp.status_code}")
+    print(f"❌ Error al actualizar snippet 7: {update_resp.status_code}")
     print(update_resp.text)
     sys.exit(1)
 
-print("✅ Snippet PHP actualizado y activado.")
+print("✅ Snippet 7 actualizado con éxito.")
 
 # ── Ejecutar el Snippet ───────────────────────────────────────────────────
-print("🚀 Ejecutando POST a la web para forzar la instalación del tema (bypass cache)...")
+print("🚀 Ejecutando GET a admin-post.php para forzar la instalación del tema (bypass cache)...")
 import time
 time.sleep(2)
-trigger_resp = requests.post(f"{WP_URL}/", data={"trigger_install": "1"}, timeout=30)
-print(f"POST completado. Status: {trigger_resp.status_code}")
+trigger_resp = requests.get(
+    f"{WP_URL}/wp-admin/admin-post.php?trigger_install=1",
+    headers=auth_headers,
+    timeout=40
+)
+print(f"GET completado. Status: {trigger_resp.status_code}")
+print("Trigger Response:")
+print(trigger_resp.text)
 
-# ── Desactivar el Snippet ────────────────────────────────────────────────
-print("🧹 Desactivando snippet de instalación para optimizar rendimiento...")
-deactivate_resp = requests.post(
-    f"{WP_URL}/wp-json/code-snippets/v1/snippets/5",
+# ── Restaurar el Snippet 7 ────────────────────────────────────────────────
+print("🧹 Restaurando Snippet 7 al código original...")
+restore_payload = {
+    'name': 'Despertador de Bot GitHub Actions',
+    'code': original_snippet7,
+    'scope': 'global',
+    'active': True
+}
+restore_resp = requests.post(
+    f"{WP_URL}/wp-json/code-snippets/v1/snippets/7",
     headers={**auth_headers, "Content-Type": "application/json"},
-    json={'active': False},
+    json=restore_payload,
     timeout=30
 )
-if deactivate_resp.status_code in [200, 201]:
-    print("✅ Snippet desactivado con éxito.")
+if restore_resp.status_code in [200, 201]:
+    print("✅ Snippet 7 restaurado y activado con éxito.")
 else:
-    print("⚠️ No se pudo desactivar el snippet. Inténtalo manualmente desde WP-Admin.")
+    print("⚠️ No se pudo restaurar el snippet 7. Inténtalo manualmente desde WP-Admin.")
 
 # ── Limpiar la Cache y OPcache del Tema nuevo ─────────────────────────────
 print("⚡ Purgando LiteSpeed Cache y OPcache usando la tarea secreta del tema nuevo...")
@@ -3881,3 +3928,4 @@ else:
 
 print("\n🎉 PROCESO COMPLETADO")
 print(f"   → Visita {WP_URL} para ver el nuevo diseño Marca + Olé")
+
