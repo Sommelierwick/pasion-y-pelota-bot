@@ -629,17 +629,19 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             match_id = f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}"
             published = coverage.setdefault(match_id, [])
             
-            # Encontrar el grupo correspondiente
+            # Encontrar el grupo correspondiente y la tabla de mejores terceros
             group_data = None
+            third_place_data = None
             for grp in groups:
+                grp_name = grp.get("name", "")
+                if grp_name == "3er puesto":
+                    third_place_data = grp
                 for t in grp.get("teams", []):
                     if t.get("name", "").lower() == home.lower():
                         group_data = grp
-                        break
-                if group_data:
-                    break
             
             group_json = json.dumps(group_data, indent=2, ensure_ascii=False) if group_data else "No disponible"
+            third_place_json = json.dumps(third_place_data, indent=2, ensure_ascii=False) if third_place_data else "No disponible"
             
             # Determinar tipo de artículo pendiente (ORDEN IRREFUTABLE)
             article_type = None
@@ -681,11 +683,14 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             TABLA DE POSICIONES ACTUAL DEL GRUPO:
             {group_json}
             
+            TABLA DE POSICIONES ACTUAL DE MEJORES TERCEROS DEL MUNDIAL:
+            {third_place_json}
+            
             INSTRUCCIONES DE RAZONAMIENTO LÓGICO Y FORMATO DEL TORNEO (REGLAMENTO FIFA 2026 - 48 EQUIPOS):
             1. Conoce a la perfección la escalera del torneo: Zona de Grupos -> 16avos de final -> 8vos de final -> 4tos de final -> Semi final -> Partido para definir el 3ero y 4to -> Final.
             2. Fase Actual: ZONA DE GRUPOS. Calcula los puntos virtuales/reales de cada equipo sumando los de este partido (3 por ganar, 1 por empatar, 0 por perder).
             3. Determina con precisión matemática basada en el formato oficial de 12 grupos:
-               - Quién queda CLASIFICADO a la Ronda de 32 / 16avos de final (Avanzan los 2 primeros de cada grupo Y los 8 mejores terceros de toda la copa). Salir tercero no significa eliminación automática.
+               - Quién queda CLASIFICADO a la Ronda de 32 / 16avos de final (Avanzan los 2 primeros de cada grupo Y los 8 mejores terceros de toda la copa). Salir tercero no significa eliminación automática. Si el equipo queda tercero con 4 puntos y diferencia de gol 0 o superior, está clasificado o con altísimas probabilidades según la tabla de mejores terceros.
                - Quién queda COMPROMETIDO (con obligación de ganar o dependiendo de la diferencia de gol para entrar como uno de los mejores terceros a 16avos).
                - Quién queda ELIMINADO de la Copa del Mundo matemáticamente (quienes no pueden alcanzar ni siquiera el tercer puesto competitivo).
             4. Devuelve los resultados estructurados en JSON. Es vital que el análisis entienda que salir tercero en el grupo NO significa eliminación automática en este Mundial.

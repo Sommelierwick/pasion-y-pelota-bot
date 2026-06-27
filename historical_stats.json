@@ -125,7 +125,7 @@
           "pg": "1",
           "pe": "1",
           "pp": "1",
-          "dest_color": "#0CF737"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -271,7 +271,7 @@
           "pg": "1",
           "pe": "1",
           "pp": "1",
-          "dest_color": "#0CF737"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -344,7 +344,7 @@
           "pg": "1",
           "pe": "1",
           "pp": "1",
-          "dest_color": "#0CF737"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -417,7 +417,7 @@
           "pg": "1",
           "pe": "1",
           "pp": "1",
-          "dest_color": "#0CF737"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -563,7 +563,7 @@
           "pg": "0",
           "pe": "2",
           "pp": "1",
-          "dest_color": "#C84101"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -636,7 +636,7 @@
           "pg": "1",
           "pe": "0",
           "pp": "2",
-          "dest_color": "#0CF737"
+          "dest_color": "#03A9F4"
         },
         {
           "pos": 4,
@@ -741,12 +741,12 @@
             "color": "#F0E975",
             "text_color": "#000000"
           },
-          "pts": "6",
-          "pj": "2",
+          "pts": "7",
+          "pj": "3",
           "goals": "4:1",
           "ratio": "3",
           "pg": "2",
-          "pe": "0",
+          "pe": "1",
           "pp": "0",
           "dest_color": "#0CF737"
         },
@@ -758,12 +758,12 @@
             "color": "#A81D30",
             "text_color": "#FFFFFF"
           },
-          "pts": "4",
-          "pj": "2",
+          "pts": "5",
+          "pj": "3",
           "goals": "6:1",
           "ratio": "5",
           "pg": "1",
-          "pe": "1",
+          "pe": "2",
           "pp": "0",
           "dest_color": "#0CF737"
         },
@@ -775,12 +775,12 @@
             "color": "#6BC7F1",
             "text_color": "#000000"
           },
-          "pts": "1",
-          "pj": "2",
+          "pts": "2",
+          "pj": "3",
           "goals": "1:2",
           "ratio": "-1",
           "pg": "0",
-          "pe": "1",
+          "pe": "2",
           "pp": "1",
           "dest_color": "#03A9F4"
         },
@@ -792,12 +792,12 @@
             "color": "#1158BB",
             "text_color": "#FFFFFF"
           },
-          "pts": "0",
-          "pj": "2",
+          "pts": "1",
+          "pj": "3",
           "goals": "1:8",
           "ratio": "-7",
           "pg": "0",
-          "pe": "0",
+          "pe": "1",
           "pp": "2",
           "dest_color": "#fff"
         }
@@ -814,17 +814,34 @@
             "color": "#FFFFFF",
             "text_color": "#000000"
           },
-          "pts": "4",
-          "pj": "2",
-          "goals": "4:2",
-          "ratio": "2",
-          "pg": "1",
+          "pts": "7",
+          "pj": "3",
+          "goals": "6:2",
+          "ratio": "4",
+          "pg": "2",
           "pe": "1",
           "pp": "0",
           "dest_color": "#0CF737"
         },
         {
           "pos": 2,
+          "id": "faff",
+          "name": "Croacia",
+          "colors": {
+            "color": "#FFFFFF",
+            "text_color": "#000000"
+          },
+          "pts": "6",
+          "pj": "3",
+          "goals": "5:5",
+          "ratio": "0",
+          "pg": "2",
+          "pe": "0",
+          "pp": "1",
+          "dest_color": "#0CF737"
+        },
+        {
+          "pos": 3,
           "id": "faje",
           "name": "Ghana",
           "colors": {
@@ -832,28 +849,11 @@
             "text_color": "#000000"
           },
           "pts": "4",
-          "pj": "2",
-          "goals": "1:0",
-          "ratio": "1",
+          "pj": "3",
+          "goals": "2:2",
+          "ratio": "0",
           "pg": "1",
           "pe": "1",
-          "pp": "0",
-          "dest_color": "#0CF737"
-        },
-        {
-          "pos": 3,
-          "id": "faff",
-          "name": "Croacia",
-          "colors": {
-            "color": "#FFFFFF",
-            "text_color": "#000000"
-          },
-          "pts": "3",
-          "pj": "2",
-          "goals": "3:4",
-          "ratio": "-1",
-          "pg": "1",
-          "pe": "0",
           "pp": "1",
           "dest_color": "#03A9F4"
         },
@@ -866,12 +866,12 @@
             "text_color": "#FFFFFF"
           },
           "pts": "0",
-          "pj": "2",
-          "goals": "0:2",
-          "ratio": "-2",
+          "pj": "3",
+          "goals": "0:4",
+          "ratio": "-4",
           "pg": "0",
           "pe": "0",
-          "pp": "2",
+          "pp": "3",
           "dest_color": "#C84101"
         }
       ]
@@ -915,6 +915,23 @@
         },
         {
           "pos": 3,
+          "id": "faje",
+          "name": "Ghana",
+          "colors": {
+            "color": "#FFFFFF",
+            "text_color": "#000000"
+          },
+          "pts": "4",
+          "pj": "3",
+          "goals": "2:2",
+          "ratio": "0",
+          "pg": "1",
+          "pe": "1",
+          "pp": "1",
+          "dest_color": "#F022E2"
+        },
+        {
+          "pos": 4,
           "id": "faei",
           "name": "Bosnia Herzegovina",
           "colors": {
@@ -931,7 +948,7 @@
           "dest_color": "#F022E2"
         },
         {
-          "pos": 4,
+          "pos": 5,
           "id": "faha",
           "name": "Paraguay",
           "colors": {
@@ -948,7 +965,7 @@
           "dest_color": "#F022E2"
         },
         {
-          "pos": 5,
+          "pos": 6,
           "id": "fbac",
           "name": "Senegal",
           "colors": {
@@ -965,7 +982,7 @@
           "dest_color": "#F022E2"
         },
         {
-          "pos": 6,
+          "pos": 7,
           "id": "fajb",
           "name": "Irán",
           "colors": {
@@ -979,23 +996,6 @@
           "pg": "0",
           "pe": "3",
           "pp": "0",
-          "dest_color": "#F022E2"
-        },
-        {
-          "pos": 7,
-          "id": "faff",
-          "name": "Croacia",
-          "colors": {
-            "color": "#FFFFFF",
-            "text_color": "#000000"
-          },
-          "pts": "3",
-          "pj": "2",
-          "goals": "3:4",
-          "ratio": "-1",
-          "pg": "1",
-          "pe": "0",
-          "pp": "1",
           "dest_color": "#F022E2"
         },
         {
@@ -1074,12 +1074,12 @@
             "color": "#6BC7F1",
             "text_color": "#000000"
           },
-          "pts": "1",
-          "pj": "2",
+          "pts": "2",
+          "pj": "3",
           "goals": "1:2",
           "ratio": "-1",
           "pg": "0",
-          "pe": "1",
+          "pe": "2",
           "pp": "1",
           "dest_color": "#fff"
         }
@@ -1326,52 +1326,52 @@
       "stage": "Fecha 3",
       "home": "Croacia",
       "away": "Ghana",
-      "home_goals": "-",
-      "away_goals": "-",
-      "status": "Prog.",
-      "status_symbol": "Prog.",
+      "home_goals": 2,
+      "away_goals": 1,
+      "status": "Finalizado",
+      "status_symbol": "Fin",
       "start_time": "27-06-2026 18:00 (Hora Argentina)",
       "display_time": "",
-      "display_status": "Prog."
+      "display_status": "Final"
     },
     {
       "id": "egchjdd",
       "stage": "Fecha 3",
       "home": "Panamá",
       "away": "Inglaterra",
-      "home_goals": "-",
-      "away_goals": "-",
-      "status": "Prog.",
-      "status_symbol": "Prog.",
+      "home_goals": 0,
+      "away_goals": 2,
+      "status": "Finalizado",
+      "status_symbol": "Fin",
       "start_time": "27-06-2026 18:00 (Hora Argentina)",
       "display_time": "",
-      "display_status": "Prog."
+      "display_status": "Final"
     },
     {
       "id": "egchige",
       "stage": "Fecha 3",
       "home": "Colombia",
       "away": "Portugal",
-      "home_goals": "-",
-      "away_goals": "-",
-      "status": "Prog.",
-      "status_symbol": "Prog.",
+      "home_goals": 0,
+      "away_goals": 0,
+      "status": "Primer Tiempo",
+      "status_symbol": "1°",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "",
-      "display_status": "Prog."
+      "display_time": "9'",
+      "display_status": "9'"
     },
     {
       "id": "egjhhdg",
       "stage": "Fecha 3",
       "home": "RD Congo",
       "away": "Uzbekistán",
-      "home_goals": "-",
-      "away_goals": "-",
-      "status": "Prog.",
-      "status_symbol": "Prog.",
+      "home_goals": 0,
+      "away_goals": 0,
+      "status": "Primer Tiempo",
+      "status_symbol": "1°",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "",
-      "display_status": "Prog."
+      "display_time": "9'",
+      "display_status": "9'"
     },
     {
       "id": "egchiia",
@@ -2840,6 +2840,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Harry Kane",
+                "sname": "Kane",
+                "position": "Delanteros",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Goals",
+                "value": "3"
+              }
+            ]
+          },
+          {
+            "num": 15,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Anthony Elanga",
                 "sname": "Elanga",
                 "position": "Delanteros",
@@ -2859,7 +2883,7 @@
             ]
           },
           {
-            "num": 15,
+            "num": 16,
             "entity": {
               "type": 3,
               "object": {
@@ -2883,7 +2907,7 @@
             ]
           },
           {
-            "num": 16,
+            "num": 17,
             "entity": {
               "type": 3,
               "object": {
@@ -2907,7 +2931,7 @@
             ]
           },
           {
-            "num": 17,
+            "num": 18,
             "entity": {
               "type": 3,
               "object": {
@@ -2931,7 +2955,7 @@
             ]
           },
           {
-            "num": 18,
+            "num": 19,
             "entity": {
               "type": 3,
               "object": {
@@ -2955,7 +2979,7 @@
             ]
           },
           {
-            "num": 19,
+            "num": 20,
             "entity": {
               "type": 3,
               "object": {
@@ -2979,7 +3003,7 @@
             ]
           },
           {
-            "num": 20,
+            "num": 21,
             "entity": {
               "type": 3,
               "object": {
@@ -3003,7 +3027,7 @@
             ]
           },
           {
-            "num": 21,
+            "num": 22,
             "entity": {
               "type": 3,
               "object": {
@@ -3027,7 +3051,7 @@
             ]
           },
           {
-            "num": 22,
+            "num": 23,
             "entity": {
               "type": 3,
               "object": {
@@ -3051,7 +3075,7 @@
             ]
           },
           {
-            "num": 23,
+            "num": 24,
             "entity": {
               "type": 3,
               "object": {
@@ -3075,7 +3099,31 @@
             ]
           },
           {
-            "num": 24,
+            "num": 25,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Jude Bellingham",
+                "sname": "Bellingham",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Goals",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "num": 26,
             "entity": {
               "type": 3,
               "object": {
@@ -3099,7 +3147,7 @@
             ]
           },
           {
-            "num": 25,
+            "num": 27,
             "entity": {
               "type": 3,
               "object": {
@@ -3123,7 +3171,7 @@
             ]
           },
           {
-            "num": 26,
+            "num": 28,
             "entity": {
               "type": 3,
               "object": {
@@ -3147,7 +3195,7 @@
             ]
           },
           {
-            "num": 27,
+            "num": 29,
             "entity": {
               "type": 3,
               "object": {
@@ -3171,7 +3219,7 @@
             ]
           },
           {
-            "num": 28,
+            "num": 30,
             "entity": {
               "type": 3,
               "object": {
@@ -3195,7 +3243,7 @@
             ]
           },
           {
-            "num": 29,
+            "num": 31,
             "entity": {
               "type": 3,
               "object": {
@@ -3219,7 +3267,7 @@
             ]
           },
           {
-            "num": 30,
+            "num": 32,
             "entity": {
               "type": 3,
               "object": {
@@ -3243,7 +3291,7 @@
             ]
           },
           {
-            "num": 31,
+            "num": 33,
             "entity": {
               "type": 3,
               "object": {
@@ -3267,7 +3315,7 @@
             ]
           },
           {
-            "num": 32,
+            "num": 34,
             "entity": {
               "type": 3,
               "object": {
@@ -3291,31 +3339,7 @@
             ]
           },
           {
-            "num": 33,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Harry Kane",
-                "sname": "Kane",
-                "position": "Delanteros",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fafe",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Goals",
-                "value": "2"
-              }
-            ]
-          },
-          {
-            "num": 34,
+            "num": 35,
             "entity": {
               "type": 3,
               "object": {
@@ -3339,7 +3363,7 @@
             ]
           },
           {
-            "num": 35,
+            "num": 36,
             "entity": {
               "type": 3,
               "object": {
@@ -3363,7 +3387,7 @@
             ]
           },
           {
-            "num": 36,
+            "num": 37,
             "entity": {
               "type": 3,
               "object": {
@@ -3387,7 +3411,7 @@
             ]
           },
           {
-            "num": 37,
+            "num": 38,
             "entity": {
               "type": 3,
               "object": {
@@ -3411,7 +3435,7 @@
             ]
           },
           {
-            "num": 38,
+            "num": 39,
             "entity": {
               "type": 3,
               "object": {
@@ -3435,7 +3459,7 @@
             ]
           },
           {
-            "num": 39,
+            "num": 40,
             "entity": {
               "type": 3,
               "object": {
@@ -3459,7 +3483,7 @@
             ]
           },
           {
-            "num": 40,
+            "num": 41,
             "entity": {
               "type": 3,
               "object": {
@@ -3483,7 +3507,7 @@
             ]
           },
           {
-            "num": 41,
+            "num": 42,
             "entity": {
               "type": 3,
               "object": {
@@ -3507,7 +3531,7 @@
             ]
           },
           {
-            "num": 42,
+            "num": 43,
             "entity": {
               "type": 3,
               "object": {
@@ -3531,7 +3555,7 @@
             ]
           },
           {
-            "num": 43,
+            "num": 44,
             "entity": {
               "type": 3,
               "object": {
@@ -3555,7 +3579,7 @@
             ]
           },
           {
-            "num": 44,
+            "num": 45,
             "entity": {
               "type": 3,
               "object": {
@@ -3579,7 +3603,7 @@
             ]
           },
           {
-            "num": 45,
+            "num": 46,
             "entity": {
               "type": 3,
               "object": {
@@ -3603,7 +3627,7 @@
             ]
           },
           {
-            "num": 46,
+            "num": 47,
             "entity": {
               "type": 3,
               "object": {
@@ -3627,7 +3651,7 @@
             ]
           },
           {
-            "num": 47,
+            "num": 48,
             "entity": {
               "type": 3,
               "object": {
@@ -3651,7 +3675,7 @@
             ]
           },
           {
-            "num": 48,
+            "num": 49,
             "entity": {
               "type": 3,
               "object": {
@@ -3675,7 +3699,7 @@
             ]
           },
           {
-            "num": 49,
+            "num": 50,
             "entity": {
               "type": 3,
               "object": {
@@ -3699,7 +3723,7 @@
             ]
           },
           {
-            "num": 50,
+            "num": 51,
             "entity": {
               "type": 3,
               "object": {
@@ -3723,7 +3747,7 @@
             ]
           },
           {
-            "num": 51,
+            "num": 52,
             "entity": {
               "type": 3,
               "object": {
@@ -3747,7 +3771,7 @@
             ]
           },
           {
-            "num": 52,
+            "num": 53,
             "entity": {
               "type": 3,
               "object": {
@@ -3771,7 +3795,7 @@
             ]
           },
           {
-            "num": 53,
+            "num": 54,
             "entity": {
               "type": 3,
               "object": {
@@ -3795,7 +3819,7 @@
             ]
           },
           {
-            "num": 54,
+            "num": 55,
             "entity": {
               "type": 3,
               "object": {
@@ -3819,7 +3843,31 @@
             ]
           },
           {
-            "num": 55,
+            "num": 56,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Derrick Luckassen",
+                "sname": "Luckassen",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Goals",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 57,
             "entity": {
               "type": 3,
               "object": {
@@ -3843,7 +3891,7 @@
             ]
           },
           {
-            "num": 56,
+            "num": 58,
             "entity": {
               "type": 3,
               "object": {
@@ -3867,7 +3915,7 @@
             ]
           },
           {
-            "num": 57,
+            "num": 59,
             "entity": {
               "type": 3,
               "object": {
@@ -3891,7 +3939,7 @@
             ]
           },
           {
-            "num": 58,
+            "num": 60,
             "entity": {
               "type": 3,
               "object": {
@@ -3915,7 +3963,7 @@
             ]
           },
           {
-            "num": 59,
+            "num": 61,
             "entity": {
               "type": 3,
               "object": {
@@ -3939,7 +3987,7 @@
             ]
           },
           {
-            "num": 60,
+            "num": 62,
             "entity": {
               "type": 3,
               "object": {
@@ -3963,7 +4011,7 @@
             ]
           },
           {
-            "num": 61,
+            "num": 63,
             "entity": {
               "type": 3,
               "object": {
@@ -3987,7 +4035,7 @@
             ]
           },
           {
-            "num": 62,
+            "num": 64,
             "entity": {
               "type": 3,
               "object": {
@@ -4011,7 +4059,7 @@
             ]
           },
           {
-            "num": 63,
+            "num": 65,
             "entity": {
               "type": 3,
               "object": {
@@ -4035,7 +4083,7 @@
             ]
           },
           {
-            "num": 64,
+            "num": 66,
             "entity": {
               "type": 3,
               "object": {
@@ -4059,7 +4107,7 @@
             ]
           },
           {
-            "num": 65,
+            "num": 67,
             "entity": {
               "type": 3,
               "object": {
@@ -4083,7 +4131,7 @@
             ]
           },
           {
-            "num": 66,
+            "num": 68,
             "entity": {
               "type": 3,
               "object": {
@@ -4107,7 +4155,7 @@
             ]
           },
           {
-            "num": 67,
+            "num": 69,
             "entity": {
               "type": 3,
               "object": {
@@ -4131,7 +4179,7 @@
             ]
           },
           {
-            "num": 68,
+            "num": 70,
             "entity": {
               "type": 3,
               "object": {
@@ -4155,7 +4203,7 @@
             ]
           },
           {
-            "num": 69,
+            "num": 71,
             "entity": {
               "type": 3,
               "object": {
@@ -4179,7 +4227,7 @@
             ]
           },
           {
-            "num": 70,
+            "num": 72,
             "entity": {
               "type": 3,
               "object": {
@@ -4203,7 +4251,7 @@
             ]
           },
           {
-            "num": 71,
+            "num": 73,
             "entity": {
               "type": 3,
               "object": {
@@ -4227,7 +4275,7 @@
             ]
           },
           {
-            "num": 72,
+            "num": 74,
             "entity": {
               "type": 3,
               "object": {
@@ -4251,7 +4299,7 @@
             ]
           },
           {
-            "num": 73,
+            "num": 75,
             "entity": {
               "type": 3,
               "object": {
@@ -4275,7 +4323,7 @@
             ]
           },
           {
-            "num": 74,
+            "num": 76,
             "entity": {
               "type": 3,
               "object": {
@@ -4299,7 +4347,7 @@
             ]
           },
           {
-            "num": 75,
+            "num": 77,
             "entity": {
               "type": 3,
               "object": {
@@ -4323,7 +4371,7 @@
             ]
           },
           {
-            "num": 76,
+            "num": 78,
             "entity": {
               "type": 3,
               "object": {
@@ -4347,31 +4395,7 @@
             ]
           },
           {
-            "num": 77,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Jude Bellingham",
-                "sname": "Bellingham",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fafe",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Goals",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 78,
+            "num": 79,
             "entity": {
               "type": 3,
               "object": {
@@ -4395,7 +4419,7 @@
             ]
           },
           {
-            "num": 79,
+            "num": 80,
             "entity": {
               "type": 3,
               "object": {
@@ -4419,7 +4443,7 @@
             ]
           },
           {
-            "num": 80,
+            "num": 81,
             "entity": {
               "type": 3,
               "object": {
@@ -4443,7 +4467,7 @@
             ]
           },
           {
-            "num": 81,
+            "num": 82,
             "entity": {
               "type": 3,
               "object": {
@@ -4467,7 +4491,7 @@
             ]
           },
           {
-            "num": 82,
+            "num": 83,
             "entity": {
               "type": 3,
               "object": {
@@ -4491,7 +4515,7 @@
             ]
           },
           {
-            "num": 83,
+            "num": 84,
             "entity": {
               "type": 3,
               "object": {
@@ -4515,7 +4539,7 @@
             ]
           },
           {
-            "num": 84,
+            "num": 85,
             "entity": {
               "type": 3,
               "object": {
@@ -4539,7 +4563,7 @@
             ]
           },
           {
-            "num": 85,
+            "num": 86,
             "entity": {
               "type": 3,
               "object": {
@@ -4563,7 +4587,7 @@
             ]
           },
           {
-            "num": 86,
+            "num": 87,
             "entity": {
               "type": 3,
               "object": {
@@ -4587,7 +4611,7 @@
             ]
           },
           {
-            "num": 87,
+            "num": 88,
             "entity": {
               "type": 3,
               "object": {
@@ -4611,7 +4635,7 @@
             ]
           },
           {
-            "num": 88,
+            "num": 89,
             "entity": {
               "type": 3,
               "object": {
@@ -4635,7 +4659,7 @@
             ]
           },
           {
-            "num": 89,
+            "num": 90,
             "entity": {
               "type": 3,
               "object": {
@@ -4659,7 +4683,7 @@
             ]
           },
           {
-            "num": 90,
+            "num": 91,
             "entity": {
               "type": 3,
               "object": {
@@ -4683,7 +4707,7 @@
             ]
           },
           {
-            "num": 91,
+            "num": 92,
             "entity": {
               "type": 3,
               "object": {
@@ -4707,7 +4731,7 @@
             ]
           },
           {
-            "num": 92,
+            "num": 93,
             "entity": {
               "type": 3,
               "object": {
@@ -4731,7 +4755,7 @@
             ]
           },
           {
-            "num": 93,
+            "num": 94,
             "entity": {
               "type": 3,
               "object": {
@@ -4755,7 +4779,7 @@
             ]
           },
           {
-            "num": 94,
+            "num": 95,
             "entity": {
               "type": 3,
               "object": {
@@ -4779,7 +4803,7 @@
             ]
           },
           {
-            "num": 95,
+            "num": 96,
             "entity": {
               "type": 3,
               "object": {
@@ -4803,7 +4827,7 @@
             ]
           },
           {
-            "num": 96,
+            "num": 97,
             "entity": {
               "type": 3,
               "object": {
@@ -4827,7 +4851,7 @@
             ]
           },
           {
-            "num": 97,
+            "num": 98,
             "entity": {
               "type": 3,
               "object": {
@@ -4851,7 +4875,7 @@
             ]
           },
           {
-            "num": 98,
+            "num": 99,
             "entity": {
               "type": 3,
               "object": {
@@ -4875,7 +4899,7 @@
             ]
           },
           {
-            "num": 99,
+            "num": 100,
             "entity": {
               "type": 3,
               "object": {
@@ -4888,30 +4912,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "faha",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Goals",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 100,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Michal Sadilek",
-                "sname": "Sadílek",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faea",
                 "birthdate": ""
               }
             },
@@ -5127,6 +5127,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Bukayo Saka",
+                "sname": "Saka",
+                "position": "Delanteros",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "num": 10,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Chris Wood",
                 "sname": "Wood",
                 "position": "Delanteros",
@@ -5146,7 +5170,7 @@
             ]
           },
           {
-            "num": 10,
+            "num": 11,
             "entity": {
               "type": 3,
               "object": {
@@ -5170,7 +5194,7 @@
             ]
           },
           {
-            "num": 11,
+            "num": 12,
             "entity": {
               "type": 3,
               "object": {
@@ -5194,7 +5218,7 @@
             ]
           },
           {
-            "num": 12,
+            "num": 13,
             "entity": {
               "type": 3,
               "object": {
@@ -5218,7 +5242,7 @@
             ]
           },
           {
-            "num": 13,
+            "num": 14,
             "entity": {
               "type": 3,
               "object": {
@@ -5242,7 +5266,7 @@
             ]
           },
           {
-            "num": 14,
+            "num": 15,
             "entity": {
               "type": 3,
               "object": {
@@ -5266,7 +5290,7 @@
             ]
           },
           {
-            "num": 15,
+            "num": 16,
             "entity": {
               "type": 3,
               "object": {
@@ -5290,7 +5314,7 @@
             ]
           },
           {
-            "num": 16,
+            "num": 17,
             "entity": {
               "type": 3,
               "object": {
@@ -5314,7 +5338,7 @@
             ]
           },
           {
-            "num": 17,
+            "num": 18,
             "entity": {
               "type": 3,
               "object": {
@@ -5338,7 +5362,7 @@
             ]
           },
           {
-            "num": 18,
+            "num": 19,
             "entity": {
               "type": 3,
               "object": {
@@ -5362,7 +5386,7 @@
             ]
           },
           {
-            "num": 19,
+            "num": 20,
             "entity": {
               "type": 3,
               "object": {
@@ -5386,7 +5410,7 @@
             ]
           },
           {
-            "num": 20,
+            "num": 21,
             "entity": {
               "type": 3,
               "object": {
@@ -5410,7 +5434,7 @@
             ]
           },
           {
-            "num": 21,
+            "num": 22,
             "entity": {
               "type": 3,
               "object": {
@@ -5423,30 +5447,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "fbac",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 22,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Brandon Thomas-Asante",
-                "sname": "Thomas-Asante",
-                "position": "Delanteros",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faje",
                 "birthdate": ""
               }
             },
@@ -5679,14 +5679,14 @@
               "type": 3,
               "object": {
                 "num": "",
-                "name": "Bruno Fernandes",
-                "sname": "Fernandes",
-                "position": "Mediocampistas",
+                "name": "Brandon Thomas-Asante",
+                "sname": "Thomas-Asante",
+                "position": "Delanteros",
                 "formation_position": "",
                 "age": "",
                 "height": "",
                 "weight": "",
-                "team_id": "faci",
+                "team_id": "faje",
                 "birthdate": ""
               }
             },
@@ -5703,14 +5703,14 @@
               "type": 3,
               "object": {
                 "num": "",
-                "name": "Bukayo Saka",
-                "sname": "Saka",
-                "position": "Delanteros",
+                "name": "Bruno Fernandes",
+                "sname": "Fernandes",
+                "position": "Mediocampistas",
                 "formation_position": "",
                 "age": "",
                 "height": "",
                 "weight": "",
-                "team_id": "fafe",
+                "team_id": "faci",
                 "birthdate": ""
               }
             },
@@ -5799,14 +5799,14 @@
               "type": 3,
               "object": {
                 "num": "",
-                "name": "Elliot Anderson",
-                "sname": "Anderson",
+                "name": "Érik Lira",
+                "sname": "Lira",
                 "position": "Mediocampistas",
                 "formation_position": "",
                 "age": "",
                 "height": "",
                 "weight": "",
-                "team_id": "fafe",
+                "team_id": "fbag",
                 "birthdate": ""
               }
             },
@@ -5823,14 +5823,14 @@
               "type": 3,
               "object": {
                 "num": "",
-                "name": "Érik Lira",
-                "sname": "Lira",
-                "position": "Mediocampistas",
+                "name": "Ernest Nuamah",
+                "sname": "Nuamah",
+                "position": "Delanteros",
                 "formation_position": "",
                 "age": "",
                 "height": "",
                 "weight": "",
-                "team_id": "fbag",
+                "team_id": "faje",
                 "birthdate": ""
               }
             },
@@ -5895,30 +5895,6 @@
               "type": 3,
               "object": {
                 "num": "",
-                "name": "Ivan Perisic",
-                "sname": "Perisic",
-                "position": "Delanteros",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faff",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 42,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
                 "name": "Jean-Kévin Duverne",
                 "sname": "Duverne",
                 "position": "Defensores",
@@ -5938,7 +5914,7 @@
             ]
           },
           {
-            "num": 43,
+            "num": 42,
             "entity": {
               "type": 3,
               "object": {
@@ -5962,7 +5938,7 @@
             ]
           },
           {
-            "num": 44,
+            "num": 43,
             "entity": {
               "type": 3,
               "object": {
@@ -5986,31 +5962,7 @@
             ]
           },
           {
-            "num": 45,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Josip Stanišić",
-                "sname": "Stanišić",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faff",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 46,
+            "num": 44,
             "entity": {
               "type": 3,
               "object": {
@@ -6034,7 +5986,7 @@
             ]
           },
           {
-            "num": 47,
+            "num": 45,
             "entity": {
               "type": 3,
               "object": {
@@ -6058,7 +6010,7 @@
             ]
           },
           {
-            "num": 48,
+            "num": 46,
             "entity": {
               "type": 3,
               "object": {
@@ -6082,7 +6034,7 @@
             ]
           },
           {
-            "num": 49,
+            "num": 47,
             "entity": {
               "type": 3,
               "object": {
@@ -6106,7 +6058,7 @@
             ]
           },
           {
-            "num": 50,
+            "num": 48,
             "entity": {
               "type": 3,
               "object": {
@@ -6130,7 +6082,7 @@
             ]
           },
           {
-            "num": 51,
+            "num": 49,
             "entity": {
               "type": 3,
               "object": {
@@ -6154,7 +6106,7 @@
             ]
           },
           {
-            "num": 52,
+            "num": 50,
             "entity": {
               "type": 3,
               "object": {
@@ -6178,7 +6130,7 @@
             ]
           },
           {
-            "num": 53,
+            "num": 51,
             "entity": {
               "type": 3,
               "object": {
@@ -6202,7 +6154,7 @@
             ]
           },
           {
-            "num": 54,
+            "num": 52,
             "entity": {
               "type": 3,
               "object": {
@@ -6226,7 +6178,7 @@
             ]
           },
           {
-            "num": 55,
+            "num": 53,
             "entity": {
               "type": 3,
               "object": {
@@ -6250,7 +6202,7 @@
             ]
           },
           {
-            "num": 56,
+            "num": 54,
             "entity": {
               "type": 3,
               "object": {
@@ -6274,7 +6226,7 @@
             ]
           },
           {
-            "num": 57,
+            "num": 55,
             "entity": {
               "type": 3,
               "object": {
@@ -6298,31 +6250,7 @@
             ]
           },
           {
-            "num": 58,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Petar Sucic",
-                "sname": "Sučić",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faff",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 59,
+            "num": 56,
             "entity": {
               "type": 3,
               "object": {
@@ -6346,7 +6274,7 @@
             ]
           },
           {
-            "num": 60,
+            "num": 57,
             "entity": {
               "type": 3,
               "object": {
@@ -6370,7 +6298,7 @@
             ]
           },
           {
-            "num": 61,
+            "num": 58,
             "entity": {
               "type": 3,
               "object": {
@@ -6394,7 +6322,7 @@
             ]
           },
           {
-            "num": 62,
+            "num": 59,
             "entity": {
               "type": 3,
               "object": {
@@ -6418,7 +6346,7 @@
             ]
           },
           {
-            "num": 63,
+            "num": 60,
             "entity": {
               "type": 3,
               "object": {
@@ -6442,7 +6370,7 @@
             ]
           },
           {
-            "num": 64,
+            "num": 61,
             "entity": {
               "type": 3,
               "object": {
@@ -6466,7 +6394,7 @@
             ]
           },
           {
-            "num": 65,
+            "num": 62,
             "entity": {
               "type": 3,
               "object": {
@@ -6490,7 +6418,7 @@
             ]
           },
           {
-            "num": 66,
+            "num": 63,
             "entity": {
               "type": 3,
               "object": {
@@ -6514,7 +6442,7 @@
             ]
           },
           {
-            "num": 67,
+            "num": 64,
             "entity": {
               "type": 3,
               "object": {
@@ -6538,7 +6466,7 @@
             ]
           },
           {
-            "num": 68,
+            "num": 65,
             "entity": {
               "type": 3,
               "object": {
@@ -6562,7 +6490,7 @@
             ]
           },
           {
-            "num": 69,
+            "num": 66,
             "entity": {
               "type": 3,
               "object": {
@@ -6586,7 +6514,7 @@
             ]
           },
           {
-            "num": 70,
+            "num": 67,
             "entity": {
               "type": 3,
               "object": {
@@ -6610,7 +6538,7 @@
             ]
           },
           {
-            "num": 71,
+            "num": 68,
             "entity": {
               "type": 3,
               "object": {
@@ -6634,7 +6562,7 @@
             ]
           },
           {
-            "num": 72,
+            "num": 69,
             "entity": {
               "type": 3,
               "object": {
@@ -6658,7 +6586,7 @@
             ]
           },
           {
-            "num": 73,
+            "num": 70,
             "entity": {
               "type": 3,
               "object": {
@@ -6682,7 +6610,7 @@
             ]
           },
           {
-            "num": 74,
+            "num": 71,
             "entity": {
               "type": 3,
               "object": {
@@ -6706,7 +6634,7 @@
             ]
           },
           {
-            "num": 75,
+            "num": 72,
             "entity": {
               "type": 3,
               "object": {
@@ -6730,7 +6658,7 @@
             ]
           },
           {
-            "num": 76,
+            "num": 73,
             "entity": {
               "type": 3,
               "object": {
@@ -6754,7 +6682,7 @@
             ]
           },
           {
-            "num": 77,
+            "num": 74,
             "entity": {
               "type": 3,
               "object": {
@@ -6778,7 +6706,31 @@
             ]
           },
           {
-            "num": 78,
+            "num": 75,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Elliot Anderson",
+                "sname": "Anderson",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 76,
             "entity": {
               "type": 3,
               "object": {
@@ -6802,7 +6754,7 @@
             ]
           },
           {
-            "num": 79,
+            "num": 77,
             "entity": {
               "type": 3,
               "object": {
@@ -6826,7 +6778,7 @@
             ]
           },
           {
-            "num": 80,
+            "num": 78,
             "entity": {
               "type": 3,
               "object": {
@@ -6850,7 +6802,7 @@
             ]
           },
           {
-            "num": 81,
+            "num": 79,
             "entity": {
               "type": 3,
               "object": {
@@ -6874,7 +6826,7 @@
             ]
           },
           {
-            "num": 82,
+            "num": 80,
             "entity": {
               "type": 3,
               "object": {
@@ -6898,7 +6850,7 @@
             ]
           },
           {
-            "num": 83,
+            "num": 81,
             "entity": {
               "type": 3,
               "object": {
@@ -6922,7 +6874,7 @@
             ]
           },
           {
-            "num": 84,
+            "num": 82,
             "entity": {
               "type": 3,
               "object": {
@@ -6946,7 +6898,31 @@
             ]
           },
           {
-            "num": 85,
+            "num": 83,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Ivan Perisic",
+                "sname": "Perisic",
+                "position": "Delanteros",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 84,
             "entity": {
               "type": 3,
               "object": {
@@ -6970,7 +6946,55 @@
             ]
           },
           {
+            "num": 85,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Josip Stanišić",
+                "sname": "Stanišić",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
             "num": 86,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Jude Bellingham",
+                "sname": "Bellingham",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 87,
             "entity": {
               "type": 3,
               "object": {
@@ -6994,7 +7018,7 @@
             ]
           },
           {
-            "num": 87,
+            "num": 88,
             "entity": {
               "type": 3,
               "object": {
@@ -7018,7 +7042,7 @@
             ]
           },
           {
-            "num": 88,
+            "num": 89,
             "entity": {
               "type": 3,
               "object": {
@@ -7042,7 +7066,7 @@
             ]
           },
           {
-            "num": 89,
+            "num": 90,
             "entity": {
               "type": 3,
               "object": {
@@ -7066,7 +7090,7 @@
             ]
           },
           {
-            "num": 90,
+            "num": 91,
             "entity": {
               "type": 3,
               "object": {
@@ -7090,7 +7114,7 @@
             ]
           },
           {
-            "num": 91,
+            "num": 92,
             "entity": {
               "type": 3,
               "object": {
@@ -7114,7 +7138,31 @@
             ]
           },
           {
-            "num": 92,
+            "num": 93,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Luka Modric",
+                "sname": "Modric",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 94,
             "entity": {
               "type": 3,
               "object": {
@@ -7138,7 +7186,31 @@
             ]
           },
           {
-            "num": 93,
+            "num": 95,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Mateo Kovacic",
+                "sname": "Kovacic",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "Assists",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 96,
             "entity": {
               "type": 3,
               "object": {
@@ -7162,7 +7234,7 @@
             ]
           },
           {
-            "num": 94,
+            "num": 97,
             "entity": {
               "type": 3,
               "object": {
@@ -7186,7 +7258,7 @@
             ]
           },
           {
-            "num": 95,
+            "num": 98,
             "entity": {
               "type": 3,
               "object": {
@@ -7210,7 +7282,7 @@
             ]
           },
           {
-            "num": 96,
+            "num": 99,
             "entity": {
               "type": 3,
               "object": {
@@ -7234,7 +7306,7 @@
             ]
           },
           {
-            "num": 97,
+            "num": 100,
             "entity": {
               "type": 3,
               "object": {
@@ -7247,78 +7319,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "fbaa",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 98,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Nicolas Jackson",
-                "sname": "Jackson",
-                "position": "Delanteros",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fbac",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 99,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Nicolas Raskin",
-                "sname": "Raskin",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cdhd",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "Assists",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 100,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Orkun Kökçü",
-                "sname": "Kökçü",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faeh",
                 "birthdate": ""
               }
             },
@@ -7414,6 +7414,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Marvin Senaya",
+                "sname": "Senaya",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "2.7"
+              }
+            ]
+          },
+          {
+            "num": 5,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Ali Abdi",
                 "sname": "Abdi",
                 "position": "Defensores",
@@ -7433,7 +7457,7 @@
             ]
           },
           {
-            "num": 5,
+            "num": 6,
             "entity": {
               "type": 3,
               "object": {
@@ -7457,7 +7481,7 @@
             ]
           },
           {
-            "num": 6,
+            "num": 7,
             "entity": {
               "type": 3,
               "object": {
@@ -7481,7 +7505,7 @@
             ]
           },
           {
-            "num": 7,
+            "num": 8,
             "entity": {
               "type": 3,
               "object": {
@@ -7505,7 +7529,7 @@
             ]
           },
           {
-            "num": 8,
+            "num": 9,
             "entity": {
               "type": 3,
               "object": {
@@ -7529,7 +7553,7 @@
             ]
           },
           {
-            "num": 9,
+            "num": 10,
             "entity": {
               "type": 3,
               "object": {
@@ -7553,7 +7577,7 @@
             ]
           },
           {
-            "num": 10,
+            "num": 11,
             "entity": {
               "type": 3,
               "object": {
@@ -7577,7 +7601,7 @@
             ]
           },
           {
-            "num": 11,
+            "num": 12,
             "entity": {
               "type": 3,
               "object": {
@@ -7601,7 +7625,7 @@
             ]
           },
           {
-            "num": 12,
+            "num": 13,
             "entity": {
               "type": 3,
               "object": {
@@ -7625,7 +7649,7 @@
             ]
           },
           {
-            "num": 13,
+            "num": 14,
             "entity": {
               "type": 3,
               "object": {
@@ -7649,7 +7673,7 @@
             ]
           },
           {
-            "num": 14,
+            "num": 15,
             "entity": {
               "type": 3,
               "object": {
@@ -7662,30 +7686,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "cdic",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "2"
-              }
-            ]
-          },
-          {
-            "num": 15,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Cristian Martínez",
-                "sname": "Martínez",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "febe",
                 "birthdate": ""
               }
             },
@@ -7750,6 +7750,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Thomas Partey",
+                "sname": "Partey",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "2"
+              }
+            ]
+          },
+          {
+            "num": 19,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Ahmed Fatouh",
                 "sname": "Fatouh",
                 "position": "Defensores",
@@ -7769,7 +7793,7 @@
             ]
           },
           {
-            "num": 19,
+            "num": 20,
             "entity": {
               "type": 3,
               "object": {
@@ -7793,7 +7817,7 @@
             ]
           },
           {
-            "num": 20,
+            "num": 21,
             "entity": {
               "type": 3,
               "object": {
@@ -7817,7 +7841,7 @@
             ]
           },
           {
-            "num": 21,
+            "num": 22,
             "entity": {
               "type": 3,
               "object": {
@@ -7841,7 +7865,31 @@
             ]
           },
           {
-            "num": 22,
+            "num": 23,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Elliot Anderson",
+                "sname": "Anderson",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1.7"
+              }
+            ]
+          },
+          {
+            "num": 24,
             "entity": {
               "type": 3,
               "object": {
@@ -7865,7 +7913,7 @@
             ]
           },
           {
-            "num": 23,
+            "num": 25,
             "entity": {
               "type": 3,
               "object": {
@@ -7889,7 +7937,7 @@
             ]
           },
           {
-            "num": 24,
+            "num": 26,
             "entity": {
               "type": 3,
               "object": {
@@ -7913,7 +7961,7 @@
             ]
           },
           {
-            "num": 25,
+            "num": 27,
             "entity": {
               "type": 3,
               "object": {
@@ -7937,7 +7985,7 @@
             ]
           },
           {
-            "num": 26,
+            "num": 28,
             "entity": {
               "type": 3,
               "object": {
@@ -7961,7 +8009,7 @@
             ]
           },
           {
-            "num": 27,
+            "num": 29,
             "entity": {
               "type": 3,
               "object": {
@@ -7985,7 +8033,31 @@
             ]
           },
           {
-            "num": 28,
+            "num": 30,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Elisha Owusu",
+                "sname": "Owusu",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1.5"
+              }
+            ]
+          },
+          {
+            "num": 31,
             "entity": {
               "type": 3,
               "object": {
@@ -8009,7 +8081,7 @@
             ]
           },
           {
-            "num": 29,
+            "num": 32,
             "entity": {
               "type": 3,
               "object": {
@@ -8033,7 +8105,7 @@
             ]
           },
           {
-            "num": 30,
+            "num": 33,
             "entity": {
               "type": 3,
               "object": {
@@ -8057,31 +8129,7 @@
             ]
           },
           {
-            "num": 31,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Jonas Adjetey",
-                "sname": "Adjetey",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faje",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1.5"
-              }
-            ]
-          },
-          {
-            "num": 32,
+            "num": 34,
             "entity": {
               "type": 3,
               "object": {
@@ -8105,31 +8153,7 @@
             ]
           },
           {
-            "num": 33,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Jude Bellingham",
-                "sname": "Bellingham",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fafe",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1.5"
-              }
-            ]
-          },
-          {
-            "num": 34,
+            "num": 35,
             "entity": {
               "type": 3,
               "object": {
@@ -8153,7 +8177,7 @@
             ]
           },
           {
-            "num": 35,
+            "num": 36,
             "entity": {
               "type": 3,
               "object": {
@@ -8177,7 +8201,7 @@
             ]
           },
           {
-            "num": 36,
+            "num": 37,
             "entity": {
               "type": 3,
               "object": {
@@ -8190,30 +8214,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "cdhg",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1.5"
-              }
-            ]
-          },
-          {
-            "num": 37,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Marvin Senaya",
-                "sname": "Senaya",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faje",
                 "birthdate": ""
               }
             },
@@ -8350,6 +8350,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Cristian Martínez",
+                "sname": "Martínez",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "febe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1.3"
+              }
+            ]
+          },
+          {
+            "num": 44,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Danley Jean Jacques",
                 "sname": "Jacques",
                 "position": "Mediocampistas",
@@ -8369,7 +8393,7 @@
             ]
           },
           {
-            "num": 44,
+            "num": 45,
             "entity": {
               "type": 3,
               "object": {
@@ -8393,7 +8417,7 @@
             ]
           },
           {
-            "num": 45,
+            "num": 46,
             "entity": {
               "type": 3,
               "object": {
@@ -8417,7 +8441,7 @@
             ]
           },
           {
-            "num": 46,
+            "num": 47,
             "entity": {
               "type": 3,
               "object": {
@@ -8441,7 +8465,31 @@
             ]
           },
           {
-            "num": 47,
+            "num": 48,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Gideon Mensah",
+                "sname": "Mensah",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1.3"
+              }
+            ]
+          },
+          {
+            "num": 49,
             "entity": {
               "type": 3,
               "object": {
@@ -8465,7 +8513,7 @@
             ]
           },
           {
-            "num": 48,
+            "num": 50,
             "entity": {
               "type": 3,
               "object": {
@@ -8489,7 +8537,7 @@
             ]
           },
           {
-            "num": 49,
+            "num": 51,
             "entity": {
               "type": 3,
               "object": {
@@ -8513,7 +8561,7 @@
             ]
           },
           {
-            "num": 50,
+            "num": 52,
             "entity": {
               "type": 3,
               "object": {
@@ -8537,7 +8585,7 @@
             ]
           },
           {
-            "num": 51,
+            "num": 53,
             "entity": {
               "type": 3,
               "object": {
@@ -8561,7 +8609,31 @@
             ]
           },
           {
-            "num": 52,
+            "num": 54,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Jude Bellingham",
+                "sname": "Bellingham",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1.3"
+              }
+            ]
+          },
+          {
+            "num": 55,
             "entity": {
               "type": 3,
               "object": {
@@ -8585,7 +8657,7 @@
             ]
           },
           {
-            "num": 53,
+            "num": 56,
             "entity": {
               "type": 3,
               "object": {
@@ -8609,7 +8681,7 @@
             ]
           },
           {
-            "num": 54,
+            "num": 57,
             "entity": {
               "type": 3,
               "object": {
@@ -8633,7 +8705,7 @@
             ]
           },
           {
-            "num": 55,
+            "num": 58,
             "entity": {
               "type": 3,
               "object": {
@@ -8657,7 +8729,7 @@
             ]
           },
           {
-            "num": 56,
+            "num": 59,
             "entity": {
               "type": 3,
               "object": {
@@ -8681,7 +8753,7 @@
             ]
           },
           {
-            "num": 57,
+            "num": 60,
             "entity": {
               "type": 3,
               "object": {
@@ -8705,7 +8777,7 @@
             ]
           },
           {
-            "num": 58,
+            "num": 61,
             "entity": {
               "type": 3,
               "object": {
@@ -8729,7 +8801,7 @@
             ]
           },
           {
-            "num": 59,
+            "num": 62,
             "entity": {
               "type": 3,
               "object": {
@@ -8753,7 +8825,7 @@
             ]
           },
           {
-            "num": 60,
+            "num": 63,
             "entity": {
               "type": 3,
               "object": {
@@ -8777,7 +8849,7 @@
             ]
           },
           {
-            "num": 61,
+            "num": 64,
             "entity": {
               "type": 3,
               "object": {
@@ -8801,7 +8873,7 @@
             ]
           },
           {
-            "num": 62,
+            "num": 65,
             "entity": {
               "type": 3,
               "object": {
@@ -8825,7 +8897,7 @@
             ]
           },
           {
-            "num": 63,
+            "num": 66,
             "entity": {
               "type": 3,
               "object": {
@@ -8849,7 +8921,7 @@
             ]
           },
           {
-            "num": 64,
+            "num": 67,
             "entity": {
               "type": 3,
               "object": {
@@ -8873,7 +8945,7 @@
             ]
           },
           {
-            "num": 65,
+            "num": 68,
             "entity": {
               "type": 3,
               "object": {
@@ -8897,7 +8969,7 @@
             ]
           },
           {
-            "num": 66,
+            "num": 69,
             "entity": {
               "type": 3,
               "object": {
@@ -8921,7 +8993,7 @@
             ]
           },
           {
-            "num": 67,
+            "num": 70,
             "entity": {
               "type": 3,
               "object": {
@@ -8945,7 +9017,7 @@
             ]
           },
           {
-            "num": 68,
+            "num": 71,
             "entity": {
               "type": 3,
               "object": {
@@ -8969,7 +9041,7 @@
             ]
           },
           {
-            "num": 69,
+            "num": 72,
             "entity": {
               "type": 3,
               "object": {
@@ -8993,7 +9065,7 @@
             ]
           },
           {
-            "num": 70,
+            "num": 73,
             "entity": {
               "type": 3,
               "object": {
@@ -9017,7 +9089,7 @@
             ]
           },
           {
-            "num": 71,
+            "num": 74,
             "entity": {
               "type": 3,
               "object": {
@@ -9041,7 +9113,7 @@
             ]
           },
           {
-            "num": 72,
+            "num": 75,
             "entity": {
               "type": 3,
               "object": {
@@ -9065,7 +9137,7 @@
             ]
           },
           {
-            "num": 73,
+            "num": 76,
             "entity": {
               "type": 3,
               "object": {
@@ -9089,7 +9161,31 @@
             ]
           },
           {
-            "num": 74,
+            "num": 77,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Djed Spence",
+                "sname": "Spence",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 78,
             "entity": {
               "type": 3,
               "object": {
@@ -9113,7 +9209,7 @@
             ]
           },
           {
-            "num": 75,
+            "num": 79,
             "entity": {
               "type": 3,
               "object": {
@@ -9137,7 +9233,7 @@
             ]
           },
           {
-            "num": 76,
+            "num": 80,
             "entity": {
               "type": 3,
               "object": {
@@ -9161,7 +9257,7 @@
             ]
           },
           {
-            "num": 77,
+            "num": 81,
             "entity": {
               "type": 3,
               "object": {
@@ -9185,7 +9281,7 @@
             ]
           },
           {
-            "num": 78,
+            "num": 82,
             "entity": {
               "type": 3,
               "object": {
@@ -9209,7 +9305,7 @@
             ]
           },
           {
-            "num": 79,
+            "num": 83,
             "entity": {
               "type": 3,
               "object": {
@@ -9233,7 +9329,31 @@
             ]
           },
           {
-            "num": 80,
+            "num": 84,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Jonas Adjetey",
+                "sname": "Adjetey",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 85,
             "entity": {
               "type": 3,
               "object": {
@@ -9257,7 +9377,7 @@
             ]
           },
           {
-            "num": 81,
+            "num": 86,
             "entity": {
               "type": 3,
               "object": {
@@ -9281,7 +9401,7 @@
             ]
           },
           {
-            "num": 82,
+            "num": 87,
             "entity": {
               "type": 3,
               "object": {
@@ -9305,7 +9425,7 @@
             ]
           },
           {
-            "num": 83,
+            "num": 88,
             "entity": {
               "type": 3,
               "object": {
@@ -9329,7 +9449,7 @@
             ]
           },
           {
-            "num": 84,
+            "num": 89,
             "entity": {
               "type": 3,
               "object": {
@@ -9353,7 +9473,7 @@
             ]
           },
           {
-            "num": 85,
+            "num": 90,
             "entity": {
               "type": 3,
               "object": {
@@ -9377,7 +9497,7 @@
             ]
           },
           {
-            "num": 86,
+            "num": 91,
             "entity": {
               "type": 3,
               "object": {
@@ -9401,7 +9521,7 @@
             ]
           },
           {
-            "num": 87,
+            "num": 92,
             "entity": {
               "type": 3,
               "object": {
@@ -9425,7 +9545,7 @@
             ]
           },
           {
-            "num": 88,
+            "num": 93,
             "entity": {
               "type": 3,
               "object": {
@@ -9449,7 +9569,31 @@
             ]
           },
           {
-            "num": 89,
+            "num": 94,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Mateo Kovacic",
+                "sname": "Kovacic",
+                "position": "Mediocampistas",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "TotalFoulsConceded",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 95,
             "entity": {
               "type": 3,
               "object": {
@@ -9473,7 +9617,7 @@
             ]
           },
           {
-            "num": 90,
+            "num": 96,
             "entity": {
               "type": 3,
               "object": {
@@ -9497,7 +9641,7 @@
             ]
           },
           {
-            "num": 91,
+            "num": 97,
             "entity": {
               "type": 3,
               "object": {
@@ -9521,7 +9665,7 @@
             ]
           },
           {
-            "num": 92,
+            "num": 98,
             "entity": {
               "type": 3,
               "object": {
@@ -9545,7 +9689,7 @@
             ]
           },
           {
-            "num": 93,
+            "num": 99,
             "entity": {
               "type": 3,
               "object": {
@@ -9569,7 +9713,7 @@
             ]
           },
           {
-            "num": 94,
+            "num": 100,
             "entity": {
               "type": 3,
               "object": {
@@ -9582,150 +9726,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "cdia",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 95,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Piero Hincapié",
-                "sname": "Hincapié",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fahf",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 96,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Remo Freuler",
-                "sname": "Freuler",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fadc",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 97,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Rodri Hernández",
-                "sname": "Rodri",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fafa",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 98,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Rodrigo Bentancur",
-                "sname": "Bentancur",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fahd",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 99,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Ryan Christie",
-                "sname": "Christie",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "fagj",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "TotalFoulsConceded",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 100,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Sead Kolasinac",
-                "sname": "Kolasinac",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "faei",
                 "birthdate": ""
               }
             },
@@ -10548,6 +10548,30 @@
               "type": 3,
               "object": {
                 "num": "",
+                "name": "Andrés Andrade",
+                "sname": "Andrade",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "febe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "YellowCards",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 25,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
                 "name": "Andrew Robertson",
                 "sname": "Robertson",
                 "position": "Defensores",
@@ -10567,7 +10591,7 @@
             ]
           },
           {
-            "num": 25,
+            "num": 26,
             "entity": {
               "type": 3,
               "object": {
@@ -10591,7 +10615,7 @@
             ]
           },
           {
-            "num": 26,
+            "num": 27,
             "entity": {
               "type": 3,
               "object": {
@@ -10615,7 +10639,7 @@
             ]
           },
           {
-            "num": 27,
+            "num": 28,
             "entity": {
               "type": 3,
               "object": {
@@ -10639,7 +10663,7 @@
             ]
           },
           {
-            "num": 28,
+            "num": 29,
             "entity": {
               "type": 3,
               "object": {
@@ -10663,7 +10687,7 @@
             ]
           },
           {
-            "num": 29,
+            "num": 30,
             "entity": {
               "type": 3,
               "object": {
@@ -10687,7 +10711,7 @@
             ]
           },
           {
-            "num": 30,
+            "num": 31,
             "entity": {
               "type": 3,
               "object": {
@@ -10711,7 +10735,7 @@
             ]
           },
           {
-            "num": 31,
+            "num": 32,
             "entity": {
               "type": 3,
               "object": {
@@ -10735,7 +10759,7 @@
             ]
           },
           {
-            "num": 32,
+            "num": 33,
             "entity": {
               "type": 3,
               "object": {
@@ -10759,7 +10783,7 @@
             ]
           },
           {
-            "num": 33,
+            "num": 34,
             "entity": {
               "type": 3,
               "object": {
@@ -10783,7 +10807,7 @@
             ]
           },
           {
-            "num": 34,
+            "num": 35,
             "entity": {
               "type": 3,
               "object": {
@@ -10807,7 +10831,7 @@
             ]
           },
           {
-            "num": 35,
+            "num": 36,
             "entity": {
               "type": 3,
               "object": {
@@ -10831,7 +10855,7 @@
             ]
           },
           {
-            "num": 36,
+            "num": 37,
             "entity": {
               "type": 3,
               "object": {
@@ -10855,7 +10879,7 @@
             ]
           },
           {
-            "num": 37,
+            "num": 38,
             "entity": {
               "type": 3,
               "object": {
@@ -10879,7 +10903,7 @@
             ]
           },
           {
-            "num": 38,
+            "num": 39,
             "entity": {
               "type": 3,
               "object": {
@@ -10903,7 +10927,7 @@
             ]
           },
           {
-            "num": 39,
+            "num": 40,
             "entity": {
               "type": 3,
               "object": {
@@ -10927,7 +10951,7 @@
             ]
           },
           {
-            "num": 40,
+            "num": 41,
             "entity": {
               "type": 3,
               "object": {
@@ -10951,7 +10975,7 @@
             ]
           },
           {
-            "num": 41,
+            "num": 42,
             "entity": {
               "type": 3,
               "object": {
@@ -10975,7 +10999,7 @@
             ]
           },
           {
-            "num": 42,
+            "num": 43,
             "entity": {
               "type": 3,
               "object": {
@@ -10999,7 +11023,7 @@
             ]
           },
           {
-            "num": 43,
+            "num": 44,
             "entity": {
               "type": 3,
               "object": {
@@ -11023,7 +11047,7 @@
             ]
           },
           {
-            "num": 44,
+            "num": 45,
             "entity": {
               "type": 3,
               "object": {
@@ -11047,7 +11071,7 @@
             ]
           },
           {
-            "num": 45,
+            "num": 46,
             "entity": {
               "type": 3,
               "object": {
@@ -11071,7 +11095,7 @@
             ]
           },
           {
-            "num": 46,
+            "num": 47,
             "entity": {
               "type": 3,
               "object": {
@@ -11095,7 +11119,7 @@
             ]
           },
           {
-            "num": 47,
+            "num": 48,
             "entity": {
               "type": 3,
               "object": {
@@ -11119,7 +11143,7 @@
             ]
           },
           {
-            "num": 48,
+            "num": 49,
             "entity": {
               "type": 3,
               "object": {
@@ -11143,7 +11167,7 @@
             ]
           },
           {
-            "num": 49,
+            "num": 50,
             "entity": {
               "type": 3,
               "object": {
@@ -11167,7 +11191,7 @@
             ]
           },
           {
-            "num": 50,
+            "num": 51,
             "entity": {
               "type": 3,
               "object": {
@@ -11191,7 +11215,7 @@
             ]
           },
           {
-            "num": 51,
+            "num": 52,
             "entity": {
               "type": 3,
               "object": {
@@ -11215,7 +11239,7 @@
             ]
           },
           {
-            "num": 52,
+            "num": 53,
             "entity": {
               "type": 3,
               "object": {
@@ -11239,7 +11263,7 @@
             ]
           },
           {
-            "num": 53,
+            "num": 54,
             "entity": {
               "type": 3,
               "object": {
@@ -11263,7 +11287,7 @@
             ]
           },
           {
-            "num": 54,
+            "num": 55,
             "entity": {
               "type": 3,
               "object": {
@@ -11287,7 +11311,7 @@
             ]
           },
           {
-            "num": 55,
+            "num": 56,
             "entity": {
               "type": 3,
               "object": {
@@ -11311,7 +11335,7 @@
             ]
           },
           {
-            "num": 56,
+            "num": 57,
             "entity": {
               "type": 3,
               "object": {
@@ -11335,7 +11359,7 @@
             ]
           },
           {
-            "num": 57,
+            "num": 58,
             "entity": {
               "type": 3,
               "object": {
@@ -11359,7 +11383,7 @@
             ]
           },
           {
-            "num": 58,
+            "num": 59,
             "entity": {
               "type": 3,
               "object": {
@@ -11383,7 +11407,7 @@
             ]
           },
           {
-            "num": 59,
+            "num": 60,
             "entity": {
               "type": 3,
               "object": {
@@ -11407,7 +11431,7 @@
             ]
           },
           {
-            "num": 60,
+            "num": 61,
             "entity": {
               "type": 3,
               "object": {
@@ -11431,7 +11455,7 @@
             ]
           },
           {
-            "num": 61,
+            "num": 62,
             "entity": {
               "type": 3,
               "object": {
@@ -11455,7 +11479,7 @@
             ]
           },
           {
-            "num": 62,
+            "num": 63,
             "entity": {
               "type": 3,
               "object": {
@@ -11479,7 +11503,7 @@
             ]
           },
           {
-            "num": 63,
+            "num": 64,
             "entity": {
               "type": 3,
               "object": {
@@ -11503,7 +11527,7 @@
             ]
           },
           {
-            "num": 64,
+            "num": 65,
             "entity": {
               "type": 3,
               "object": {
@@ -11527,7 +11551,7 @@
             ]
           },
           {
-            "num": 65,
+            "num": 66,
             "entity": {
               "type": 3,
               "object": {
@@ -11551,7 +11575,7 @@
             ]
           },
           {
-            "num": 66,
+            "num": 67,
             "entity": {
               "type": 3,
               "object": {
@@ -11575,7 +11599,7 @@
             ]
           },
           {
-            "num": 67,
+            "num": 68,
             "entity": {
               "type": 3,
               "object": {
@@ -11599,7 +11623,7 @@
             ]
           },
           {
-            "num": 68,
+            "num": 69,
             "entity": {
               "type": 3,
               "object": {
@@ -11623,7 +11647,7 @@
             ]
           },
           {
-            "num": 69,
+            "num": 70,
             "entity": {
               "type": 3,
               "object": {
@@ -11647,7 +11671,7 @@
             ]
           },
           {
-            "num": 70,
+            "num": 71,
             "entity": {
               "type": 3,
               "object": {
@@ -11671,7 +11695,7 @@
             ]
           },
           {
-            "num": 71,
+            "num": 72,
             "entity": {
               "type": 3,
               "object": {
@@ -11695,7 +11719,7 @@
             ]
           },
           {
-            "num": 72,
+            "num": 73,
             "entity": {
               "type": 3,
               "object": {
@@ -11719,7 +11743,7 @@
             ]
           },
           {
-            "num": 73,
+            "num": 74,
             "entity": {
               "type": 3,
               "object": {
@@ -11743,7 +11767,7 @@
             ]
           },
           {
-            "num": 74,
+            "num": 75,
             "entity": {
               "type": 3,
               "object": {
@@ -11767,7 +11791,31 @@
             ]
           },
           {
-            "num": 75,
+            "num": 76,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Ivan Perisic",
+                "sname": "Perisic",
+                "position": "Delanteros",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faff",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "YellowCards",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 77,
             "entity": {
               "type": 3,
               "object": {
@@ -11791,7 +11839,7 @@
             ]
           },
           {
-            "num": 76,
+            "num": 78,
             "entity": {
               "type": 3,
               "object": {
@@ -11815,7 +11863,7 @@
             ]
           },
           {
-            "num": 77,
+            "num": 79,
             "entity": {
               "type": 3,
               "object": {
@@ -11839,7 +11887,31 @@
             ]
           },
           {
-            "num": 78,
+            "num": 80,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Jarell Quansah",
+                "sname": "Quansah",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "fafe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "YellowCards",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 81,
             "entity": {
               "type": 3,
               "object": {
@@ -11863,7 +11935,7 @@
             ]
           },
           {
-            "num": 79,
+            "num": 82,
             "entity": {
               "type": 3,
               "object": {
@@ -11887,7 +11959,7 @@
             ]
           },
           {
-            "num": 80,
+            "num": 83,
             "entity": {
               "type": 3,
               "object": {
@@ -11911,7 +11983,7 @@
             ]
           },
           {
-            "num": 81,
+            "num": 84,
             "entity": {
               "type": 3,
               "object": {
@@ -11935,7 +12007,7 @@
             ]
           },
           {
-            "num": 82,
+            "num": 85,
             "entity": {
               "type": 3,
               "object": {
@@ -11959,7 +12031,7 @@
             ]
           },
           {
-            "num": 83,
+            "num": 86,
             "entity": {
               "type": 3,
               "object": {
@@ -11983,7 +12055,7 @@
             ]
           },
           {
-            "num": 84,
+            "num": 87,
             "entity": {
               "type": 3,
               "object": {
@@ -12007,7 +12079,7 @@
             ]
           },
           {
-            "num": 85,
+            "num": 88,
             "entity": {
               "type": 3,
               "object": {
@@ -12031,7 +12103,31 @@
             ]
           },
           {
-            "num": 86,
+            "num": 89,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "José Fajardo",
+                "sname": "Fajardo",
+                "position": "Delanteros",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "febe",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "YellowCards",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 90,
             "entity": {
               "type": 3,
               "object": {
@@ -12055,7 +12151,7 @@
             ]
           },
           {
-            "num": 87,
+            "num": 91,
             "entity": {
               "type": 3,
               "object": {
@@ -12079,7 +12175,7 @@
             ]
           },
           {
-            "num": 88,
+            "num": 92,
             "entity": {
               "type": 3,
               "object": {
@@ -12103,7 +12199,7 @@
             ]
           },
           {
-            "num": 89,
+            "num": 93,
             "entity": {
               "type": 3,
               "object": {
@@ -12127,7 +12223,7 @@
             ]
           },
           {
-            "num": 90,
+            "num": 94,
             "entity": {
               "type": 3,
               "object": {
@@ -12151,7 +12247,7 @@
             ]
           },
           {
-            "num": 91,
+            "num": 95,
             "entity": {
               "type": 3,
               "object": {
@@ -12175,7 +12271,7 @@
             ]
           },
           {
-            "num": 92,
+            "num": 96,
             "entity": {
               "type": 3,
               "object": {
@@ -12199,7 +12295,31 @@
             ]
           },
           {
-            "num": 93,
+            "num": 97,
+            "entity": {
+              "type": 3,
+              "object": {
+                "num": "",
+                "name": "Kojo Peprah Oppong",
+                "sname": "Oppong",
+                "position": "Defensores",
+                "formation_position": "",
+                "age": "",
+                "height": "",
+                "weight": "",
+                "team_id": "faje",
+                "birthdate": ""
+              }
+            },
+            "values": [
+              {
+                "key": "YellowCards",
+                "value": "1"
+              }
+            ]
+          },
+          {
+            "num": 98,
             "entity": {
               "type": 3,
               "object": {
@@ -12223,7 +12343,7 @@
             ]
           },
           {
-            "num": 94,
+            "num": 99,
             "entity": {
               "type": 3,
               "object": {
@@ -12247,7 +12367,7 @@
             ]
           },
           {
-            "num": 95,
+            "num": 100,
             "entity": {
               "type": 3,
               "object": {
@@ -12260,126 +12380,6 @@
                 "height": "",
                 "weight": "",
                 "team_id": "cedjh",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "YellowCards",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 96,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Leandro Paredes",
-                "sname": "Paredes",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cdhi",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "YellowCards",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 97,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Lee Kang-in",
-                "sname": "Kang-in",
-                "position": "Mediocampistas",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cdid",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "YellowCards",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 98,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Liam Millar",
-                "sname": "Millar",
-                "position": "Delanteros",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cdii",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "YellowCards",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 99,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Livano Comenencia",
-                "sname": "Comenencia",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cedjh",
-                "birthdate": ""
-              }
-            },
-            "values": [
-              {
-                "key": "YellowCards",
-                "value": "1"
-              }
-            ]
-          },
-          {
-            "num": 100,
-            "entity": {
-              "type": 3,
-              "object": {
-                "num": "",
-                "name": "Luc De Fougerolles",
-                "sname": "De Fougerolles",
-                "position": "Defensores",
-                "formation_position": "",
-                "age": "",
-                "height": "",
-                "weight": "",
-                "team_id": "cdii",
                 "birthdate": ""
               }
             },

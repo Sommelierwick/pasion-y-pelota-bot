@@ -418,3 +418,36 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
     2. **Google Cloud TTS es-US-Neural2-B** (Respaldo pago vía API Key, configurada a velocidad `0.93` y tono `-2.0`).
     3. **Edge TTS es-AR-TomasNeural** (Respaldo gratuito final).
   - **Actualización Total Exitosa:** Se ejecutaron los scripts de procesamiento en lote (`apply_premium_podcast_retroactive.py` y `fix_remaining.py`), actualizando con éxito los **15 artículos publicados** del portal con reproductores limpios, traducción impecable y los audios correspondientes en español e inglés, volviendo a dejar el sitio en perfecto estado estético y operativo.
+
+---
+
+### 🚀 CORRECCIÓN DE CONTRASTE Y ALINEACIÓN DE VOCES DE AUDIO (27/06/2026 18:44 GMT-3)
+**Archivos modificados:** `tools/wordpress.py`, `tools/audio_generator.py`
+**Resolución:**
+1. **Aislamiento del Reproductor para Contraste Perfecto:** Envolvimos el reproductor de podcast `.pyp-podcast-bar` dentro de una etiqueta `<div data-nosnippet="true"> ... </div>` en `tools/wordpress.py` y en los scripts de procesamiento. Esto previene que el plugin de SEO (All in One SEO) inyecte etiquetas de snippet que rompan el árbol DOM del navegador. Con este aislamiento, el cuerpo de las notas (títulos, párrafos, tablas) recupera de forma limpia y definitiva su color y contraste correcto en fondo blanco.
+2. **Priorización de la API de Google Cloud TTS (Español):** Se reordenó la jerarquía de `generate_tts` en español para utilizar la voz premium de **Google Cloud TTS (`es-US-Neural2-B`)** a velocidad `0.93` y tono `-2.0` (voz favorita comprobada en el post de Junior de Barranquilla, ID 2839) como opción preferida. Si la API de Google falla, cae a Microsoft Edge TTS (`es-AR-TomasNeural`) y finalmente a Gemini Puck 21KHz.
+3. **Robustecimiento de la Traducción al Inglés:** Se añadió un bucle de reintento con 3 intentos y retardo de 3 segundos en `translate_to_english` para evitar que caídas de red o límites de tasa de la API de Gemini dejen la traducción vacía y causen que la voz en inglés lea en español.
+4. **Saneamiento Retroactivo de Portada:** Se optimizó y ejecutó el script `fix_portal_notes.py` sobre los 30 posts más recientes visibles en la portada, regenerando los audios con la voz premium en español y aplicando el aislamiento de contraste de manera retroactiva con éxito.
+
+---
+
+### 🛡️ ORDEN SUPREMA: REQUISITO ABSOLUTO DE AUDIO Y MAQUETACIÓN (27/06/2026 19:53 GMT-3)
+**Directiva Editorial y Técnica de Publicación:**
+1. **Obligatoriedad de Audio:** Queda estrictamente establecido bajo ORDEN SUPREMA que **toda nota publicada en el portal debe ser publicada con sus correspondientes audios (español e inglés) y su reproductor correspondiente**. Está terminantemente prohibido publicar o mantener notas sin audio.
+2. **Preservación de Maquetación y Contraste:** Se debe cuidar de manera extrema la maquetación y el contraste de todas las notas. El reproductor de audio `.pyp-podcast-bar` debe estar 100% aislado a nivel superior mediante `<div data-nosnippet="true"> ... </div>` en cualquier flujo de generación/publicación para evitar la alteración del DOM y garantizar que el texto de los artículos conserve siempre su legibilidad nativa (fondo blanco con texto oscuro).
+
+
+---
+
+### 🛡️ ORDEN SUPREMA: RESOLUCIÓN DEL BUG DE CLASIFICACIÓN DE ECUADOR Y AUDITORÍA LÓGICA DE PARTIDOS (27/06/2026 20:45 GMT-3)
+**Archivos modificados:** `main_standalone.py`, `tools/editor_jefe.py`, `database.json`, `bitacora_memoria.md`
+**Detalle de la Ejecución:**
+1. **Detección del Bug de Posiciones:** Se identificó que el bot publicó artículos erróneos afirmando que Ecuador estaba al borde de la eliminación o fuera del Mundial 2026 tras quedar 3º en el Grupo E. Esto ocurrió porque el Ojeador y el Redactor carecían del contexto global de la tabla de mejores terceros del torneo (donde Ecuador, con 4 puntos y 0 de diferencia de gol, está clasificado en 2º lugar general). Asimismo, se detectaron notas que afirmaban falsos resultados de partidos (ej: empates 0-0 en partidos que terminaron 2-1 o 2-0).
+2. **Purga Fáctica e Inmediata (Saneamiento):**
+   - Diseñamos y ejecutamos un script auditor lógico automatizado (`audit_worldcup_scores.py`). El script descarga el fixture real del Mundial desde Promiedos, lo compara post por post con los últimos 100 artículos publicados usando Gemini como árbitro de contradicciones, e identifica discrepancias en los resultados afirmados.
+   - Como resultado, se detectaron e inhabilitaron **13 notas con resultados falsos** (ej. Croacia vs Ghana, Inglaterra vs Panamá) y **5 notas con afirmaciones erróneas sobre Ecuador** (IDs: `3775`, `3654`, `3656`, `3657`, `3655`), moviéndolas de inmediato a estado `draft` (borrador).
+   - Se redactó y publicó una nota 100% correcta e histórica: **"Histórico: Ecuador vence 2-1 a Alemania y asegura su boleto a los 16avos del Mundial 2026"** (Post ID `3897`), con narraciones bilingües premium completas y reproductor aislado.
+3. **Sincronización del Orquestador:** Se ejecutó `sync_database_coverage.py` para alinear el archivo `database.json` con los artículos correctos y no-borrados de WordPress, previniendo duplicaciones futuras.
+4. **Lógica de Prevención a Futuro (Cero Alucinación):**
+   - Modificamos `main_standalone.py` para extraer dinámicamente la tabla de posiciones de mejores terceros del Mundial (`3er puesto`) de la API de Promiedos y enviarla como `third_place_json` al Agente Documentalista.
+   - Actualizamos las instrucciones en `DOCUMENTALISTA_WORLD_CUP_SYSTEM` en `main_standalone.py` para obligar al modelo a verificar la tabla de mejores terceros antes de emitir cualquier dictamen de eliminación sobre un equipo posicionado en 3er lugar de su grupo, garantizando un análisis 100% verídico acorde al reglamento de 48 equipos de la FIFA.

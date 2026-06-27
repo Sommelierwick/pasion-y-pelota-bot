@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 def translate_to_english(html_content: str) -> str:
     """Traduce el contenido HTML de español a inglés usando el motor híbrido de IA,
-    preservando la estructura de etiquetas HTML intacta."""
+    preservando la estructura de etiquetas HTML intacta con reintentos robustos."""
     from main_standalone import call_ai_json
+    import time
     
     prompt = (
         "Translate the following article from Spanish to English. You MUST preserve all HTML tags "
@@ -22,18 +23,24 @@ def translate_to_english(html_content: str) -> str:
         f"{html_content}"
     )
     sys_prompt = (
-        "You are an expert bilingual sports translator. You translate football news from Spanish to English "
+        "You are an expert sports translator. You translate football news from Spanish to English "
         "precisely, preserving all HTML code structures and tags."
     )
     
-    try:
-        res = call_ai_json(prompt, sys_prompt)
-        if isinstance(res, dict) and "text" in res:
-            return res["text"]
-        elif isinstance(res, str):
-            return res
-    except Exception as e:
-        logger.error(f"Error al traducir artículo a inglés: {e}")
+    for attempt in range(1, 4):
+        try:
+            logger.info(f"Intentando traducción a inglés (Intento {attempt}/3)...")
+            res = call_ai_json(prompt, sys_prompt)
+            if isinstance(res, dict) and "text" in res and res["text"].strip():
+                return res["text"]
+            elif isinstance(res, str) and res.strip():
+                return res
+        except Exception as e:
+            logger.error(f"Error en intento {attempt} de traducción: {e}")
+        
+        if attempt < 3:
+            logger.info("Esperando 3 segundos antes de reintentar la traducción...")
+            time.sleep(3)
         
     return ""
 
@@ -238,25 +245,25 @@ def generate_tts_gemini(text: str, voice_name: str, sample_rate: int) -> Optiona
     return None
 
 def generate_tts(text: str, lang: str = "es", voice: str = "onyx", model: str = "tts-1") -> Optional[bytes]:
-    """Genera audio. Para español, usa Gemini TTS (Puck a 21000 Hz para tono grave y enérgico).
+    """Genera audio. Para español, usa la opción paga de Google Cloud TTS (es-US-Neural2-B) como preferida.
     Para inglés, usa la opción gratuita de Edge TTS para ahorrar costos."""
     audio_bytes = None
     
     if lang == "es":
-        # 1. Opción Preferida: Gemini TTS con la voz Puck ralentizada/bajado de tono a 21KHz (Voz del post Junior de Barranquilla)
-        logger.info("Generando audio en español usando Gemini TTS (Puck Grave 21KHz)...")
-        audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
+        # 1. Opción Preferida: Google Cloud TTS (es-US-Neural2-B) - Voz elegida por el usuario
+        logger.info("Generando audio en español usando la API de Google Cloud TTS (es-US-Neural2-B)...")
+        audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
         
-        # 2. Respaldo Pago: Google Cloud TTS es-US-Neural2-B
-        if not audio_bytes:
-            logger.warning("Fallo en Gemini TTS. Usando Google Cloud TTS (es-US-Neural2-B) como respaldo pago...")
-            audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
-            
-        # 3. Respaldo Gratuito Final: Edge TTS es-AR-TomasNeural
+        # 2. Respaldo Gratuito Principal: Edge TTS es-AR-TomasNeural
         if not audio_bytes:
             edge_voice = "es-AR-TomasNeural"
-            logger.warning(f"Fallo en Google APIs. Usando Edge TTS ({edge_voice}) como respaldo gratuito final...")
+            logger.warning(f"Fallo en Google Cloud TTS. Usando Edge TTS ({edge_voice}) como respaldo gratuito...")
             audio_bytes = generate_tts_edge(text, edge_voice)
+            
+        # 3. Respaldo Final de Emergencia: Gemini TTS Puck Grave 21KHz
+        if not audio_bytes:
+            logger.warning("Fallo en Google y Edge. Usando Gemini TTS (Puck Grave 21KHz) como último recurso...")
+            audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
     else:
         # Para inglés, usar directamente la opción gratuita (Edge TTS) para ahorrar costos
         edge_voice = "en-GB-RyanNeural"
