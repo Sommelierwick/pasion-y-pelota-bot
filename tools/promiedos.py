@@ -38,6 +38,12 @@ LEAGUE_URLS = {
     "ligue 1": "https://www.promiedos.com.ar/league/ligue-1/df",
     "mexico": "https://www.promiedos.com.ar/league/liga-mx/beb",
     "liga mx": "https://www.promiedos.com.ar/league/liga-mx/beb",
+    "liga-mx": "https://www.promiedos.com.ar/league/liga-mx/beb",
+    "liga_mx": "https://www.promiedos.com.ar/league/liga-mx/beb",
+    "colombia": "https://www.promiedos.com.ar/league/liga-betplay/gca",
+    "liga-colombiana": "https://www.promiedos.com.ar/league/liga-betplay/gca",
+    "liga_colombiana": "https://www.promiedos.com.ar/league/liga-betplay/gca",
+    "liga-betplay": "https://www.promiedos.com.ar/league/liga-betplay/gca",
     "mls": "https://www.promiedos.com.ar/league/mls/bae",
     "brasil": "https://www.promiedos.com.ar/league/brasileirao-serie-a/bbd",
     "brasileirao": "https://www.promiedos.com.ar/league/brasileirao-serie-a/bbd",
@@ -383,6 +389,182 @@ def fetch_mundial_complete_data_static() -> dict:
     return {}
 
 
+def fetch_league_complete_data(league_key: str) -> dict:
+    """
+    Descarga la página de la liga en Promiedos y retorna un diccionario
+    con todas las tablas de posiciones, partidos/fixture y goleadores.
+    """
+    url = LEAGUE_URLS.get(league_key.lower())
+    if not url:
+        logging.warning(f"No se encontró una URL de Promiedos registrada para la liga: {league_key}.")
+        return {}
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    logging.info(f"Descargando datos estructurados de la liga {league_key} desde {url}...")
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "html.parser")
+            next_data_script = soup.find("script", id="__NEXT_DATA__")
+            if not next_data_script:
+                logging.error(f"No se encontró el script __NEXT_DATA__ en la página de {league_key}.")
+                return {}
+            
+            try:
+                data = json.loads(next_data_script.string or "{}")
+                page_props = data.get("props", {}).get("pageProps", {})
+                body_data = page_props.get("data", {})
+            except Exception as e:
+                logging.error(f"Error parseando __NEXT_DATA__ para {league_key}: {e}")
+                return {}
+            
+            # 1. Parsear tables_groups (Posiciones)
+            groups = []
+            tables_groups = body_data.get("tables_groups", [])
+            for tg in tables_groups:
+                tables = tg.get("tables", [])
+                for t in tables:
+                    group_name = t.get("name", "Grupo")
+                    table_data = t.get("table", {})
+                    rows = table_data.get("rows", [])
+                    
+                    team_list = []
+                    for r in rows:
+                        team_name = r.get("entity", {}).get("object", {}).get("name", "Equipo")
+                        team_colors = r.get("entity", {}).get("object", {}).get("colors", {})
+                        vals = r.get("values", [])
+                        val_map = {v.get("key"): v.get("value") for v in vals}
+                        
+                        team_list.append({
+                            "pos": r.get("num", 1),
+                            "id": r.get("entity", {}).get("object", {}).get("id", ""),
+                            "name": team_name,
+                            "colors": team_colors,
+                            "pts": val_map.get("Points", "0"),
+                            "pj": val_map.get("GamePlayed", "0"),
+                            "goals": val_map.get("Goals", "0:0"),
+                            "ratio": val_map.get("Ratio", "0"),
+                            "pg": val_map.get("GamesWon", "0"),
+                            "pe": val_map.get("GamesEven", "0"),
+                            "pp": val_map.get("GamesLost", "0"),
+                            "dest_color": r.get("destination_color", "#fff")
+                        })
+                    
+                    # Si no hay nombre de grupo, usar el nombre del table_group
+                    final_name = group_name if group_name != "Temporada Regular" or not tg.get("name") else tg.get("name")
+                    if final_name == "Grupo" and tg.get("name"):
+                        final_name = tg.get("name")
+                    if group_name and group_name != "Grupo" and group_name != "Temporada Regular":
+                        final_name = group_name
+
+                    groups.append({
+                        "name": final_name,
+                        "teams": team_list
+                    })
+            
+            # 2. Parsear games
+            games_list = []
+            games_data = body_data.get("games", {})
+            filters = games_data.get("filters", [])
+            for f in filters:
+                filter_name = f.get("name", "Fecha")
+                for g in f.get("games", []):
+                    teams = g.get("teams", [])
+                    scores = g.get("scores", [])
+                    status = g.get("status", {})
+                    
+                    home = teams[0].get("name") if len(teams) > 0 else "Local"
+                    away = teams[1].get("name") if len(teams) > 1 else "Visita"
+                    home_goals = scores[0] if len(scores) > 0 else "-"
+                    away_goals = scores[1] if len(scores) > 1 else "-"
+                    
+                    games_list.append({
+                        "id": g.get("id"),
+                        "stage": filter_name,
+                        "home": home,
+                        "away": away,
+                        "home_goals": home_goals,
+                        "away_goals": away_goals,
+                        "status": status.get("name", "Prog."),
+                        "status_symbol": status.get("symbol_name", "Prog."),
+                        "start_time": convert_to_argentina_time(g.get("start_time")),
+                        "display_time": g.get("game_time_to_display") or "",
+                        "display_status": g.get("game_time_status_to_display") or ""
+                    })
+            
+            # 3. Parsear brackets (Fase eliminatoria si aplica, ej. Champions League)
+            brackets_stages = []
+            brackets = body_data.get("brackets", {})
+            if brackets:
+                stages = brackets.get("stages", [])
+                for s in stages:
+                    stage_name = s.get("name", "Etapa")
+                    groups_list = []
+                    for grp in s.get("groups", []):
+                        participants = grp.get("participants", [])
+                        part_list = []
+                        for p in participants:
+                            part_list.append({
+                                "name": p.get("entity", {}).get("object", {}).get("name", "Por definir"),
+                                "colors": p.get("entity", {}).get("object", {}).get("colors", {})
+                            })
+                        
+                        cruce_games = []
+                        for cg in grp.get("games", []):
+                            cg_scores = cg.get("scores", [])
+                            cruce_games.append({
+                                "start_time": convert_to_argentina_time(cg.get("start_time")),
+                                "status": cg.get("status", {}).get("name", "Prog."),
+                                "scores": cg_scores
+                            })
+                            
+                        groups_list.append({
+                            "participants": part_list,
+                            "score": grp.get("score", ""),
+                            "winner": grp.get("winner", -1),
+                            "games": cruce_games
+                        })
+                    
+                    brackets_stages.append({
+                        "name": stage_name,
+                        "matches": groups_list
+                    })
+            
+            # 4. Parsear estadísticas de jugadores (goleadores)
+            raw_players_stats = body_data.get("players_statistics", [])
+            players_stats_formatted = []
+            if isinstance(raw_players_stats, dict):
+                for t in raw_players_stats.get("tables", []):
+                    players_stats_formatted.append({
+                        "name": t.get("name"),
+                        "table": {
+                            "rows": t.get("rows", [])
+                        }
+                    })
+            else:
+                players_stats_formatted = raw_players_stats
+
+            # Formatear la fecha actual de Buenos Aires
+            import pytz
+            tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+            last_updated = datetime.now(tz_arg).strftime("%d/%m/%Y %H:%M")
+
+            return {
+                "groups": groups,
+                "games": games_list,
+                "brackets": { "stages": brackets_stages },
+                "players_statistics": players_stats_formatted,
+                "last_updated": last_updated
+            }
+        else:
+            logging.error(f"Error HTTP {response.status_code} al descargar datos de {league_key}.")
+    except Exception as e:
+        logging.error(f"Excepción al descargar datos estructurados de {league_key}: {e}")
+    return {}
+
+
 def fetch_today_mundial_from_homepage() -> list:
     """
     Descarga la PORTADA de Promiedos (promiedos.com.ar) y extrae
@@ -478,7 +660,13 @@ def fetch_mundial_complete_data() -> dict:
                 # Si ya existe, actualizar con datos más frescos (goles en vivo, status)
                 for i, g in enumerate(base_data["games"]):
                     if f"{g.get('home', '')}_{g.get('away', '')}" == mid:
-                        base_data["games"][i] = tg
+                        current_status = g.get("status", "Prog.")
+                        tg_status = tg.get("status", "Prog.")
+                        # Si el de base_data ya empezó o terminó, pero la portada dice "Prog.", NO sobreescribimos con "Prog."
+                        if current_status not in ["Prog.", "Progr."] and tg_status in ["Prog.", "Progr."]:
+                            logging.info(f"Conservando estado iniciado/finalizado para {mid} ({current_status}) frente a '{tg_status}' de la portada.")
+                        else:
+                            base_data["games"][i] = tg
                         break
         
         logging.info(f"Fusión completada: {added} partidos nuevos añadidos, {len(today_games) - added} actualizados con datos en vivo.")

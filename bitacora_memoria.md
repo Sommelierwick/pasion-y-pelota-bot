@@ -328,3 +328,14 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
   - Se subió y descomprimió el tema mediante un helper PHP basado en `ZipArchive` y se purgaron las cachés de LiteSpeed.
   - Se publicó con éxito un artículo de prueba (ID 1418) y se verificó que el feed RSS (`/category/social-share/feed/`) lo cargue correctamente, mientras que el post permanece invisible en el frontend de la web y búsquedas.
 
+- **RESOLUCIÓN DE NOTAS ESTADÍSTICAS CONTRADICTORIAS (26/06/2026 18:35 GMT-3):**
+  - Se detectaron tres notas estadísticas contradictorias y anacrónicas sobre Suecia y Bosnia (IDs 1513, 1512 y 1511). Se determinó que fueron publicadas por el "Monitoreo Estadístico de Anomalías" en `tools/editor_jefe.py` sin pasar por el "Gate de Contradicciones y Desmentidas".
+  - Se movieron a estado `draft` (borrador) los tres artículos afectados en WordPress.
+  - Se inyectó la llamada a `self.retract_contradictory_posts` en `EditorJefe.run_live_update` antes del bloque de publicación de anomalías estadísticas para evitar la persistencia de posts obsoletos en el futuro.
+
+- **ORDEN SUPREMA: AUTOMATIZACIÓN DE PUBLICACIONES EN REDES (26/06/2026 18:40 GMT-3):**
+  - Se implementó la directiva "Todo lo que se sube se publica en redes".
+  - Se modificó `tools/wordpress.py` (`publish_post`) para interceptar todas las publicaciones a WordPress que se hagan con estado `publish` en categorías normales.
+  - Se inyectó el método `generate_social_title` que utiliza la API de Gemini para redactar un título optimizado para X (Twitter), con ganchos emocionales, emojis y menciones oficiales de selecciones (handles cruzados de Twitter).
+  - Al completar la publicación original, el sistema realiza una llamada recursiva a `publish_post` para publicar automáticamente una copia del artículo asignada a la categoría privada **"Social Share" (ID 303)**. Make.com lee el feed RSS de esta categoría y postea automáticamente a X (Twitter).
+

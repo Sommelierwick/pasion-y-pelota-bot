@@ -2,6 +2,7 @@ import requests
 import logging
 import io
 import os
+import json
 from typing import List, Optional
 from requests.auth import HTTPBasicAuth
 import config
@@ -261,11 +262,29 @@ class WordPressPublisher:
             "meta": {}
         }
         
+        import pytz
+        from datetime import datetime, timedelta
+        tz = pytz.timezone('America/Argentina/Buenos_Aires')
+        
         if not date:
-            import pytz
-            from datetime import datetime
-            tz = pytz.timezone('America/Argentina/Buenos_Aires')
-            date = datetime.now(tz).isoformat()
+            dt = datetime.now(tz)
+        else:
+            try:
+                from dateutil import parser
+                dt = parser.parse(date)
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(tz)
+                else:
+                    # Si es naive, asumimos que viene en el huso de Buenos Aires
+                    dt = tz.localize(dt)
+            except Exception as e:
+                logging.warning(f"No se pudo parsear/convertir la fecha {date}: {e}")
+                dt = datetime.now(tz)
+        
+        # Corrección del desfase sistemático de +3 horas de la REST API de WordPress:
+        # Le restamos 3 horas al objeto datetime local de Buenos Aires
+        dt_shifted = dt - timedelta(hours=3)
+        date = dt_shifted.strftime('%Y-%m-%dT%H:%M:%S')
             
         if date:
             post_payload["date"] = date
@@ -293,6 +312,36 @@ class WordPressPublisher:
                 
                 # Ejecutar purga de notas excedentes según la ORDEN SUPREMA (máximo 30)
                 self.enforce_limit(30)
+                
+                # --- ORDEN SUPREMA: TODO LO QUE SE SUBE SE PUBLICA EN REDES ---
+                # Si el estado es publicado y no es ya una nota de la categoría Social Share,
+                # generamos el clon social automático.
+                is_social_share = False
+                if isinstance(league_category, str):
+                    is_social_share = (league_category.strip().lower() in ["social share", "social-share", "303"])
+                elif isinstance(league_category, list):
+                    is_social_share = any(str(c).strip().lower() in ["social share", "social-share", "303"] for c in league_category)
+                
+                if status == "publish" and not is_social_share:
+                    try:
+                        logging.info("Generando clon social automático para publicar en redes...")
+                        social_title = self.generate_social_title(title, content)
+                        if social_title:
+                            logging.info(f"Clon social generado: '{social_title}'. Publicando en 'Social Share'...")
+                            self.publish_post(
+                                title=social_title,
+                                content=content,
+                                league_category="Social Share",
+                                tags=[],
+                                status="publish",
+                                featured_image_id=featured_image_id,
+                                seo_desc=seo_desc,
+                                seo_focuskw=seo_focuskw,
+                                writer=writer,
+                                date=date
+                            )
+                    except Exception as e_social:
+                        logging.error(f"Error al generar/publicar clon social: {e_social}")
                 
                 return published_post
             else:
@@ -336,6 +385,88 @@ class WordPressPublisher:
                     
         except Exception as e:
             logging.error(f"Excepción general en enforce_limit: {e}")
+
+    def generate_social_title(self, original_title: str, content_snippet: str) -> Optional[str]:
+        """Genera un título optimizado para redes sociales a partir del original y el resumen."""
+        models = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-1.5-flash-latest"]
+        
+        TEAM_HANDLES = {
+            "Argentina": "@Argentina",
+            "Francia": "@EquipeDeFrance",
+            "España": "@SEFutbol",
+            "Brasil": "@CBF_Futebol",
+            "Inglaterra": "@England",
+            "Portugal": "@selecaoportugal",
+            "Uruguay": "@Uruguay",
+            "Ecuador": "@LaTri",
+            "Alemania": "@DFB_Team",
+            "Turquía": "@MilliTakimlar",
+            "Estados Unidos": "@USMNT",
+            "Curazao": "@CuracaoFutbol",
+            "Costa de Marfil": "@FIFCI_tweet",
+            "Túnez": "@FTF_OFFICIELLE",
+            "Países Bajos": "@OnsOranje",
+            "Japón": "@jfa_samuraiblue",
+            "Suecia": "@svenskfotboll",
+            "Paraguay": "@Albirroja",
+            "Australia": "@Socceroos",
+            "Sudáfrica": "@BafanaBafana",
+            "Corea del Sur": "@theKFA"
+        }
+        
+        from bs4 import BeautifulSoup
+        try:
+            content_clean = BeautifulSoup(content_snippet, "html.parser").get_text()
+        except:
+            content_clean = content_snippet
+            
+        prompt = f"""
+        Eres el redactor de redes sociales para Pasión y Pelota.
+        Tu tarea es transformar el siguiente título de artículo y su resumen en un tweet viral y llamativo que funcione como el título del post.
+        
+        TÍTULO ORIGINAL: {original_title}
+        RESUMEN DEL CONTENIDO: {content_clean[:500]}
+        
+        REGLAS DEL TÍTULO DE REDES SOCIALES:
+        1. Comienza con un emoji llamativo (como 🏆, 💥, ⚔️, ⚽, 😱, 😮, 🚨).
+        2. Redacta un gancho viral, irónico, inteligente o emocionante de máximo 200 caracteres en total.
+        3. Incluye obligatoriamente los handles/menciones de Twitter correspondientes a las selecciones involucradas si se encuentran en esta lista: {json.dumps(TEAM_HANDLES, ensure_ascii=False)}.
+        4. Termina el título con los hashtags de Twitter adecuados (ejemplo: #Mundial2026 y hashtags de los países/equipos involucrados).
+        5. Todo el título (incluyendo emojis, menciones y hashtags) debe ser una única línea de texto plano.
+        
+        Devuelve un JSON con exactamente este formato:
+        {{
+            "social_title": "El título en formato de tweet"
+        }}
+        """
+        
+        for model in models:
+            for _ in range(len(config.GEMINI_API_KEYS)):
+                api_key = config.get_active_key()
+                if not api_key:
+                    config.rotate_key()
+                    continue
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                payload = {
+                    "system_instruction": {"parts": [{"text": "Eres un experto en redes sociales y SEO deportivo."}]},
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "responseMimeType": "application/json",
+                        "temperature": 0.6
+                    }
+                }
+                try:
+                    resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        res = json.loads(text)
+                        return res.get("social_title")
+                    elif resp.status_code == 429:
+                        config.rotate_key()
+                except Exception as e:
+                    logging.error(f"Error calling LLM in generate_social_title: {e}")
+        return None
 
     def update_post(self, post_id: int, post_payload: dict) -> bool:
         """Actualiza una entrada existente en WordPress."""

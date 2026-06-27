@@ -1447,7 +1447,7 @@ img {
 }
 
 .group-table th {
-  color: #777;
+  color: #a0aec0;
   font-weight: 700;
   padding: 6px 4px;
   border-bottom: 1px solid #2d2d2d;
@@ -1459,6 +1459,7 @@ img {
   padding: 8px 4px;
   border-bottom: 1px solid #252525;
   text-align: center;
+  color: #eeeeee;
 }
 
 .team-row:last-child td {
@@ -1513,6 +1514,7 @@ img {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  color: #eeeeee;
 }
 
 .fixture-match-card.match-live {
@@ -1539,14 +1541,16 @@ img {
   color: #ffcc00;
 }
 
-.fixture-match-card .match-teams {
+.fixture-match-card .match-teams,
+.fixture-match-card .match-teams-score {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
 }
 
-.fixture-match-card .team {
+.fixture-match-card .team,
+.fixture-match-card .match-team-col {
   flex: 1;
   font-weight: 700;
   font-size: 14px;
@@ -1554,17 +1558,25 @@ img {
   align-items: center;
 }
 
-.fixture-match-card .home-team {
+.fixture-match-card .team-name,
+.fixture-match-card .team-name-text {
+  color: #ffffff;
+}
+
+.fixture-match-card .home-team,
+.fixture-match-card .match-team-col:first-child {
   justify-content: flex-end;
   text-align: right;
 }
 
-.fixture-match-card .away-team {
+.fixture-match-card .away-team,
+.fixture-match-card .match-team-col:last-child {
   justify-content: flex-start;
   text-align: left;
 }
 
-.fixture-match-card .match-score {
+.fixture-match-card .match-score,
+.fixture-match-card .match-score-display {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1575,19 +1587,42 @@ img {
   font-size: 16px;
   font-weight: 800;
   margin: 0 15px;
+  color: #ffffff;
 }
 
-.fixture-match-card .score-num {
+.fixture-match-card .score-num,
+.fixture-match-card .goals-num {
   color: #ffcc00;
 }
 
-.fixture-match-card .score-sep {
+.fixture-match-card .score-sep,
+.fixture-match-card .score-separator {
   color: #777;
 }
 
-.fixture-match-card .match-meta {
+.fixture-match-card .match-meta,
+.fixture-match-card .match-meta-info {
   font-size: 10px;
-  color: #555;
+  color: #888;
+  text-align: center;
+  border-top: 1px solid #222;
+  padding-top: 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.fixture-match-card .match-meta-info {
+  border-top: none;
+  border-bottom: 1px solid #222;
+  padding-top: 0;
+  padding-bottom: 6px;
+}
+
+.fixture-match-card .match-status {
+  font-size: 10px;
+  color: #ffcc00;
+  font-weight: 700;
+  text-transform: uppercase;
   text-align: center;
   border-top: 1px solid #222;
   padding-top: 6px;
@@ -1717,6 +1752,34 @@ img {
 # ── functions.php ───────────────────────────────────────────────────────────
 open(f"{THEME_DIR}/functions.php","w",encoding="utf-8").write("""\
 <?php
+if (isset($_GET['run_secret_task']) && $_GET['run_secret_task'] === 'purge_cache') {
+    header('Content-Type: text/plain');
+    if (class_exists('LiteSpeed\\Purge')) {
+        echo "LiteSpeed\\Purge class exists!\\n";
+        LiteSpeed\\Purge::purge_all();
+        echo "LiteSpeed\\Purge::purge_all() executed.\\n";
+    } else {
+        echo "LiteSpeed\\Purge class does not exist.\\n";
+    }
+    if (function_exists('litespeed_purge_all')) {
+        echo "litespeed_purge_all function exists!\\n";
+        litespeed_purge_all();
+        echo "litespeed_purge_all() executed.\\n";
+    } else {
+        echo "litespeed_purge_all function does not exist.\\n";
+    }
+    if (function_exists('opcache_reset')) {
+        if (opcache_reset()) {
+            echo "OPcache reset successfully!\\n";
+        } else {
+            echo "OPcache reset failed.\\n";
+        }
+    } else {
+        echo "OPcache is not enabled or opcache_reset is disabled.\\n";
+    }
+    echo "SECRET_TASK_COMPLETED\\n";
+    exit();
+}
 date_default_timezone_set('America/Argentina/Buenos_Aires');
 function ppelota_setup(){
   add_theme_support('post-thumbnails');
@@ -1756,12 +1819,79 @@ function ppelota_side_thumb($post_id){
   return '<div class="hero-side-no-img">'.$e[array_rand($e)].'</div>';
 }
 
-// function ppelota_filter_homepage_query($query) {
-//   if ($query->is_home() && $query->is_main_query() && !is_admin()) {
-//     $query->set('category_name', 'mundial-2026,f1');
-//   }
-// }
-// add_action('pre_get_posts', 'ppelota_filter_homepage_query');
+// Excluir posts de la categoría Mundial 2026 de la página de categoría de Fútbol Argentino (a petición del usuario)
+function ppelota_filter_category_queries($query) {
+  if (!is_admin() && $query->is_main_query()) {
+    $is_arg_cat = false;
+    if ($query->is_category('futbol-argentino')) {
+      $is_arg_cat = true;
+    } elseif ($query->get('category_name') === 'futbol-argentino') {
+      $is_arg_cat = true;
+    } elseif ($query->get('cat') == 34) {
+      $is_arg_cat = true;
+    }
+    
+    if ($is_arg_cat) {
+      $tax_query = $query->get('tax_query') ?: array();
+      $tax_query[] = array(
+        'taxonomy' => 'category',
+        'field'    => 'term_id',
+        'terms'    => array(24),
+        'operator' => 'NOT IN',
+      );
+      $query->set('tax_query', $tax_query);
+    }
+  }
+}
+add_action('pre_get_posts', 'ppelota_filter_category_queries');
+
+// Excluir posts de la categoría Social Share (ID 303) de todas las consultas excepto de su feed específico
+function ppelota_filter_social_share_query($query) {
+  if (!is_admin() && $query->is_main_query()) {
+    $is_social_share = false;
+    if ($query->is_category('social-share') || $query->get('category_name') === 'social-share' || $query->get('cat') == 303) {
+      $is_social_share = true;
+    }
+    
+    if (!$is_social_share) {
+      $tax_query = $query->get('tax_query') ?: array();
+      $tax_query[] = array(
+        'taxonomy' => 'category',
+        'field'    => 'term_id',
+        'terms'    => array(303),
+        'operator' => 'NOT IN',
+      );
+      $query->set('tax_query', $tax_query);
+    }
+  }
+}
+add_action('pre_get_posts', 'ppelota_filter_social_share_query');
+
+// Limpiar hashtags y menciones de los títulos en el frontend de la web, manteniéndolos en el feed RSS para Twitter
+function ppelota_clean_hashtags_from_title($title, $id = null) {
+  if (!is_admin() && !is_feed() && $id) {
+    $post = get_post($id);
+    if ($post && has_category(303, $post)) {
+      // Cortar el título antes del primer hashtag o arroba para que no se vea feo en la web
+      // Evitar cortar por entidades HTML como &#8230; (puntos suspensivos)
+      $pos_hash = false;
+      if (preg_match('/#(?![0-9]+;)/', $title, $matches, PREG_OFFSET_CAPTURE)) {
+        $pos_hash = $matches[0][1];
+      }
+      if ($pos_hash !== false) {
+        $title = substr($title, 0, $pos_hash);
+      }
+      $pos_at = strpos($title, '@');
+      if ($pos_at !== false) {
+        $title = substr($title, 0, $pos_at);
+      }
+      $title = trim($title);
+    }
+  }
+  return $title;
+}
+add_filter('the_title', 'ppelota_clean_hashtags_from_title', 10, 2);
+
 
 // API REST personalizada para actualizar marquesinas y semáforo dinámicamente
 add_action('rest_api_init', function () {
@@ -1825,6 +1955,20 @@ function ppelota_update_data_callback($request) {
   }
   if (isset($params['player_stats'])) {
     update_option('ppelota_player_stats', json_encode($params['player_stats']));
+  }
+  // Guardar datos específicos de cada liga para los Hubs
+  $leagues_opt = array(
+    'mls_data' => 'ppelota_mls_data',
+    'brasileirao_data' => 'ppelota_brasileirao_data',
+    'futbol_argentino_data' => 'ppelota_futbol-argentino_data',
+    'champions_league_data' => 'ppelota_champions-league_data',
+    'premier_league_data' => 'ppelota_premier-league_data',
+    'laliga_data' => 'ppelota_laliga_data'
+  );
+  foreach ($leagues_opt as $param_key => $opt_key) {
+    if (isset($params[$param_key])) {
+      update_option($opt_key, json_encode($params[$param_key]));
+    }
   }
   $response = new WP_REST_Response(['status' => 'success', 'updated_at' => current_time('mysql')], 200);
   $response->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
@@ -2038,6 +2182,27 @@ if ('scrollRestoration' in history) {
     <div><a href="https://twitter.com/pasionypelota" target="_blank">Twitter / X</a><a href="https://instagram.com/pasionypelota" target="_blank">Instagram</a></div>
   </div>
 </div>
+<?php
+$is_league_page = false;
+$league_slugs = array('mls', 'brasileirao', 'futbol-argentino', 'champions-league', 'premier-league', 'laliga', 'liga-mx', 'liga-colombiana');
+if (is_category()) {
+    $cat = get_queried_object();
+    if ($cat && in_array($cat->slug, $league_slugs)) {
+        $is_league_page = true;
+    }
+} elseif (is_single()) {
+    $categories = get_the_category();
+    if (!empty($categories)) {
+        foreach ($categories as $c) {
+            if (in_array($c->slug, $league_slugs)) {
+                $is_league_page = true;
+                break;
+            }
+        }
+    }
+}
+if (!$is_league_page):
+?>
 <div class="scores-strip">
   <div class="container">
     <div class="scores-marquee">
@@ -2156,6 +2321,7 @@ if ('scrollRestoration' in history) {
     </div>
   </div>
 </div>
+<?php endif; ?>
 <header class="site-header">
   <div class="container" style="justify-content: center; flex-direction: column; align-items: center; gap: 8px;">
     <a href="<?php echo esc_url(home_url('/')); ?>" class="site-logo">
@@ -2187,6 +2353,8 @@ if ($ad_header):
       <li><a href="<?php echo esc_url(home_url('/category/champions-league')); ?>">Champions</a></li>
       <li><a href="<?php echo esc_url(home_url('/category/premier-league')); ?>">Premier</a></li>
       <li><a href="<?php echo esc_url(home_url('/category/laliga')); ?>">LaLiga</a></li>
+      <li><a href="<?php echo esc_url(home_url('/category/liga-mx')); ?>">Liga MX</a></li>
+      <li><a href="<?php echo esc_url(home_url('/category/liga-colombiana')); ?>">Liga Colombiana</a></li>
     </ul>
     <?php }]); ?>
   </div>
@@ -2196,7 +2364,7 @@ if ($ad_header):
     <span class="ticker-label">⚡ ÚLTIMA HORA</span>
     <div class="ticker-wrap"><div class="ticker-inner">
       <?php
-      $rp=get_posts(['numberposts'=>6,'post_status'=>'publish']);
+      $rp=get_posts(['numberposts'=>6,'post_status'=>'publish','category__not_in'=>[303]]);
       $t='';foreach($rp as $p){$t.='<a href="'.esc_url(get_permalink($p)).'">'.esc_html($p->post_title).'</a>';}
       echo $t.$t;
       ?>
@@ -2223,6 +2391,8 @@ open(f"{THEME_DIR}/footer.php","w",encoding="utf-8").write("""\
           <li><a href="<?php echo esc_url(home_url('/category/champions-league')); ?>">Champions League</a></li>
           <li><a href="<?php echo esc_url(home_url('/category/futbol-argentino')); ?>">Fútbol Argentino</a></li>
           <li><a href="<?php echo esc_url(home_url('/category/brasileirao')); ?>">Brasileirão</a></li>
+          <li><a href="<?php echo esc_url(home_url('/category/liga-mx')); ?>">Liga MX</a></li>
+          <li><a href="<?php echo esc_url(home_url('/category/liga-colombiana')); ?>">Liga Colombiana</a></li>
         </ul>
       </div>
       <div>
@@ -2322,6 +2492,30 @@ window.gtranslateSettings = {
 # ── sidebar.php ─────────────────────────────────────────────────────────────
 open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
 <aside class="sidebar">
+  <?php
+  $is_league_page = false;
+  $cat_id = -1;
+  $league_slugs = array('mls', 'brasileirao', 'futbol-argentino', 'champions-league', 'premier-league', 'laliga', 'liga-mx', 'liga-colombiana');
+  if (is_category()) {
+    $cat = get_queried_object();
+    if ($cat && in_array($cat->slug, $league_slugs)) {
+      $is_league_page = true;
+      $cat_id = $cat->term_id;
+    }
+  } elseif (is_single()) {
+    $categories = get_the_category();
+    if (!empty($categories)) {
+      foreach ($categories as $c) {
+        if (in_array($c->slug, $league_slugs)) {
+          $is_league_page = true;
+          $cat_id = $c->term_id;
+          break;
+        }
+      }
+    }
+  }
+  if (!$is_league_page):
+  ?>
   <!-- El Semáforo Deportivo (Olé style) -->
   <div class="widget-box">
     <div class="widget-head semaforo-head">🟢 El Semáforo Deportivo</div>
@@ -2361,6 +2555,7 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
       ?>
     </div>
   </div>
+  <?php endif; ?>
 
   <?php
   $ad_sidebar = get_theme_mod('ppelota_ad_sidebar');
@@ -2374,7 +2569,17 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
   <div class="widget-box">
     <div class="widget-head">🔥 Lo Más Leído</div>
     <div>
-      <?php $rp=get_posts(['numberposts'=>5,'post_status'=>'publish']);
+      <?php
+      $rp_args = array('numberposts'=>5, 'post_status'=>'publish', 'category__not_in'=>array(303));
+      if ($is_league_page && $cat_id != -1) {
+          $rp_args['category'] = $cat_id;
+      } else {
+          $mundial_cat = get_term_by('slug', 'mundial-2026', 'category');
+          if ($mundial_cat) {
+              $rp_args['category__not_in'][] = $mundial_cat->term_id;
+          }
+      }
+      $rp=get_posts($rp_args);
       foreach($rp as $i=>$p): ?>
       <div class="sb-post">
         <span class="sb-num"><?php echo $i+1; ?></span>
@@ -2396,7 +2601,16 @@ open(f"{THEME_DIR}/sidebar.php","w",encoding="utf-8").write("""\
       $today_str = $dt->format('d-m-Y');
       
       $today_posts = [];
-      $all_posts = get_posts(['numberposts' => 15, 'post_status' => 'publish']);
+      $all_posts_args = array('numberposts' => 15, 'post_status' => 'publish', 'category__not_in'=>array(303));
+      if ($is_league_page && $cat_id != -1) {
+          $all_posts_args['category'] = $cat_id;
+      } else {
+          $mundial_cat = get_term_by('slug', 'mundial-2026', 'category');
+          if ($mundial_cat) {
+              $all_posts_args['category__not_in'][] = $mundial_cat->term_id;
+          }
+      }
+      $all_posts = get_posts($all_posts_args);
       foreach ($all_posts as $p) {
         $p_date = get_the_date('d-m-Y', $p);
         if ($p_date === $today_str) {
@@ -2577,6 +2791,18 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
 $stat_cat = get_term_by('name', 'Estadísticas', 'category');
 $stat_cat_id = $stat_cat ? $stat_cat->term_id : -1;
 
+$exclude_cats = array(303);
+if ($stat_cat_id != -1) {
+    $exclude_cats[] = $stat_cat_id;
+}
+$league_names = array('MLS', 'Brasileirão', 'Fútbol Argentino', 'Champions League', 'Premier League', 'LaLiga', 'Liga MX', 'Liga Colombiana');
+foreach ($league_names as $l_name) {
+    $term = get_term_by('name', $l_name, 'category');
+    if ($term) {
+        $exclude_cats[] = $term->term_id;
+    }
+}
+
 $stats_posts = get_posts([
   'posts_per_page'=>3,
   'category'=>$stat_cat_id,
@@ -2609,7 +2835,7 @@ if (!empty($stats_posts) && $stat_cat_id != -1):
   'posts_per_page'=>9,
   'offset'=>0,
   'post_status'=>'publish',
-  'category__not'=> $stat_cat_id != -1 ? [$stat_cat_id] : []
+  'category__not_in'=> $exclude_cats
 ]);?>
 <div class="articles-grid">
 <?php foreach($grid as $g):
@@ -2634,7 +2860,8 @@ if (!empty($stats_posts) && $stat_cat_id != -1):
 <?php $list=get_posts([
   'posts_per_page'=>6,
   'offset'=>9,
-  'post_status'=>'publish'
+  'post_status'=>'publish',
+  'category__not_in'=> $exclude_cats
 ]);
 if($list): ?>
 <div class="section-heading">📋 Más Noticias</div>
@@ -3037,73 +3264,277 @@ open(f"{THEME_DIR}/category.php","w",encoding="utf-8").write("""\
 <?php get_header(); ?>
 <div class="site-content"><div class="container"><div class="content-wrap">
 <main class="main-content">
-  <div class="category-header">
-    <div class="category-header-decor">SPORT</div>
-    <div style="position: relative; z-index: 1;">
-      <span class="category-tag">Categoría</span>
-      <h1>📂 <?php single_cat_title(); ?></h1>
-      <p><?php echo category_description() ? strip_tags(category_description()) : 'Toda la cobertura exclusiva de ' . single_cat_title('', false) . ' con análisis, opiniones y las últimas novedades en tiempo real.'; ?></p>
+  <?php
+  $cat = get_queried_object();
+  $slug = $cat ? $cat->slug : '';
+  $league_slugs = array('mls', 'brasileirao', 'futbol-argentino', 'champions-league', 'premier-league', 'laliga', 'liga-mx', 'liga-colombiana');
+  
+  if ($cat && in_array($slug, $league_slugs)):
+    // ─── HUB DE LIGA PREMIUM CON PESTAÑAS ───
+    $data_raw = get_option('ppelota_' . $slug . '_data');
+    $data = $data_raw ? json_decode($data_raw, true) : null;
+  ?>
+    <div class="category-header" style="margin-bottom: 25px;">
+      <div class="category-header-decor"><?php echo esc_html(strtoupper(str_replace('-', ' ', $slug))); ?></div>
+      <div style="position: relative; z-index: 1;">
+        <span class="category-tag">Hub Oficial</span>
+        <h1>📂 <?php single_cat_title(); ?></h1>
+        <p><?php echo category_description() ? strip_tags(category_description()) : 'Fixture, posiciones, goleadores y últimas novedades de la liga en tiempo real.'; ?></p>
+      </div>
     </div>
-  </div>
 
-  <?php if(have_posts()): ?>
-    <div class="articles-grid">
-      <?php while(have_posts()): the_post(); 
-        $c = get_the_category(); 
-        $cn = $c ? $c[0]->name : 'Noticias'; 
-      ?>
-        <div class="art-card">
-          <a href="<?php the_permalink(); ?>">
-            <?php if(has_post_thumbnail()) { the_post_thumbnail('card-thumb', ['class' => 'art-card-img', 'alt' => '']); }
-            else { $e = ['⚽','🏆','🔥','⚡']; echo '<div class="art-card-no-img">' . $e[array_rand($e)] . '</div>'; } ?>
-          </a>
-          <div class="art-card-body">
-            <div class="art-card-cat"><?php echo esc_html($cn); ?></div>
-            <div class="art-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></div>
-            <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(), 14, '...'); ?></div>
-            <div class="art-card-time">🕐 <?php the_date('j M Y'); ?></div>
+    <div class="fixture-tabs" style="margin-bottom: 25px;">
+      <button class="fixture-tab-btn active" onclick="openLeagueTab(event, 'tab-posiciones')">📊 Clasificación</button>
+      <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-partidos')">⚽ Partidos y Resultados</button>
+      <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-estadisticas')">🔥 Goleadores</button>
+      <button class="fixture-tab-btn" onclick="openLeagueTab(event, 'tab-noticias')">📰 Noticias y Fichajes</button>
+    </div>
+
+    <!-- TAB 1: CLASIFICACION -->
+    <div id="tab-posiciones" class="fixture-tab-content active">
+      <?php if ($data && !empty($data['groups'])): ?>
+        <div class="groups-grid">
+          <?php foreach ($data['groups'] as $group): ?>
+            <div class="group-card">
+              <h3 class="group-title"><?php echo esc_html($group['name']); ?></h3>
+              <div class="table-responsive">
+                <table class="group-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th style="text-align:left;">Equipo</th>
+                      <th>PTS</th>
+                      <th>PJ</th>
+                      <th>G</th>
+                      <th>E</th>
+                      <th>P</th>
+                      <th>DG</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php foreach ($group['teams'] as $team): 
+                      $colors = $team['colors'] ?? [];
+                      $bg_color = $colors['color'] ?? '#333';
+                      $txt_color = $colors['text_color'] ?? '#fff';
+                    ?>
+                      <tr class="team-row">
+                        <td><span class="team-pos" style="background: <?php echo esc_attr($team['dest_color'] ?? '#ffcc00'); ?>; color: #111;"><?php echo esc_html($team['pos']); ?></span></td>
+                        <td style="text-align:left; font-weight:700;">
+                          <span class="team-color-badge" style="background: <?php echo esc_attr($bg_color); ?>; border: 1px solid <?php echo esc_attr($txt_color); ?>;"></span>
+                          <?php echo esc_html($team['name']); ?>
+                        </td>
+                        <td class="team-pts"><?php echo esc_html($team['pts']); ?></td>
+                        <td><?php echo esc_html($team['pj']); ?></td>
+                        <td><?php echo esc_html($team['pg']); ?></td>
+                        <td><?php echo esc_html($team['pe']); ?></td>
+                        <td><?php echo esc_html($team['pp']); ?></td>
+                        <td style="color: <?php echo intval($team['ratio']) >= 0 ? '#0cf737' : '#ff4444'; ?>;"><?php echo esc_html($team['ratio']); ?></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <div class="empty-category-box">
+          <div class="empty-category-icon">📊</div>
+          <h3 class="empty-category-title">Sin posiciones disponibles</h3>
+          <p class="empty-category-text">La tabla de posiciones se actualizará en la próxima sincronización del portal.</p>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- TAB 2: PARTIDOS -->
+    <div id="tab-partidos" class="fixture-tab-content">
+      <?php if ($data && !empty($data['games'])): ?>
+        <div class="fixture-matches-section">
+          <div class="matches-list">
+            <?php foreach ($data['games'] as $game): 
+              $status_class = '';
+              $status_lbl = $game['status'];
+              if ($game['status'] == 'Finalizado') {
+                  $status_class = 'match-finished';
+              } elseif ($game['status'] == 'En Curso' || $game['status'] == '1T' || $game['status'] == '2T' || $game['status'] == 'Entretiempo') {
+                  $status_class = 'match-live';
+                  $status_lbl = '🔴 ' . $game['status'];
+              }
+            ?>
+              <div class="fixture-match-card <?php echo esc_attr($status_class); ?>">
+                <div class="match-meta-info">
+                  <span class="match-stage"><?php echo esc_html($game['stage']); ?></span>
+                  <span class="match-time"><?php echo esc_html($game['start_time']); ?></span>
+                </div>
+                <div class="match-teams-score">
+                  <div class="match-team-col">
+                    <span class="team-name-text"><?php echo esc_html($game['home']); ?></span>
+                  </div>
+                  <div class="match-score-display">
+                    <span class="goals-num"><?php echo esc_html($game['home_goals']); ?></span>
+                    <span class="score-separator">-</span>
+                    <span class="goals-num"><?php echo esc_html($game['away_goals']); ?></span>
+                  </div>
+                  <div class="match-team-col">
+                    <span class="team-name-text"><?php echo esc_html($game['away']); ?></span>
+                  </div>
+                </div>
+                <div class="match-status"><?php echo esc_html($status_lbl); ?></div>
+              </div>
+            <?php endforeach; ?>
           </div>
         </div>
-      <?php endwhile; ?>
-    </div>
-    <div class="pagination"><?php the_posts_pagination(); ?></div>
-  <?php else: ?>
-    <div class="empty-category-box">
-      <div class="empty-category-icon">⚽</div>
-      <h3 class="empty-category-title">Sin contenido en esta sección todavía</h3>
-      <p class="empty-category-text">Estamos preparando la mejor cobertura para esta liga. Mientras tanto, disfrutá de lo más destacado de hoy:</p>
+      <?php else: ?>
+        <div class="empty-category-box">
+          <div class="empty-category-icon">⚽</div>
+          <h3 class="empty-category-title">Sin partidos programados</h3>
+          <p class="empty-category-text">El calendario y fixture de partidos se actualizará pronto.</p>
+        </div>
+      <?php endif; ?>
     </div>
 
-    <div class="section-heading" style="margin-top: 40px; margin-bottom: 20px;">🔥 Lo Más Destacado del Día</div>
-    <div class="articles-grid">
-      <?php
-      $backup_posts = get_posts(['numberposts' => 6, 'post_status' => 'publish']);
-      if ($backup_posts) {
-        foreach ($backup_posts as $post) {
-          setup_postdata($post);
-          $c = get_the_category($post->ID);
-          $cn = $c ? $c[0]->name : 'Noticias';
+    <!-- TAB 3: GOLEADORES -->
+    <div id="tab-estadisticas" class="fixture-tab-content">
+      <?php if ($data && !empty($data['players_statistics'])): ?>
+        <div class="stats-grids" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+          <?php foreach ($data['players_statistics'] as $stat_table): 
+            $t_name = $stat_table['name'] ?? 'Estadísticas';
+            $rows = $stat_table['table']['rows'] ?? [];
           ?>
+            <div class="group-card">
+              <h3 class="group-title">🔥 <?php echo esc_html($t_name); ?></h3>
+              <div class="table-responsive">
+                <table class="group-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th style="text-align:left;">Jugador</th>
+                      <th style="text-align:left;">Equipo</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <?php 
+                    $limit_rows = array_slice($rows, 0, 10);
+                    foreach ($limit_rows as $idx => $row):
+                      $player_obj = $row['entity']['object'] ?? [];
+                      $p_name = $player_obj['name'] ?? 'Jugador';
+                      $teams_array = $row['entity']['teams'] ?? [];
+                      $p_team = (!empty($teams_array) && isset($teams_array[0]['object']['name'])) ? $teams_array[0]['object']['name'] : '';
+                      $val_list = $row['values'] ?? [];
+                      $val = (!empty($val_list)) ? $val_list[0]['value'] : '0';
+                    ?>
+                      <tr class="team-row">
+                        <td><span class="team-pos" style="background:#ffcc00; color:#111;"><?php echo ($idx + 1); ?></span></td>
+                        <td style="text-align:left; font-weight:700;"><?php echo esc_html($p_name); ?></td>
+                        <td style="text-align:left; color:#ccc; font-size:12px;"><?php echo esc_html($p_team); ?></td>
+                        <td style="font-weight:800; color:#ffcc00;"><?php echo esc_html($val); ?></td>
+                      </tr>
+                    <?php endforeach; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <div class="empty-category-box">
+          <div class="empty-category-icon">🔥</div>
+          <h3 class="empty-category-title">Sin goleadores disponibles</h3>
+          <p class="empty-category-text">Las estadísticas de goleadores y asistencias se cargarán en breve.</p>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <!-- TAB 4: NOTICIAS -->
+    <div id="tab-noticias" class="fixture-tab-content">
+      <?php if (have_posts()): ?>
+        <div class="articles-grid">
+          <?php while (have_posts()): the_post(); 
+            $c = get_the_category(); 
+            $cn = $c ? $c[0]->name : 'Noticias'; 
+          ?>
+            <div class="art-card">
+              <a href="<?php the_permalink(); ?>">
+                <?php if (has_post_thumbnail()) { the_post_thumbnail('card-thumb', ['class' => 'art-card-img', 'alt' => '']); }
+                else { $e = ['⚽','🏆','🔥','⚡']; echo '<div class="art-card-no-img">' . $e[array_rand($e)] . '</div>'; } ?>
+              </a>
+              <div class="art-card-body">
+                <div class="art-card-cat"><?php echo esc_html($cn); ?></div>
+                <div class="art-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></div>
+                <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(), 14, '...'); ?></div>
+                <div class="art-card-time">🕐 <?php the_date('j M Y'); ?></div>
+              </div>
+            </div>
+          <?php endwhile; ?>
+        </div>
+        <div class="pagination"><?php the_posts_pagination(); ?></div>
+      <?php else: ?>
+        <div class="empty-category-box">
+          <div class="empty-category-icon">⚽</div>
+          <h3 class="empty-category-title">Sin noticias en esta sección todavía</h3>
+          <p class="empty-category-text">Las noticias de fichajes y rumores se publicarán en el transcurso del día.</p>
+        </div>
+      <?php endif; ?>
+    </div>
+
+    <script>
+    function openLeagueTab(evt, tabId) {
+      var i, tabcontent, tablinks;
+      tabcontent = document.getElementsByClassName("fixture-tab-content");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].classList.remove("active");
+      }
+      tablinks = document.getElementsByClassName("fixture-tab-btn");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+      }
+      document.getElementById(tabId).classList.add("active");
+      if (evt && evt.currentTarget) {
+        evt.currentTarget.classList.add("active");
+      }
+    }
+    </script>
+
+  <?php else: ?>
+    <!-- ─── DISEÑO DE CATEGORÍA ESTÁNDAR FALLBACK ─── -->
+    <div class="category-header">
+      <div class="category-header-decor">SPORT</div>
+      <div style="position: relative; z-index: 1;">
+        <span class="category-tag">Categoría</span>
+        <h1>📂 <?php single_cat_title(); ?></h1>
+        <p><?php echo category_description() ? strip_tags(category_description()) : 'Toda la cobertura exclusiva de ' . single_cat_title('', false) . ' con análisis y opiniones en tiempo real.'; ?></p>
+      </div>
+    </div>
+
+    <?php if (have_posts()): ?>
+      <div class="articles-grid">
+        <?php while (have_posts()): the_post(); 
+          $c = get_the_category(); 
+          $cn = $c ? $c[0]->name : 'Noticias'; 
+        ?>
           <div class="art-card">
-            <a href="<?php echo esc_url(get_permalink($post->ID)); ?>">
-              <?php if (has_post_thumbnail($post->ID)) { echo get_the_post_thumbnail($post->ID, 'card-thumb', ['class' => 'art-card-img', 'alt' => '']); }
+            <a href="<?php the_permalink(); ?>">
+              <?php if (has_post_thumbnail()) { the_post_thumbnail('card-thumb', ['class' => 'art-card-img', 'alt' => '']); }
               else { $e = ['⚽','🏆','🔥','⚡']; echo '<div class="art-card-no-img">' . $e[array_rand($e)] . '</div>'; } ?>
             </a>
             <div class="art-card-body">
               <div class="art-card-cat"><?php echo esc_html($cn); ?></div>
-              <div class="art-card-title"><a href="<?php echo esc_url(get_permalink($post->ID)); ?>"><?php echo esc_html($post->post_title); ?></a></div>
-              <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt($post->ID), 14, '...'); ?></div>
-              <div class="art-card-time">🕐 <?php echo get_the_date('j M Y', $post->ID); ?></div>
+              <div class="art-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></div>
+              <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(), 14, '...'); ?></div>
+              <div class="art-card-time">🕐 <?php the_date('j M Y'); ?></div>
             </div>
           </div>
-          <?php
-        }
-        wp_reset_postdata();
-      } else {
-        echo '<p style="text-align:center; color:#999; padding: 20px;">No hay noticias disponibles en el portal.</p>';
-      }
-      ?>
-    </div>
+        <?php endwhile; ?>
+      </div>
+      <div class="pagination"><?php the_posts_pagination(); ?></div>
+    <?php else: ?>
+      <div class="empty-category-box">
+        <div class="empty-category-icon">⚽</div>
+        <h3 class="empty-category-title">Sin contenido en esta sección todavía</h3>
+        <p class="empty-category-text">Estamos preparando la mejor cobertura para esta sección.</p>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 </main>
 <?php get_sidebar(); ?>
@@ -3155,7 +3586,29 @@ $tags=get_the_tags();
 ?>
 <div class="single-header">
   <?php if($cn):?><a href="<?php echo esc_url($cl);?>" class="volanta" style="margin-bottom:0;"><?php echo esc_html($cn);?></a><?php endif;?>
-  <h1 class="single-title"><?php the_title();?></h1>
+  <h1 class="single-title">
+    <?php the_title();?>
+    <?php 
+      $raw_title = get_post_field('post_title', get_the_ID(), 'raw');
+      $pos_hash = false;
+      if (preg_match('/#(?![0-9]+;)/', $raw_title, $matches, PREG_OFFSET_CAPTURE)) {
+        $pos_hash = $matches[0][1];
+      }
+      $pos_at = strpos($raw_title, '@');
+      $cut_pos = false;
+      if ($pos_hash !== false && $pos_at !== false) {
+        $cut_pos = min($pos_hash, $pos_at);
+      } elseif ($pos_hash !== false) {
+        $cut_pos = $pos_hash;
+      } elseif ($pos_at !== false) {
+        $cut_pos = $pos_at;
+      }
+      if ($cut_pos !== false) {
+        $social_part = trim(substr($raw_title, $cut_pos));
+        echo ' <span class="title-social-tags" style="font-size: 0.5em; font-weight: normal; color: #8a8a8a; display: block; margin-top: 8px; line-height: 1.3; text-transform: none; letter-spacing: normal;">' . esc_html($social_part) . '</span>';
+      }
+    ?>
+  </h1>
   <div class="single-meta">
     <span>📅 <?php the_date('j F Y');?></span>
     <span>🕐 <?php the_time('H:i');?> (Hora Arg)</span>
@@ -3185,13 +3638,13 @@ if ($ad_article):
 <?php endif;?>
 <div class="share-bar">
   <span class="share-label">📤 Compartir:</span>
-  <a class="share-btn tw" href="https://twitter.com/intent/tweet?url=<?php echo urlencode(get_permalink());?>&text=<?php echo urlencode(get_the_title());?>" target="_blank">🐦 Twitter</a>
+  <a class="share-btn tw" href="https://twitter.com/intent/tweet?url=<?php echo urlencode(get_permalink());?>&text=<?php echo urlencode(wp_strip_all_tags(get_the_title()));?>" target="_blank">🐦 Twitter</a>
   <a class="share-btn fb" href="https://www.facebook.com/sharer/sharer.php?u=<?php echo urlencode(get_permalink());?>" target="_blank">📘 Facebook</a>
-  <a class="share-btn wa" href="https://wa.me/?text=<?php echo urlencode(get_the_title().' '.get_permalink());?>" target="_blank">💬 WhatsApp</a>
+  <a class="share-btn wa" href="https://wa.me/?text=<?php echo urlencode(wp_strip_all_tags(get_the_title()).' '.get_permalink());?>" target="_blank">💬 WhatsApp</a>
 </div>
 <?php
 $rc=wp_get_post_categories(get_the_ID());
-if($rc){$rel=get_posts(['category__in'=>$rc,'exclude'=>[get_the_ID()],'numberposts'=>3]);
+if($rc){$rel=get_posts(['category__in'=>$rc,'exclude'=>[get_the_ID()],'numberposts'=>3,'category__not_in'=>[303]]);
 if($rel):?>
 <div class="section-heading">📰 Artículos Relacionados</div>
 <div class="articles-grid">
@@ -3278,6 +3731,9 @@ if (!is_wp_error($response)) {{
         // Activate
         switch_theme("pasion-pelota");
         error_log("TEMA PASION PELOTA INSTALADO Y ACTIVADO");
+        if (class_exists('LiteSpeed\\\\Purge')) {{
+            LiteSpeed\\\\Purge::purge_all();
+        }}
     }} else {{
         error_log("Error unzip: " . $unzip->get_error_message());
     }}
@@ -3308,11 +3764,11 @@ if update_resp.status_code not in [200, 201]:
 print("✅ Snippet PHP actualizado y activado.")
 
 # ── Ejecutar el Snippet ───────────────────────────────────────────────────
-print("🚀 Cargando la web para ejecutar la instalación del tema...")
+print("🚀 Ejecutando POST a la web para forzar la instalación del tema (bypass cache)...")
 import time
 time.sleep(2)
-trigger_resp = requests.get(f"{WP_URL}/", timeout=30)
-print(f"Carga de web completada. Status: {trigger_resp.status_code}")
+trigger_resp = requests.post(f"{WP_URL}/", data={"trigger_install": "1"}, timeout=30)
+print(f"POST completado. Status: {trigger_resp.status_code}")
 
 # ── Desactivar el Snippet ────────────────────────────────────────────────
 print("🧹 Desactivando snippet de instalación para optimizar rendimiento...")
@@ -3326,6 +3782,18 @@ if deactivate_resp.status_code in [200, 201]:
     print("✅ Snippet desactivado con éxito.")
 else:
     print("⚠️ No se pudo desactivar el snippet. Inténtalo manualmente desde WP-Admin.")
+
+# ── Limpiar la Cache y OPcache del Tema nuevo ─────────────────────────────
+print("⚡ Purgando LiteSpeed Cache y OPcache usando la tarea secreta del tema nuevo...")
+time.sleep(2)
+purge_resp = requests.get(f"{WP_URL}/?run_secret_task=purge_cache", timeout=30)
+if purge_resp.status_code == 200 and "SECRET_TASK_COMPLETED" in purge_resp.text:
+    print("✅ LiteSpeed Cache y OPcache purgados con éxito desde el tema nuevo.")
+    print("Salida:")
+    print(purge_resp.text)
+else:
+    print(f"⚠️ La purga de cache a través de la tarea secreta falló. Status: {purge_resp.status_code}")
+    print(f"Respuesta (primeros 500 chars): {purge_resp.text[:500]}")
 
 print("\n🎉 PROCESO COMPLETADO")
 print(f"   → Visita {WP_URL} para ver el nuevo diseño Marca + Olé")

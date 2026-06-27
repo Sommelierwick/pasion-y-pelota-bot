@@ -826,6 +826,12 @@ LISTA DE ARTÍCULOS PUBLICADOS EN EL PORTAL (Usa los links de esta lista para el
                                 title = parts[0].replace("TITULO:", "").replace("TÍTULO:", "").strip()
                                 body = parts[1].strip() if len(parts) > 1 else body
                                 
+                            # --- GATE DE CONTRADICCIONES ---
+                            try:
+                                self.retract_contradictory_posts(title, body)
+                            except Exception as e_contra:
+                                logger.error(f"Error en Gate de Contradicciones de anomalías: {e_contra}")
+
                             wp_pub.publish_post(
                                 title=title,
                                 content=body,

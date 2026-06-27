@@ -640,12 +640,32 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
     lower_content = content_html.lower()
 
     # Reglas dinámicas de multi-categorización
-    # 1. Messi -> Mundial 2026 y MLS
+    # 1. Messi -> Mundial 2026 y MLS (Exclusión estricta: si es Selección Argentina / Mundial 2026, NO va a MLS)
     if "messi" in lower_title or "messi" in lower_content or "inter miami" in lower_title or "inter miami" in lower_content:
+        if "inter miami" in lower_title or "inter miami" in lower_content:
+            if "MLS" not in categories_list:
+                categories_list.append("MLS")
+        else:
+            is_national_team = any(x in lower_title or x in lower_content for x in ["seleccion", "selección", "scaloni", "albiceleste", "mundial", "copa del mundo"])
+            if is_national_team:
+                if "Mundial 2026" not in categories_list:
+                    categories_list.append("Mundial 2026")
+            else:
+                if "Mundial 2026" not in categories_list:
+                    categories_list.append("Mundial 2026")
+                if "MLS" not in categories_list:
+                    categories_list.append("MLS")
+
+    # EXCLUSIÓN ESTRICTA: Si es Selección Argentina / Mundial 2026 o cualquier selección nacional / Mundial, NO va a MLS.
+    is_national_or_wc = (
+        any(x in lower_title or x in lower_content for x in ["seleccion", "selección", "scaloni", "albiceleste", "mundial", "copa del mundo", "world cup", "scaloneta", "national team"])
+        or "Mundial 2026" in categories_list
+    )
+    if is_national_or_wc:
         if "Mundial 2026" not in categories_list:
             categories_list.append("Mundial 2026")
-        if "MLS" not in categories_list:
-            categories_list.append("MLS")
+        if "MLS" in categories_list:
+            categories_list.remove("MLS")
 
     # 2. Selección Argentina o jugadores argentinos en el Mundial -> Mundial 2026 y Fútbol Argentino
     if "argentina" in lower_title or "argentina" in lower_content:
