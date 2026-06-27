@@ -769,33 +769,33 @@
         },
         {
           "pos": 3,
-          "id": "begfa",
-          "name": "RD Congo",
-          "colors": {
-            "color": "#6BC7F1",
-            "text_color": "#000000"
-          },
-          "pts": "2",
-          "pj": "3",
-          "goals": "1:2",
-          "ratio": "-1",
-          "pg": "0",
-          "pe": "2",
-          "pp": "1",
-          "dest_color": "#03A9F4"
-        },
-        {
-          "pos": 4,
           "id": "faif",
           "name": "Uzbekistán",
           "colors": {
             "color": "#1158BB",
             "text_color": "#FFFFFF"
           },
+          "pts": "3",
+          "pj": "3",
+          "goals": "2:8",
+          "ratio": "-6",
+          "pg": "1",
+          "pe": "0",
+          "pp": "2",
+          "dest_color": "#03A9F4"
+        },
+        {
+          "pos": 4,
+          "id": "begfa",
+          "name": "RD Congo",
+          "colors": {
+            "color": "#6BC7F1",
+            "text_color": "#000000"
+          },
           "pts": "1",
           "pj": "3",
-          "goals": "1:8",
-          "ratio": "-7",
+          "goals": "1:3",
+          "ratio": "-2",
           "pg": "0",
           "pe": "1",
           "pp": "2",
@@ -1051,6 +1051,23 @@
         },
         {
           "pos": 11,
+          "id": "faif",
+          "name": "Uzbekistán",
+          "colors": {
+            "color": "#1158BB",
+            "text_color": "#FFFFFF"
+          },
+          "pts": "3",
+          "pj": "3",
+          "goals": "2:8",
+          "ratio": "-6",
+          "pg": "1",
+          "pe": "0",
+          "pp": "2",
+          "dest_color": "#fff"
+        },
+        {
+          "pos": 12,
           "id": "fahd",
           "name": "Uruguay",
           "colors": {
@@ -1060,23 +1077,6 @@
           "pts": "2",
           "pj": "3",
           "goals": "3:4",
-          "ratio": "-1",
-          "pg": "0",
-          "pe": "2",
-          "pp": "1",
-          "dest_color": "#fff"
-        },
-        {
-          "pos": 12,
-          "id": "begfa",
-          "name": "RD Congo",
-          "colors": {
-            "color": "#6BC7F1",
-            "text_color": "#000000"
-          },
-          "pts": "2",
-          "pj": "3",
-          "goals": "1:2",
           "ratio": "-1",
           "pg": "0",
           "pe": "2",
@@ -1357,8 +1357,8 @@
       "status": "Primer Tiempo",
       "status_symbol": "1°",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "9'",
-      "display_status": "9'"
+      "display_time": "24'",
+      "display_status": "24'"
     },
     {
       "id": "egjhhdg",
@@ -1366,12 +1366,12 @@
       "home": "RD Congo",
       "away": "Uzbekistán",
       "home_goals": 0,
-      "away_goals": 0,
+      "away_goals": 1,
       "status": "Primer Tiempo",
       "status_symbol": "1°",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "9'",
-      "display_status": "9'"
+      "display_time": "24'",
+      "display_status": "24'"
     },
     {
       "id": "egchiia",

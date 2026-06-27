@@ -616,14 +616,14 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 elif ":" in start_time_str and "-" not in start_time_str.split(" ")[0]:
                     is_today = True
             
-            # Si el partido está activo ahora mismo o ya terminó, forzamos que sea de HOY
-            if status_eval not in ["Prog.", "Progr.", "Cancelado", "Postergado"]:
+            # Si el partido está en juego ahora mismo, forzamos que sea de HOY
+            partido_en_juego = status_eval not in ["Prog.", "Progr.", "Cancelado", "Postergado", "Final", "Finalizado"]
+            if partido_en_juego:
                 is_today = True
-            partido_activo = status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-")
             
-            # Descartar partidos de otros días que ya terminaron y no son de hoy
-            if not is_today and not partido_activo:
-                logging.info(f"Saltando {home} vs {away}: no es partido de hoy ({today_arg}) y no está activo.")
+            # Descartar partidos de otros días que ya terminaron o no están activos hoy
+            if not is_today and not partido_en_juego:
+                logging.info(f"Saltando {home} vs {away}: no es partido de hoy ({today_arg}) y no está en juego.")
                 continue
             
             match_id = f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}"
@@ -643,18 +643,19 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             group_json = json.dumps(group_data, indent=2, ensure_ascii=False) if group_data else "No disponible"
             third_place_json = json.dumps(third_place_data, indent=2, ensure_ascii=False) if third_place_data else "No disponible"
             
-            # Determinar tipo de artículo pendiente (ORDEN IRREFUTABLE)
+            # Determinar tipo de artículo pendiente según el estado real del partido
             article_type = None
-            if "previa" not in published:
-                article_type = "previa"
-            elif "durante" not in published:
-                # Solo podemos generar "durante" si el partido ya arrancó o ya terminó
-                if status not in ["Prog.", "Progr."] and not (home_goals == "-" and away_goals == "-"):
-                    article_type = "durante"
-            elif "post" not in published:
-                # Solo podemos generar "post" si el partido ya terminó
-                if status in ["Final", "Finalizado"]:
+            if status in ["Final", "Finalizado"]:
+                if "post" not in published:
                     article_type = "post"
+            elif status not in ["Prog.", "Progr.", "Cancelado", "Postergado"]:
+                # El partido está en juego (en vivo)
+                if "durante" not in published:
+                    article_type = "durante"
+            else:
+                # El partido no ha comenzado (previsto)
+                if "previa" not in published:
+                    article_type = "previa"
                     
             if not article_type:
                 continue
@@ -731,6 +732,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
  
             REGLAS DE REDACCIÓN:
             1. Título H1: Clickbait honesto con el nombre de los equipos, el resultado y una consecuencia de clasificación.
+               - IMPORTANTE (REGLA DE PARTIDO EN VIVO): Si el TIPO DE NOTA A GENERAR es 'durante', el título H1 y el contenido DEBEN dejar absolutamente claro que el partido ESTÁ EN DESARROLLO / EN VIVO actualmente y que el marcador es PROVISIONAL. NUNCA uses verbos en pasado o afirmaciones de que el partido terminó o se cerró (como 'empataron', 'ganaron', 'sellan clasificación', 'finaliza') para notas 'durante'. Usa términos como 'en vivo', 'empata provisionalmente', 'toma la delantera temporal', 'minuto a minuto', 'marcador en vivo'.
             2. Cuerpo en HTML limpio con H2, párrafos y negritas. 500-700 palabras.
             3. Debes incluir la etiqueta literal {{tabla_posiciones}} en el lugar del cuerpo del artículo donde corresponda mostrar la tabla de posiciones del grupo actualizada. Está estrictamente prohibido generar tu propia tabla HTML de posiciones o escribir números de clasificación en ella.
             4. Explica detalladamente quién queda clasificado, quién comprometido y quién eliminado de la Copa del Mundo usando el razonamiento lógico provisto. IMPORTANTE: Proyecta explícitamente el camino de las selecciones basándote en la escalera real del torneo: 16avos de final -> 8vos -> 4tos -> Semi -> Final. Nunca menciones "octavos de final" como la primera fase eliminatoria post-grupos.
