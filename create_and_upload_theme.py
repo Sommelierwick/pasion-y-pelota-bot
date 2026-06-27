@@ -2168,6 +2168,7 @@ open(f"{THEME_DIR}/header.php","w",encoding="utf-8").write("""\
 <head>
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="monetag" content="812ed7836cedd78e5ed84678aff019c2">
 <script>
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
@@ -3726,11 +3727,26 @@ $response = wp_remote_get($zip_url, ["timeout"=>30]);
 if (!is_wp_error($response)) {{
     file_put_contents($zip_local, wp_remote_retrieve_body($response));
     // Unzip
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    WP_Filesystem();
     $unzip = unzip_file($zip_local, $upload_dir);
     if (!is_wp_error($unzip)) {{
         // Activate
         switch_theme("pasion-pelota");
         error_log("TEMA PASION PELOTA INSTALADO Y ACTIVADO");
+        $files_to_invalidate = [
+            $upload_dir . "pasion-pelota/functions.php",
+            $upload_dir . "pasion-pelota/header.php",
+            $upload_dir . "pasion-pelota/index.php",
+            $upload_dir . "pasion-pelota/front-page.php"
+        ];
+        foreach ($files_to_invalidate as $f) {{
+            if (file_exists($f)) {{
+                if (function_exists('opcache_invalidate')) {{
+                    opcache_invalidate($f, true);
+                }}
+            }}
+        }}
         if (class_exists('LiteSpeed\\\\Purge')) {{
             LiteSpeed\\\\Purge::purge_all();
         }}
