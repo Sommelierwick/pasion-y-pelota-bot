@@ -3478,7 +3478,7 @@ open(f"{THEME_DIR}/category.php","w",encoding="utf-8").write("""\
                 <div class="art-card-cat"><?php echo esc_html($cn); ?></div>
                 <div class="art-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></div>
                 <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(), 14, '...'); ?></div>
-                <div class="art-card-time">🕐 <?php the_date('j M Y'); ?></div>
+                <div class="art-card-time">🕐 <?php echo get_the_date('j M Y'); ?></div>
               </div>
             </div>
           <?php endwhile; ?>
@@ -3537,7 +3537,7 @@ open(f"{THEME_DIR}/category.php","w",encoding="utf-8").write("""\
               <div class="art-card-cat"><?php echo esc_html($cn); ?></div>
               <div class="art-card-title"><a href="<?php the_permalink(); ?>"><?php the_title(); ?></a></div>
               <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(), 14, '...'); ?></div>
-              <div class="art-card-time">🕐 <?php the_date('j M Y'); ?></div>
+              <div class="art-card-time">🕐 <?php echo get_the_date('j M Y'); ?></div>
             </div>
           </div>
         <?php endwhile; ?>
@@ -3577,7 +3577,7 @@ open(f"{THEME_DIR}/index.php","w",encoding="utf-8").write("""\
     <div class="art-card-cat"><?php echo esc_html($cn);?></div>
     <div class="art-card-title"><a href="<?php the_permalink();?>"><?php the_title();?></a></div>
     <div class="art-card-excerpt"><?php echo wp_trim_words(get_the_excerpt(),14,'...');?></div>
-    <div class="art-card-time">🕐 <?php the_date('j M Y');?></div>
+    <div class="art-card-time">🕐 <?php echo get_the_date('j M Y'); ?></div>
   </div>
 </div>
 <?php endwhile;?>
@@ -3625,7 +3625,7 @@ $tags=get_the_tags();
     ?>
   </h1>
   <div class="single-meta">
-    <span>📅 <?php the_date('j F Y');?></span>
+    <span>📅 <?php echo get_the_date('j F Y'); ?></span>
     <span>🕐 <?php the_time('H:i');?> (Hora Arg)</span>
     <span>✍️ <?php 
       $writer = get_post_meta(get_the_ID(), 'ppelota_writer', true); 
@@ -3752,7 +3752,9 @@ if (!is_wp_error($response)) {{
             $upload_dir . "pasion-pelota/functions.php",
             $upload_dir . "pasion-pelota/header.php",
             $upload_dir . "pasion-pelota/index.php",
-            $upload_dir . "pasion-pelota/front-page.php"
+            $upload_dir . "pasion-pelota/front-page.php",
+            $upload_dir . "pasion-pelota/category.php",
+            $upload_dir . "pasion-pelota/single.php"
         ];
         foreach ($files_to_invalidate as $f) {{
             if (file_exists($f)) {{
