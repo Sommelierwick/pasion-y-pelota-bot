@@ -345,3 +345,10 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
   - Se agregaron, commitearon y pushearon a GitHub todos los archivos huérfanos junto al archivo de caché inicial (`historical_stats.json`).
   - Se corrigió `.github/workflows/agente_estadistico.yml` para que apunte a las credenciales y llaves oficiales (`GEMINI_API_KEYS` y `WP_PASSWORD`) que utiliza `config.py`.
 
+- **MONETIZACIÓN CON MONETAG (27/06/2026 00:32 GMT-3):**
+  - Se implementó la monetización del portal mediante MoneTag (PropellerAds) con costo $0, sin PIN físico y sin exposición impositiva bancaria local.
+  - Se verificó el dominio `pasionypelota.com` inyectando la etiqueta meta directamente en la cabecera.
+  - Se habilitó el formato inteligente "Multitag" inyectando el script de anuncios en `header.php`.
+  - Se creó y subió el archivo del service worker `sw.js` a la raíz del servidor de producción (`/home/u168059786/domains/pasionypelota.com/public_html/sw.js`) para activar la monetización de notificaciones Push de alto rendimiento.
+
+
