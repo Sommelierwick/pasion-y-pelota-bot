@@ -1321,6 +1321,9 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 3. DES-MESSIFICACIÓN Y ROTACIÓN DE ESTRELLAS: 
    - Cuando selecciones noticias de Argentina, ESTÁ PROHIBIDO enfocarse únicamente en Lionel Messi. Debes buscar o dar prioridad a noticias que destaquen a otros jugadores (Emiliano "Dibu" Martínez, Lautaro Martínez, Julián Álvarez, Enzo Fernández, Rodrigo De Paul, Alexis Mac Allister) y la estrategia/táctica del entrenador Lionel Scaloni.
    - Cuando selecciones noticias de otras potencias, reconoce y valora a sus estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, Lamine Yamal en España, etc.).
+4. VERIFICACIÓN DE FUENTES Y TRASPASOS (MANDATORIA):
+   - Queda estrictamente prohibido basarse en publicaciones de X (Twitter), YouTube o noticias que tengan más de 72 horas de antigüedad con respecto al día de hoy (27 de Junio de 2026).
+   - Debes contrastar la información con el mercado de pases real actual. Si un candidato menciona rumores o estadísticas de jugadores que ya cambiaron de equipo hace meses o años (por ejemplo, hablar de Williams Alarcón jugando en Huracán, cuando juega en Boca Juniors desde enero de 2025), la noticia debe ser DESCARTADA inmediatamente por estar basada en fuentes obsoletas.
 
 ⚠️ REGLA DE LAS LIGAS DE CLUBES Y FÚTBOL ARGENTINO:
 - Para cualquier noticia de ligas o copas de clubes (MLS, Liga Profesional Argentina, Liga MX, Premier League, LaLiga, Serie A, Champions League, Libertadores, etc. - EXCEPTUANDO el Brasileirão), ÚNICAMENTE se permite hablar de:
@@ -1568,6 +1571,8 @@ REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:
 
 4. CONTROL ESTRICTO DE INFORMACIÓN (NO ALUCINAR NI INVENTAR):
    - NO SE DEBE INVENTAR INFORMACIÓN NUEVA NI ALUCINAR hechos que no estén explícitamente presentes en los datos de entrada o estadísticas oficiales de Promiedos. Sé 100% fiel a los hechos reales.
+   - VERIFICACIÓN CRÍTICA DE PLANTEL: Bajo ninguna circunstancia debes inventar o asumir que un jugador pertenece a un club si los datos no lo confirman. Por ejemplo, no debes relacionar a Williams Alarcón con Huracán, puesto que dicho jugador juega para Boca Juniors desde enero de 2025. Investiga y sé 100% preciso con la actualidad del plantel de la fecha de hoy (27 de Junio de 2026).
+   - ANTIGÜEDAD MÁXIMA DE LAS FUENTES: Está prohibido basarse en noticias, rumores o publicaciones de X (Twitter) o YouTube que tengan más de 72 horas de antigüedad. Toda información debe ser del día de hoy.
 
 5. TÍTULO H1: Clickbait honesto. Debe incluir:
    - Nombre del jugador, piloto o equipo protagonista.

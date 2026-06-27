@@ -159,7 +159,8 @@ def search_tweets_via_ddg(handle: str) -> list:
     """
     tweets = []
     query = f"site:x.com/{handle}"
-    url   = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+    # Filter DuckDuckGo search results to the past week to avoid fetching very old tweets
+    url   = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}&df=w"
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
