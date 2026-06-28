@@ -726,8 +726,8 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             
             ⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
             1. ACTUALIDAD: En toda la redacción debe quedar clarísimo que este partido está ocurriendo o se acaba de jugar HOY, en este día exacto. Escribe en tiempo presente inmediato o pasado reciente ("hoy", "en la jornada de hoy").
-            2. BALANCE NARRATIVO Y DES-MESSIFICACIÓN:
-               - Si escribes sobre ARGENTINA, no centres el análisis exclusivamente en Lionel Messi. Es obligatorio destacar profundamente la táctica de Lionel Scaloni y el impacto de otros jugadores clave (Emiliano "Dibu" Martínez, Julián Álvarez, Lautaro Martínez, Rodrigo De Paul, Enzo Fernández).
+            2. BALANCE NARRATIVO Y ESTRELLAS GLOBALES:
+               - Si escribes sobre ARGENTINA, SE PERMITE Y FOMENTA centrar el análisis en Lionel Messi como estrella principal, junto a la táctica de Scaloni. (La Des-Messificación está SUSPENDIDA por Orden Suprema).
                - Si escribes sobre OTRAS POTENCIAS, destaca a sus respectivas estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, etc.) para mantener un equilibrio global.
  
             REGLAS DE REDACCIÓN:
@@ -1306,9 +1306,9 @@ def sync_with_wordpress(db, publisher):
         logging.error(f"Error en sync_with_wordpress: {e}")
 
 def get_saturated_powers(publisher) -> list:
-    """Analiza los últimos 15 posts y devuelve las potencias que superen la saturación (>=4 posts)."""
+    """Analiza los últimos 10 posts (portada) y devuelve las potencias que superen la saturación (>=3 posts)."""
     import re
-    titles = publisher.get_recent_titles(limit=15)
+    titles = publisher.get_recent_titles(limit=10)
     
     # Mapeo de potencias a palabras clave estrictas
     powers_keywords = {
@@ -1328,9 +1328,9 @@ def get_saturated_powers(publisher) -> list:
         for power, keywords in powers_keywords.items():
             if any(kw in t_lower for kw in keywords):
                 counts[power] += 1
-                break # Contar solo una vez por título
+                break
                 
-    saturated = [p for p, c in counts.items() if c >= 4]
+    saturated = [p for p, c in counts.items() if c >= 3]
     
     if saturated:
         import logging
@@ -1521,8 +1521,8 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 ⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
 1. ACTUALIDAD ESTRICTA: ESTÁ TERMINANTEMENTE PROHIBIDO seleccionar noticias, crónicas o resultados de partidos que no hayan ocurrido el día de hoy o en las últimas 24 horas. Las noticias del día deben ser noticias de la fecha actual. Descarta cualquier noticia atrasada.
 2. EQUILIBRIO DE POTENCIAS: Las selecciones potencias mundiales (Argentina, Francia, Inglaterra, España, Brasil, Uruguay) tienen la misma prioridad. Si hay múltiples noticias, trata de diversificar. 
-3. DES-MESSIFICACIÓN Y ROTACIÓN DE ESTRELLAS: 
-   - Cuando selecciones noticias de Argentina, ESTÁ PROHIBIDO enfocarse únicamente en Lionel Messi. Debes buscar o dar prioridad a noticias que destaquen a otros jugadores (Emiliano "Dibu" Martínez, Lautaro Martínez, Julián Álvarez, Enzo Fernández, Rodrigo De Paul, Alexis Mac Allister) y la estrategia/táctica del entrenador Lionel Scaloni.
+3. ESTRELLAS GLOBALES Y LIONEL MESSI: 
+   - Cuando selecciones noticias de Argentina, SE PERMITE Y PRIORIZA enfocarse en Lionel Messi. (La regla de Des-Messificación está SUSPENDIDA por Orden Suprema).
    - Cuando selecciones noticias de otras potencias, reconoce y valora a sus estrellas (Kylian Mbappé en Francia, Harry Kane o Jude Bellingham en Inglaterra, Vinícius Jr. en Brasil, Lamine Yamal en España, etc.).
 4. VERIFICACIÓN DE FUENTES Y TRASPASOS (MANDATORIA):
    - Queda estrictamente prohibido basarse en publicaciones de X (Twitter), YouTube o noticias que tengan más de 72 horas de antigüedad con respecto al día de hoy (27 de Junio de 2026).
@@ -1554,7 +1554,7 @@ Tu misión es seleccionar UNA sola noticia para publicar. Debes cumplir ESTRICTA
 
 {SATURATED_POWERS_RULE}
 
-Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion (= Selección Argentina en su conjunto — DES-MESSIFICACIÓN: usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi), mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
+Asigna el campo 'seo_cluster' con el identificador del clúster correspondiente: messi_seleccion (= Selección Argentina en su conjunto y Lionel Messi), mundial_2026, f1, mls, brasileirao, lpf_argentina, liga_mx, champions, libertadores, premier, laliga, serie_a.
 Asigna 'priority_score' del 1 (altísima) al 10 (baja).
 """
 
@@ -1738,8 +1738,8 @@ Escribes para una audiencia de Argentina, México, Colombia, USA hispanic y Bras
 
 ⚖️ DIRECTRIZ SUPREMA EDITORIAL (MANDATORIA):
 1. ACTUALIDAD ESTRICTA: El artículo DEBE estar redactado asumiendo y explicitando que la noticia ocurrió el día de HOY. Usa términos como "en el día de hoy", "en la jornada actual", o "recientemente".
-2. BALANCE NARRATIVO Y DES-MESSIFICACIÓN:
-   - En noticias de ARGENTINA: No todo es Messi. Obligatoriamente debes destacar a otras figuras (Dibu Martínez, Julián Álvarez, Lautaro Martínez, De Paul, Enzo Fernández, Mac Allister) y la estrategia de Lionel Scaloni.
+2. BALANCE NARRATIVO Y ESTRELLAS GLOBALES:
+   - En noticias de ARGENTINA: SE PERMITE centrar la atención en Lionel Messi. (La regla de Des-Messificación está SUSPENDIDA).
    - En noticias de OTRAS POTENCIAS: Reconoce a las grandes figuras del fútbol mundial (Kylian Mbappé en Francia, Harry Kane o Bellingham en Inglaterra, Vinícius Jr. en Brasil, Lamine Yamal en España) con el mismo respeto y nivel de detalle.
 
 REGLAS ESTRICTAS DE REDACCIÓN Y REESCRITURA:

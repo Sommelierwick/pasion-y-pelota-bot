@@ -2355,7 +2355,17 @@ open(f"{THEME_DIR}/header.php","w",encoding="utf-8").write("""\
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="monetag" content="812ed7836cedd78e5ed84678aff019c2">
-<script src="https://quge5.com/88/tag.min.js" data-zone="11206055" async data-cfasync="false"></script>
+<script>
+/* Anti-Adblock Injection */
+(function(){
+  var s = document.createElement('script');
+  s.src = atob('aHR0cHM6Ly9xdWdlNS5jb20vODgvdGFnLm1pbi5qcw==');
+  s.setAttribute('data-zone', '11206055');
+  s.async = true;
+  s.setAttribute('data-cfasync', 'false');
+  document.head.appendChild(s);
+})();
+</script>
 <script>
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
@@ -3260,35 +3270,50 @@ get_header();
             <p class="description" style="color: #aaa; font-size: 13px; margin-bottom: 20px; font-style: italic;">
               Simulación en tiempo real basada en la tabla de posiciones actual de los grupos y las reglas oficiales de emparejamiento de la FIFA (incluyendo los 8 mejores terceros). Se actualiza automáticamente con el correr de los partidos.
             </p>
-            <div class="bracket-matches-grid">
-              <?php foreach($proj_brackets as $match): 
-                $p0 = $match['home'] ?? 'Por definir';
-                $p1 = $match['away'] ?? 'Por definir';
-                $l0 = $match['home_label'] ?? '';
-                $l1 = $match['away_label'] ?? '';
-                $c0 = $match['home_colors']['color'] ?? '#333';
-                $c1 = $match['away_colors']['color'] ?? '#333';
-              ?>
-                <div class="bracket-match-card" style="border-left: 4px solid #ffaa00;">
-                  <div style="font-size: 10px; color: #ffaa00; margin-bottom: 8px; font-weight: bold; text-transform: uppercase;">Partido <?php echo esc_html($match['match_num']); ?></div>
-                  
-                  <div class="bracket-team">
-                    <span class="team-color-badge" style="background: <?php echo esc_attr($c0); ?>;"></span>
-                    <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p0); ?></span>
-                    <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l0); ?></span>
-                  </div>
-                  
-                  <div class="bracket-vs-divider">VS</div>
-                  
-                  <div class="bracket-team">
-                    <span class="team-color-badge" style="background: <?php echo esc_attr($c1); ?>;"></span>
-                    <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p1); ?></span>
-                    <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l1); ?></span>
-                  </div>
-                  
-                  <div style="font-size: 9px; color: #777; margin-top: 8px; border-top: 1px solid #2d2d2d; padding-top: 6px; display: flex; justify-content: space-between;">
-                    <span>📅 <?php echo esc_html($match['date']); ?></span>
-                    <span>📍 <?php echo esc_html($match['venue']); ?></span>
+            <div class="brackets-container">
+              <?php 
+              // Compatibilidad hacia atrás
+              if (isset($proj_brackets[0]) && !isset($proj_brackets[0]['name'])) {
+                  $proj_brackets = [ ["name" => "Ronda Final (Fallback)", "matches" => $proj_brackets] ];
+              }
+              
+              foreach($proj_brackets as $stage): ?>
+                <div class="bracket-stage-block" style="margin-bottom: 30px;">
+                  <h3 class="bracket-stage-title" style="color: #ffaa00; font-family: 'Roboto Condensed', sans-serif; font-size: 18px; border-bottom: 1px solid rgba(255,170,0,0.3); padding-bottom: 8px; margin-bottom: 15px; text-transform: uppercase;">
+                    🏆 <?php echo esc_html($stage['name']); ?>
+                  </h3>
+                  <div class="bracket-matches-grid">
+                    <?php foreach($stage['matches'] as $match): 
+                      $p0 = $match['home'] ?? 'Por definir';
+                      $p1 = $match['away'] ?? 'Por definir';
+                      $l0 = $match['home_label'] ?? '';
+                      $l1 = $match['away_label'] ?? '';
+                      $c0 = $match['home_colors']['color'] ?? '#333';
+                      $c1 = $match['away_colors']['color'] ?? '#333';
+                    ?>
+                      <div class="bracket-match-card" style="border-left: 4px solid #ffaa00;">
+                        <div style="font-size: 10px; color: #ffaa00; margin-bottom: 8px; font-weight: bold; text-transform: uppercase;">Partido <?php echo esc_html($match['match_num']); ?></div>
+                        
+                        <div class="bracket-team">
+                          <span class="team-color-badge" style="background: <?php echo esc_attr($c0); ?>;"></span>
+                          <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p0); ?></span>
+                          <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l0); ?></span>
+                        </div>
+                        
+                        <div class="bracket-vs-divider">VS</div>
+                        
+                        <div class="bracket-team">
+                          <span class="team-color-badge" style="background: <?php echo esc_attr($c1); ?>;"></span>
+                          <span class="bracket-team-name" style="font-weight: 700; color: #fff;"><?php echo esc_html($p1); ?></span>
+                          <span style="font-size: 9px; color: #ffaa00; margin-left: auto; font-weight: bold;"><?php echo esc_html($l1); ?></span>
+                        </div>
+                        
+                        <div style="font-size: 9px; color: #777; margin-top: 8px; border-top: 1px solid #2d2d2d; padding-top: 6px; display: flex; justify-content: space-between;">
+                          <span>📅 <?php echo esc_html($match['date']); ?></span>
+                          <span>📍 <?php echo esc_html($match['venue']); ?></span>
+                        </div>
+                      </div>
+                    <?php endforeach; ?>
                   </div>
                 </div>
               <?php endforeach; ?>

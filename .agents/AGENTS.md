@@ -39,8 +39,8 @@ Eliminar el import y la función `wikimedia_search()` del módulo de búsqueda d
 **11 — HORA OFICIAL DEL PORTAL (GMT-3)**
 El ecosistema completo (servidores, scrapers, API, y agentes) opera bajo la zona horaria oficial del portal: GMT-3 (America/Argentina/Buenos_Aires). Todas las fechas y horas procesadas desde cualquier fuente deben ser convertidas a esta zona horaria antes de almacenarse o publicarse. Asimismo, los agentes deben redactar todo horario haciendo referencia explícita a la hora argentina si aplica, sin convertir a otros husos horarios a menos que se especifique.
 
-**12 — DIRECTRIZ SUPREMA EDITORIAL (24/06/2026)**
-El código de los Agentes (Ojeador y Redactores) debe forzar estrictamente: (a) Actualidad estricta: solo se publican y redactan noticias del día de la fecha. (b) Equilibrio de Potencias: rotación equitativa entre Argentina, Francia, Inglaterra, España y Brasil, destacando a sus respectivas estrellas (Mbappé, Kane, Vinícius). (c) Des-Messificación: Las noticias de Argentina NO deben centrarse solo en Messi, sino priorizar obligatoriamente la táctica de Scaloni y a otros jugadores clave (Dibu Martínez, Lautaro, De Paul, etc.).
+**12 — DIRECTRIZ SUPREMA EDITORIAL (24/06/2026 y modificado 28/06/2026 por ORDEN MAXIMA SUPREMA)**
+El código de los Agentes (Ojeador y Redactores) debe forzar estrictamente: (a) Actualidad estricta: solo se publican y redactan noticias del día de la fecha. (b) Equilibrio de Potencias (LIMITADO A LA PORTADA): la saturación se evalúa únicamente para evitar que una potencia acapare la página de portada al mismo tiempo, rotando equitativamente entre Argentina, Francia, Inglaterra, España y Brasil, destacando a sus respectivas estrellas. (c) [SUSPENDIDA] Ley Anti Messi: SUSPENDIDA por ORDEN SUPREMA el 28/06/2026 hasta nuevo aviso, se permite centrar la atención en Lionel Messi.
 
 **13 — LECTURA OBLIGATORIA DE BITÁCORA (ORDEN MAESTRA)**
 Antes de realizar cualquier modificación estructural o escribir código nuevo en el proyecto Pasión y Pelota, el agente tiene la obligación absoluta de leer el archivo `bitacora_memoria.md` ubicado en la raíz del proyecto para entender la arquitectura y las reglas previamente establecidas. Nunca se debe actuar a ciegas.
@@ -57,3 +57,12 @@ Para evitar la duplicación de notas sobre un mismo equipo/selección en un mism
 **17 — CITACIÓN DE FUENTES REALES EN NOTAS DE REDES / TWEETS**
 Es mandatorio que todos los artículos que se basen en primicias o informaciones de mercado extraídas de X/Twitter o YouTube citen de forma explícita al periodista o medio real en el texto (ej. "según informó Fabrizio Romano" o "según detalló Gastón Edul"). Los artículos seguirán firmándose bajo el nombre del periodista ficticio del portal asignado por código para la coherencia de firma, pero atribuyendo de manera honesta y con total transparencia la primicia al periodista original.
 
+
+**18 — DIVERSIDAD EN LA PRESENTACIÓN DEL AUDIO (ORDEN SUPREMA)**
+El motor de generación de audio y redacción debe evitar el uso repetitivo de la frase "Señoras y señores". Las introducciones de los audios generados deben ser variadas, aleatorias y adaptadas de forma natural según el contexto de la noticia para no aburrir a los oyentes.
+
+**19 — MANDATO DE EXCELENCIA Y SINCRONIZACIÓN (ORDEN SUPREMA)**
+Todos los agentes distribuidos en los servidores (Jefe Editorial, Agente Estadístico, Jefe de Imágenes y Redactores) tienen la obligación ineludible de mantener la página actualizada aplicando estrictamente la misma lógica y reglas configuradas desde la terminal matriz (MAC). Se exige un nivel de TRABAJO DE EXCELENCIA en la redacción, curaduría de imágenes y precisión estadística, sin desviaciones de las directrices maestras.
+
+**20 — AUTONOMÍA ABSOLUTA Y EJECUCIÓN CLOUD (ORDEN SUPREMA)**
+El portal y sus agentes tienen prohibido depender de la terminal local (Mac) para su operación continua. El sistema DEBE actuar de forma 100% automatizada e independiente utilizando la infraestructura en la nube (ej. GitHub Actions / Cronjobs), garantizando publicaciones y actualizaciones 24/7 aunque la máquina local se encuentre apagada o desconectada. Además, TODOS estos agentes remotos DEBEN MANEJARSE estrictamente por ORDEN SUPREMA bajo el paraguas de la Regla 19 (MANDATO DE EXCELENCIA Y SINCRONIZACIÓN).

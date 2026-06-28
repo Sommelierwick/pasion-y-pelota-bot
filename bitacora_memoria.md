@@ -477,3 +477,39 @@ En cumplimiento estricto con las directrices y correcciones requeridas de forma 
 
 
 
+- **ORDEN SUPREMA (28/06/2026 00:50 GMT-3) - Evasión Anti-AdBlock (Bypass) de Monetag:**
+  - El usuario dictó ORDEN SUPREMA para solucionar el bloqueo de anuncios en el navegador (AdBlockers / Antivirus) de los visitantes regulares.
+  - Se reemplazó el tag estático de Monetag en `header.php` (dentro de `create_and_upload_theme.py`) por un **Bypass Dinámico** en Javascript.
+  - La URL de la red de anuncios (`quge5.com`) ahora está ofuscada mediante Base64 (`atob`) e inyectada dinámicamente en el DOM, evadiendo los escaneos estáticos de los bloqueadores de anuncios clásicos. Tema compilado, subido y cachés purgadas en WordPress.
+
+- **ORDEN MAXIMA SUPREMA (28/06/2026 08:10 GMT-3) - Ajuste del Equilibrio de Potencias (Regla 12):**
+  - El usuario dictó ORDEN MAXIMA SUPREMA para especificar que el equilibrio de potencias "solo debe ser en la página de portada y en un mismo momento".
+  - Se modificó la Regla 12 en `.agents/AGENTS.md` y el código del motor en `main_standalone.py`.
+  - La función `get_saturated_powers()` ahora evalúa únicamente las últimas 10 noticias publicadas (que componen la portada visible en WordPress) y restringe la publicación si una misma potencia copa 3 de esos 10 lugares, permitiendo así una rotación más natural e impidiendo un monopolio visual sin trabar la cobertura total diaria.
+
+## Registro de Orden Suprema: Bracket Completo Mundial 2026
+**Fecha:** 28/06/2026
+**Acción:** Se actualizó el motor algorítmico y visual del portal para proyectar el árbol completo de las eliminatorias (Dieciseisavos, Octavos, Cuartos, Semifinales, Final) en vez de limitar la proyección a los 16avos de final.
+**Archivos Modificados:** `tools/editor_jefe.py`, `create_and_upload_theme.py`.
+
+## Registro de Orden Suprema: Diversidad en presentacion de audios
+**Fecha:** 28/06/2026
+**Acción:** Se erradicó la repetición constante de la frase "¡Señoras y señores!" en el módulo de generación de audio. Se implementó una selección aleatoria y contextualizada de introducciones de relato rioplatense (Regla 18).
+**Archivos Modificados:** , .
+
+## Registro de Orden Suprema: Suspensión de Ley Anti Messi
+**Fecha:** 28/06/2026
+**Acción:** Se suspendió temporalmente por ORDEN SUPREMA la regla de Des-Messificación. A partir de ahora los agentes Ojeador y Redactor tienen permiso y fomento para centrar notas exclusivas en Lionel Messi en lugar de forzarlos a hablar de otros jugadores (Regla 12c).
+**Archivos Modificados:** , .
+
+## Registro de Orden Suprema: Mandato de Excelencia y Sincronizacion de Agentes
+**Fecha:** 28/06/2026
+**Acción:** Se establece la directriz inquebrantable (Regla 19) de que todos los agentes en produccion o servidores remotos deben regirse de forma milimetrica por las configuraciones emitidas desde la Mac, garantizando un trabajo de EXCELENCIA a nivel editorial, estadistico y visual.
+
+## Registro de Orden Suprema: Autonomia Absoluta del Portal
+**Fecha:** 28/06/2026
+**Acción:** Se dictamina (Regla 20) que el portal operara bajo autonomia total en la nube, usando la infraestructura de CI/CD (GitHub Actions) ya existente en el repositorio para que los agentes trabajen y mantengan el ciclo de noticias 24/7 sin depender del estado de la terminal local Mac.
+
+## Registro de Orden Suprema: Anexo a Autonomia
+**Fecha:** 28/06/2026
+**Acción:** Se actualizo la Regla 20 para dictaminar que todos los agentes autonomos en la nube DEBEN MANEJARSE estrictamente bajo el paraguas y las obligaciones de la Regla 19 (MANDATO DE EXCELENCIA Y SINCRONIZACIÓN).

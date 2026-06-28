@@ -250,20 +250,15 @@ def generate_tts(text: str, lang: str = "es", voice: str = "onyx", model: str = 
     audio_bytes = None
     
     if lang == "es":
-        # 1. Opción Preferida: Google Cloud TTS (es-US-Neural2-B) - Voz elegida por el usuario
-        logger.info("Generando audio en español usando la API de Google Cloud TTS (es-US-Neural2-B)...")
-        audio_bytes = generate_tts_google(text, lang="es", api_key=config.GOOGLE_CLOUD_API_KEY)
+        # 1. Opción Preferida y Principal (Por orden expresa): Gemini TTS (Puck Grave 21KHz)
+        logger.info("Generando audio en español usando DIRECTAMENTE la API de Gemini TTS (Puck)...")
+        audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
         
-        # 2. Respaldo Gratuito Principal: Edge TTS es-AR-TomasNeural
+        # 2. Respaldo: Edge TTS es-AR-TomasNeural
         if not audio_bytes:
             edge_voice = "es-AR-TomasNeural"
-            logger.warning(f"Fallo en Google Cloud TTS. Usando Edge TTS ({edge_voice}) como respaldo gratuito...")
+            logger.warning(f"Fallo en Gemini TTS. Usando Edge TTS ({edge_voice}) como respaldo...")
             audio_bytes = generate_tts_edge(text, edge_voice)
-            
-        # 3. Respaldo Final de Emergencia: Gemini TTS Puck Grave 21KHz
-        if not audio_bytes:
-            logger.warning("Fallo en Google y Edge. Usando Gemini TTS (Puck Grave 21KHz) como último recurso...")
-            audio_bytes = generate_tts_gemini(text, voice_name="Puck", sample_rate=21000)
     else:
         # Para inglés, usar directamente la opción gratuita (Edge TTS) para ahorrar costos
         edge_voice = "en-GB-RyanNeural"
@@ -323,8 +318,16 @@ def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str
     text_es = rewrite_for_sports_narrator(title_es, text_es_clean)
     text_en = text_en_clean
     
-    # Agregar introducción de estilo comentarista deportivo
-    intro_es = f"¡Señoras y señores! Bienvenidos a Pasión y Pelota. Les presentamos el informe táctico para la jornada de hoy: {title_es}.\n\n"
+    # Agregar introducción de estilo comentarista deportivo, variada según ORDEN SUPREMA
+    import random
+    intros_es = [
+        f"¡Hola a todos! Bienvenidos a Pasión y Pelota. Aquí les traemos el informe de hoy: {title_es}.\n\n",
+        f"¡Amigos del fútbol! Bienvenidos a Pasión y Pelota. Repasamos la jornada: {title_es}.\n\n",
+        f"Bienvenidos a Pasión y Pelota. Hoy ponemos la lupa táctica en el siguiente duelo: {title_es}.\n\n",
+        f"¿Qué tal, gente linda del fútbol? Esto es Pasión y Pelota, y este es el reporte: {title_es}.\n\n",
+        f"¡Rueda la pelota! En Pasión y Pelota tenemos el resumen táctico para ustedes: {title_es}.\n\n"
+    ]
+    intro_es = random.choice(intros_es)
     intro_en = f"Listening to Pasión y Pelota. Today's report: {title_es}.\n\n"
     
     text_es = intro_es + text_es

@@ -419,9 +419,12 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
             {"num": 88, "home": qualifiers['D']['runner_up']['name'], "home_label": "2º D", "home_colors": qualifiers['D']['runner_up']['colors'], "away": qualifiers['G']['runner_up']['name'], "away_label": "2º G", "away_colors": qualifiers['G']['runner_up']['colors'], "date": "3 de Julio", "venue": "Dallas Stadium"},
         ]
         
-        projected = []
+        stages = []
+        
+        # 1. Dieciseisavos de Final (Round of 32)
+        stage_32 = []
         for c in match_configs:
-            projected.append({
+            stage_32.append({
                 "match_num": c["num"],
                 "home": c["home"],
                 "home_label": c["home_label"],
@@ -432,7 +435,70 @@ Resultados de búsqueda para verificación de hechos (Fact-Checking):
                 "date": c["date"],
                 "venue": c["venue"]
             })
-        return projected
+        stages.append({"name": "Dieciseisavos de Final", "matches": stage_32})
+        
+        def get_w_placeholder(m_num):
+            return {
+                "name": f"Ganador {m_num}",
+                "label": f"P{m_num}",
+                "colors": {"color": "#444444", "text_color": "#ffffff"}
+            }
+            
+        # 2. Octavos de Final
+        r16_pairs = [
+            (89, 73, 75, "4 de Julio", "Philadelphia Stadium"), (90, 74, 76, "4 de Julio", "Houston Stadium"),
+            (91, 77, 79, "5 de Julio", "NY/NJ Stadium"), (92, 78, 80, "5 de Julio", "Estadio Azteca"),
+            (93, 81, 83, "6 de Julio", "Dallas Stadium"), (94, 82, 84, "6 de Julio", "Seattle Stadium"),
+            (95, 85, 87, "7 de Julio", "Atlanta Stadium"), (96, 86, 88, "7 de Julio", "Vancouver Stadium")
+        ]
+        stage_16 = []
+        for m, w1, w2, d, v in r16_pairs:
+            t1, t2 = get_w_placeholder(w1), get_w_placeholder(w2)
+            stage_16.append({
+                "match_num": m, "home": t1["name"], "home_label": t1["label"], "home_colors": t1["colors"],
+                "away": t2["name"], "away_label": t2["label"], "away_colors": t2["colors"], "date": d, "venue": v
+            })
+        stages.append({"name": "Octavos de Final", "matches": stage_16})
+        
+        # 3. Cuartos de Final
+        qf_pairs = [
+            (97, 89, 90, "9 de Julio", "Boston Stadium"), (98, 91, 92, "10 de Julio", "Los Angeles Stadium"),
+            (99, 93, 94, "11 de Julio", "Miami Stadium"), (100, 95, 96, "11 de Julio", "Kansas City Stadium")
+        ]
+        stage_8 = []
+        for m, w1, w2, d, v in qf_pairs:
+            t1, t2 = get_w_placeholder(w1), get_w_placeholder(w2)
+            stage_8.append({
+                "match_num": m, "home": t1["name"], "home_label": t1["label"], "home_colors": t1["colors"],
+                "away": t2["name"], "away_label": t2["label"], "away_colors": t2["colors"], "date": d, "venue": v
+            })
+        stages.append({"name": "Cuartos de Final", "matches": stage_8})
+        
+        # 4. Semifinales
+        sf_pairs = [
+            (101, 97, 98, "14 de Julio", "Dallas Stadium"), (102, 99, 100, "15 de Julio", "Atlanta Stadium")
+        ]
+        stage_4 = []
+        for m, w1, w2, d, v in sf_pairs:
+            t1, t2 = get_w_placeholder(w1), get_w_placeholder(w2)
+            stage_4.append({
+                "match_num": m, "home": t1["name"], "home_label": t1["label"], "home_colors": t1["colors"],
+                "away": t2["name"], "away_label": t2["label"], "away_colors": t2["colors"], "date": d, "venue": v
+            })
+        stages.append({"name": "Semifinales", "matches": stage_4})
+        
+        # 5. Final
+        final_pairs = [(104, 101, 102, "19 de Julio", "NY/NJ Stadium")]
+        stage_2 = []
+        for m, w1, w2, d, v in final_pairs:
+            t1, t2 = get_w_placeholder(w1), get_w_placeholder(w2)
+            stage_2.append({
+                "match_num": m, "home": t1["name"], "home_label": t1["label"], "home_colors": t1["colors"],
+                "away": t2["name"], "away_label": t2["label"], "away_colors": t2["colors"], "date": d, "venue": v
+            })
+        stages.append({"name": "Final", "matches": stage_2})
+        
+        return stages
 
     def calculate_player_stats(self, mundial_data: dict) -> dict:
         logger.info("El Editor Jefe está extrayendo estadísticas del Mundial 2026 directamente del JSON (cero alucinación)...")
