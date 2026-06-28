@@ -1383,21 +1383,21 @@
       "status": "Segundo Tiempo",
       "status_symbol": "2°",
       "start_time": "27-06-2026 23:00 (Hora Argentina)",
-      "display_time": "50'",
-      "display_status": "50'"
+      "display_time": "55'",
+      "display_status": "55'"
     },
     {
       "id": "egchjbc",
       "stage": "Fecha 3",
       "home": "Jordania",
       "away": "Argentina",
-      "home_goals": 0,
+      "home_goals": 1,
       "away_goals": 2,
       "status": "Segundo Tiempo",
       "status_symbol": "2°",
       "start_time": "27-06-2026 23:00 (Hora Argentina)",
-      "display_time": "50'",
-      "display_status": "50'"
+      "display_time": "55'",
+      "display_status": "55'"
     },
     {
       "id": "ehefgah",

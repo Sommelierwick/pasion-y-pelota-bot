@@ -462,3 +462,15 @@ Se implementó una arquitectura de sincronización robusta para erradicar las di
 2. **Filtrado de Fotos Scrapeadas por Hash:** Al subir imágenes externas (TyC Sports, Cadena 3), se les asigna un nombre físico `img_{hash_md5}.jpg`. La consulta inicial a WordPress lee estos hashes de las URLs multimedia destacadas para evitar reutilizar la misma foto en ejecuciones posteriores, forzando la generación por IA en caso de saturación.
 3. **Equilibrio de Potencias Activo:** Se habilitó el método `get_recent_titles` en `tools/wordpress.py` y se inyectó la llamada a `get_saturated_powers` en `main_standalone.py` para bloquear de forma determinística la selección de candidatos que pertenezcan a equipos saturados (>=4 notas recientes) antes del análisis del Ojeador.
 4. **Saneamiento de Duplicados Históricos:** Se detectaron y movieron a borrador (`draft`) las 9 notas duplicadas de Inglaterra vs Panamá 2-0 y sus respectivos clones en X.
+
+---
+
+### 🛡️ ORDEN SUPREMA: RESOLUCIÓN DUPLICADOS DE WIDGETS, NOTAS Y REMOCIÓN DE PRIORIDAD DE ECUADOR (28/06/2026 00:15 GMT-3)
+**Archivos modificados:** `main_standalone.py`, `create_and_upload_theme.py`, `database.json`, `bitacora_memoria.md`
+
+En cumplimiento estricto con las directrices y correcciones requeridas de forma prioritaria por el portal:
+1. **Deduplicación Visual de Cruces Simulados en Portada:** Refactorizamos el archivo `front-page.php` (dentro del generador de temas `create_and_upload_theme.py`). Añadimos una validación para evitar duplicidad de partidos en el widget lateral de la Copa del Mundo: si un partido que está `"Por definir"` (simulado) ya tiene su contraparte confirmada y real en el listado de partidos de hoy (por ejemplo, `Sudáfrica vs Canadá`), el código del widget salta y omite automáticamente la representación simulada. Se recompiló, subió y purgó la caché de LiteSpeed, dejando la portada con exactamente un solo registro del encuentro.
+2. **Saneamiento de Artículos Duplicados:** Se detectaron y trashearon de WordPress dos entradas redundantes del empate de Argelia vs Austria (IDs `4133` y `4134`), manteniendo la nota original (`4129`) y su clon social respectivo de forma única y estable.
+3. **Reporte de Entretiempo para Argentina (Jordania vs Argentina 2-0):** Eliminamos la nota preliminar obsoleta que indicaba un marcador de `0-0` (IDs `4123` y `4124`) y reiniciamos el estado del partido en `database.json`. Al ejecutar el motor, este detectó el partido en transcurso y redactó la crónica actualizada del primer tiempo con el **resultado real de 2-0** a favor de la Albiceleste, aplicando el debido aislamiento del DOM para el reproductor de podcast bilingüe.
+4. **Remoción de Prioridad para Ecuador:** Se eliminó a la selección de **Ecuador** del listado de `priority_teams` en `main_standalone.py` a raíz de su clasificación consolidada a la siguiente fase de eliminación directa.
+
