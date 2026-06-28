@@ -662,8 +662,8 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 
             # Control de duplicados diarios persistente en database.json (covered_teams_today)
             covered_teams = db.setdefault("covered_teams_today", {"date": today_arg, "teams": []}).get("teams", [])
-            # Excepción: Permitir si ya tiene registrada previa y vamos a publicar durante o post
-            is_transition = article_type in ["durante", "post"] and "previa" in published
+            # Excepción: Permitir si es transición (durante/post tras previa) o si no se ha publicado nada de este partido aún
+            is_transition = (article_type in ["durante", "post"] and "previa" in published) or (len(published) == 0)
             if not is_transition:
                 if home.lower() in [t.lower() for t in covered_teams] or away.lower() in [t.lower() for t in covered_teams]:
                     logging.info(f"Saltando {home} vs {away}: uno de los equipos ya fue cubierto hoy en la jornada ({covered_teams}).")

@@ -668,12 +668,12 @@
             "color": "#FFFFFF",
             "text_color": "#000000"
           },
-          "pts": "7",
+          "pts": "9",
           "pj": "3",
-          "goals": "5:0",
-          "ratio": "5",
-          "pg": "2",
-          "pe": "1",
+          "goals": "7:0",
+          "ratio": "7",
+          "pg": "3",
+          "pe": "0",
           "pp": "0",
           "dest_color": "#0CF737"
         },
@@ -687,7 +687,7 @@
           },
           "pts": "4",
           "pj": "3",
-          "goals": "3:3",
+          "goals": "4:4",
           "ratio": "0",
           "pg": "1",
           "pe": "1",
@@ -704,7 +704,7 @@
           },
           "pts": "4",
           "pj": "3",
-          "goals": "2:4",
+          "goals": "3:5",
           "ratio": "-2",
           "pg": "1",
           "pe": "1",
@@ -719,13 +719,13 @@
             "color": "#049900",
             "text_color": "#000000"
           },
-          "pts": "1",
+          "pts": "0",
           "pj": "3",
-          "goals": "2:5",
-          "ratio": "-3",
+          "goals": "2:7",
+          "ratio": "-5",
           "pg": "0",
-          "pe": "1",
-          "pp": "2",
+          "pe": "0",
+          "pp": "3",
           "dest_color": "#C84101"
         }
       ]
@@ -966,15 +966,15 @@
         },
         {
           "pos": 6,
-          "id": "faha",
-          "name": "Paraguay",
+          "id": "fbaj",
+          "name": "Argelia",
           "colors": {
             "color": "#FFFFFF",
             "text_color": "#000000"
           },
           "pts": "4",
           "pj": "3",
-          "goals": "2:4",
+          "goals": "3:5",
           "ratio": "-2",
           "pg": "1",
           "pe": "1",
@@ -983,8 +983,8 @@
         },
         {
           "pos": 7,
-          "id": "fbaj",
-          "name": "Argelia",
+          "id": "faha",
+          "name": "Paraguay",
           "colors": {
             "color": "#FFFFFF",
             "text_color": "#000000"
@@ -1378,13 +1378,13 @@
       "stage": "Fecha 3",
       "home": "Argelia",
       "away": "Austria",
-      "home_goals": 0,
-      "away_goals": 0,
-      "status": "Primer Tiempo",
-      "status_symbol": "1°",
+      "home_goals": 1,
+      "away_goals": 1,
+      "status": "Entretiempo",
+      "status_symbol": "ET",
       "start_time": "27-06-2026 23:00 (Hora Argentina)",
-      "display_time": "1'",
-      "display_status": "1'"
+      "display_time": "45'",
+      "display_status": "ET"
     },
     {
       "id": "egchjbc",
@@ -1392,12 +1392,25 @@
       "home": "Jordania",
       "away": "Argentina",
       "home_goals": 0,
-      "away_goals": 0,
-      "status": "Primer Tiempo",
-      "status_symbol": "1°",
+      "away_goals": 2,
+      "status": "Entretiempo",
+      "status_symbol": "ET",
       "start_time": "27-06-2026 23:00 (Hora Argentina)",
-      "display_time": "1'",
-      "display_status": "1'"
+      "display_time": "45'",
+      "display_status": "ET"
+    },
+    {
+      "id": "ehefgah",
+      "stage": "Fecha 3",
+      "home": "Sudáfrica",
+      "away": "Canadá",
+      "home_goals": "-",
+      "away_goals": "-",
+      "status": "Prog.",
+      "status_symbol": "Prog.",
+      "start_time": "28-06-2026 16:00 (Hora Argentina)",
+      "display_time": "",
+      "display_status": "Prog."
     },
     {
       "id": "bracket_game",
