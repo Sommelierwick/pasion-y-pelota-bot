@@ -2872,10 +2872,12 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
         $dt = new DateTime('now', $tz);
         $today_str = $dt->format('d-m-Y');
         
-        // 1. Intentar buscar partidos de hoy
+        // 1. Intentar buscar partidos de hoy o que estén en vivo
         foreach ($m_data['games'] as $game) {
           $game_date = substr($game['start_time'], 0, 10);
-          if ($game_date === $today_str) {
+          $st = strtolower($game['status']);
+          $is_live = (strpos($st, 'vivo') !== false || strpos($st, 'tiempo') !== false || strpos($st, 'entretiempo') !== false || strpos($st, '1t') !== false || strpos($st, '2t') !== false);
+          if ($game_date === $today_str || $is_live) {
             $today_matches[] = $game;
           }
         }
