@@ -1354,11 +1354,11 @@
       "away": "Portugal",
       "home_goals": 0,
       "away_goals": 0,
-      "status": "Primer Tiempo",
-      "status_symbol": "1°",
+      "status": "Entretiempo",
+      "status_symbol": "ET",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "45+1'",
-      "display_status": "45+1'"
+      "display_time": "45'",
+      "display_status": "ET"
     },
     {
       "id": "egjhhdg",
@@ -1367,11 +1367,11 @@
       "away": "Uzbekistán",
       "home_goals": 0,
       "away_goals": 1,
-      "status": "Primer Tiempo",
-      "status_symbol": "1°",
+      "status": "Entretiempo",
+      "status_symbol": "ET",
       "start_time": "27-06-2026 20:30 (Hora Argentina)",
-      "display_time": "45+1'",
-      "display_status": "45+1'"
+      "display_time": "45'",
+      "display_status": "ET"
     },
     {
       "id": "egchiia",

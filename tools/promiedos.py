@@ -9,6 +9,18 @@ import pytz
 # Configuración de logs
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+
+def get_headers() -> dict:
+    return {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "X-Forwarded-For": "181.118.0.1",
+        "CF-Connecting-IP": "181.118.0.1",
+        "X-Real-IP": "181.118.0.1",
+        "Client-IP": "181.118.0.1",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3"
+    }
+
 def convert_to_argentina_time(start_time_str: str) -> str:
     if not start_time_str:
         return start_time_str
@@ -181,11 +193,7 @@ def fetch_promiedos_page(league_key: str) -> str:
         logging.warning(f"No se encontró una URL de Promiedos registrada para la liga: {league_key}. Usando portada como fallback.")
         url = "https://www.promiedos.com.ar/"
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3"
-    }
+    headers = get_headers()
     
     logging.info(f"Intentando descargar datos deportivos directamente de Promiedos ({url})...")
     try:
@@ -234,9 +242,7 @@ def fetch_mundial_complete_data_static() -> dict:
     con todos los grupos, fixture y brackets parseados.
     """
     url = "https://www.promiedos.com.ar/league/fifa-world-cup/fjda"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = get_headers()
     logging.info(f"Descargando datos estructurados completos del Mundial desde {url}...")
     try:
         response = requests.get(url, headers=headers, timeout=15)
@@ -407,9 +413,7 @@ def fetch_league_complete_data(league_key: str) -> dict:
         logging.warning(f"No se encontró una URL de Promiedos registrada para la liga: {league_key}.")
         return {}
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = get_headers()
     logging.info(f"Descargando datos estructurados de la liga {league_key} desde {url}...")
     try:
         response = requests.get(url, headers=headers, timeout=15)
@@ -581,9 +585,7 @@ def fetch_today_mundial_from_homepage() -> list:
     no en la subpágina /league/fifa-world-cup/fjda que solo tiene datos estáticos.
     """
     url = "https://www.promiedos.com.ar"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = get_headers()
     logging.info("Descargando portada de Promiedos para obtener partidos del Mundial de HOY...")
     try:
         response = requests.get(url, headers=headers, timeout=15)
@@ -704,9 +706,7 @@ def search_backup_stats(query: str) -> str:
         
     encoded_query = urllib.parse.quote(query)
     url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = get_headers()
     
     logging.info(f"Realizando búsqueda de respaldo de F1 para: '{query}'")
     import time
@@ -741,9 +741,7 @@ def search_web_for_verification(query: str) -> str:
     """
     encoded_query = urllib.parse.quote(query)
     url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = get_headers()
     
     logging.info(f"Fact-Checking: buscando en la web para veracidad: '{query}'")
     import time
