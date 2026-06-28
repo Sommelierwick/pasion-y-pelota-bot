@@ -915,6 +915,16 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
             except Exception as e_contra:
                 logging.error(f"Error en Gate de Contradicciones del Mundial: {e_contra}")
 
+            match_data = {
+                "home": home,
+                "away": away,
+                "start_time": start_time_str,
+                "stadium": "MetLife Stadium",
+                "score_home": home_goals if home_goals != "-" else "",
+                "score_away": away_goals if away_goals != "-" else "",
+                "status": "finished" if status in ["Final", "Finalizado"] else ("live" if status not in ["Prog.", "Progr.", "Cancelado", "Postergado"] else "scheduled")
+            }
+
             wp_post = publisher.publish_post(
                 title=article_wc.get("title"),
                 content=content_html,
@@ -924,7 +934,8 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
                 featured_image_id=featured_image_id,
                 seo_desc=article_wc.get("meta_description"),
                 seo_focuskw=article_wc.get("seo_focuskw"),
-                writer=writer
+                writer=writer,
+                match_data=match_data
             )
             
             if wp_post:
@@ -1167,6 +1178,133 @@ def run_jacinto_perplejo_analysis(db: dict):
 # =============================================================================
 
 
+def sync_with_wordpress(db, publisher):
+    """
+    Sincroniza la base de datos local y el archivo used_images.json
+    leyendo directamente el estado actual del portal en WordPress (últimas 100 notas).
+    """
+    import logging
+    import os
+    import json
+    import pytz
+    from datetime import datetime
+    
+    logging.info("Iniciando sincronización de estado de WordPress...")
+    try:
+        # 1. Obtener posts y multimedia recientes
+        wp_data = publisher.get_recent_posts_and_media(limit=100)
+        posts = wp_data.get("posts", [])
+        image_hashes = wp_data.get("image_hashes", [])
+        
+        # 2. Sincronizar used_images.json
+        USED_IMAGES_FILE = "used_images.json"
+        used = set()
+        if os.path.exists(USED_IMAGES_FILE):
+            try:
+                with open(USED_IMAGES_FILE, "r", encoding="utf-8") as f:
+                    used = set(json.load(f))
+            except Exception:
+                pass
+                
+        # Agregar los hashes de imágenes de WordPress
+        for h in image_hashes:
+            used.add(h)
+            used.add(f"img_{h}")
+            
+        # También agregar las URLs que ya están en db["published_image_urls"]
+        for url in db.get("published_image_urls", []):
+            if url:
+                used.add(url)
+                
+        try:
+            with open(USED_IMAGES_FILE, "w", encoding="utf-8") as f:
+                json.dump(list(used), f, indent=2)
+            logging.info(f"Sincronizados {len(image_hashes)} hashes de imágenes desde WordPress en used_images.json.")
+        except Exception as e:
+            logging.error(f"Error escribiendo used_images.json: {e}")
+            
+        # 3. Sincronizar worldcup_coverage y covered_teams_today
+        # Para esto, necesitamos los partidos del Mundial. Los traeremos usando fetch_mundial_complete_data_with_today
+        from tools.promiedos import fetch_mundial_complete_data_with_today
+        mundial_data = fetch_mundial_complete_data_with_today()
+        games = mundial_data.get("games", [])
+        
+        tz_arg = pytz.timezone('America/Argentina/Buenos_Aires')
+        today_str = datetime.now(tz_arg).strftime("%Y-%m-%d")
+        
+        coverage = db.setdefault("worldcup_coverage", {})
+        covered_teams = db.setdefault("covered_teams_today", {"date": today_str, "teams": []})
+        if covered_teams.get("date") != today_str:
+            covered_teams["date"] = today_str
+            covered_teams["teams"] = []
+            
+        # Analizar cada post de WordPress
+        for p in posts:
+            title = p.get("title", {}).get("rendered", "")
+            content = p.get("content", {}).get("rendered", "")
+            post_date_str = p.get("date", "") # Formato: "YYYY-MM-DDTHH:MM:SS"
+            
+            # Verificar si el post se publicó hoy (hora argentina)
+            is_published_today = False
+            if post_date_str:
+                try:
+                    if post_date_str.startswith(today_str):
+                        is_published_today = True
+                except Exception:
+                    pass
+            
+            title_lower = title.lower()
+            content_lower = content.lower()
+            
+            # Buscar coincidencia con partidos
+            for g in games:
+                home = g.get("home", "")
+                away = g.get("away", "")
+                if not home or not away:
+                    continue
+                    
+                match_id = f"{home.replace(' ', '_')}_vs_{away.replace(' ', '_')}"
+                
+                # Si el título menciona ambos equipos
+                if home.lower() in title_lower and away.lower() in title_lower:
+                    published_list = coverage.setdefault(match_id, [])
+                    
+                    # Determinar tipo
+                    coverage_type = None
+                    if "previa" in title_lower or "pronostico" in title_lower or "así llegan" in title_lower or "asi llegan" in title_lower:
+                        coverage_type = "previa"
+                    elif "en vivo" in title_lower or "minuto a minuto" in title_lower or "durante" in title_lower or "provisional" in title_lower:
+                        coverage_type = "durante"
+                    else:
+                        coverage_type = "post"
+                        
+                    if coverage_type and coverage_type not in published_list:
+                        published_list.append(coverage_type)
+                        logging.info(f"Sincronizado partido {match_id}: tipo '{coverage_type}' encontrado en post '{title}'")
+                        
+                    # Sincronizar covered_teams_today si es de hoy
+                    if is_published_today:
+                        if home not in covered_teams["teams"]:
+                            covered_teams["teams"].append(home)
+                        if away not in covered_teams["teams"]:
+                            covered_teams["teams"].append(away)
+
+        # 4. Sincronizar published_urls y published_titles para evitar duplicados en RSS
+        published_urls = db.setdefault("published_urls", [])
+        published_titles = db.setdefault("published_titles", [])
+        for p in posts:
+            link = p.get("link", "")
+            title = p.get("title", {}).get("rendered", "")
+            if link and link not in published_urls:
+                published_urls.append(link)
+            if title and title not in published_titles:
+                published_titles.append(title)
+                
+        save_database(db)
+        logging.info("Sincronización de estado de WordPress completada con éxito.")
+    except Exception as e:
+        logging.error(f"Error en sync_with_wordpress: {e}")
+
 def get_saturated_powers(publisher) -> list:
     """Analiza los últimos 15 posts y devuelve las potencias que superen la saturación (>=4 posts)."""
     import re
@@ -1222,6 +1360,13 @@ def run_pipeline():
         logging.error(f"Error al limpiar posts viejos: {e}")
 
     db = load_database()
+    publisher = WordPressPublisher()
+    
+    # Sincronizar de forma robusta el estado con WordPress para evitar duplicados
+    sync_with_wordpress(db, publisher)
+    
+    # Análisis de saturación y equilibrio de potencias
+    saturated_powers = get_saturated_powers(publisher)
 
     # Control de duplicados diarios (covered_teams_today)
     import pytz
@@ -1315,8 +1460,37 @@ def run_pipeline():
         and item.get("title", "") not in db["published_titles"]
     ]
 
+    # --- FILTRO DETERMINÍSTICO DE POTENCIAS SATURADAS ---
+    if saturated_powers:
+        filtered_candidates = []
+        import re
+        powers_keywords = {
+            "Argentina": ["argentina", "messi", "scaloni", "dibu", "albiceleste", "scaloneta"],
+            "Brasil": ["brasil", "vinicius", "rodrygo", "neymar", "dorival", "canarinha"],
+            "España": ["españa", "espana", "lamine", "yamal", "williams", "pedri", "roja"],
+            "Francia": ["francia", "mbappe", "griezmann", "deschamps", "bleus"],
+            "Inglaterra": ["inglaterra", "bellingham", "kane", "foden", "southgate"],
+            "Uruguay": ["uruguay", "bielsa", "valverde", "nunez", "celeste"],
+            "México": ["mexico", "santiago", "gimenez", "tri", "lozano"]
+        }
+        
+        banned_kws = []
+        for p in saturated_powers:
+            if p in powers_keywords:
+                banned_kws.extend(powers_keywords[p])
+                
+        for cand in new_candidates:
+            text_to_check = f"{cand.get('title', '')} {cand.get('summary', '')}".lower()
+            if any(kw in text_to_check for kw in banned_kws):
+                logging.info(f"Filtro determinístico descartó candidato '{cand.get('title')}' por saturación de {saturated_powers}")
+                continue
+            filtered_candidates.append(cand)
+            
+        logging.info(f"Filtro de equilibrio de potencias eliminó {len(new_candidates) - len(filtered_candidates)} candidatos saturados.")
+        new_candidates = filtered_candidates
+
     if not new_candidates:
-        logging.info("Todas las noticias ya fueron procesadas. Fin del proceso.")
+        logging.info("Todas las noticias ya fueron procesadas (o filtradas por saturación). Fin del proceso.")
         return
 
     logging.info(f"Candidatos nuevos a evaluar: {len(new_candidates)}")
@@ -1334,6 +1508,10 @@ def run_pipeline():
 
     recent_titles = ", ".join(db.get("published_titles", [])[-5:]) if db.get("published_titles") else "Ninguno"
     SATURATED_POWERS_RULE = f"⚠️ REGLA DE SATURACIÓN ANTI-DUPLICADOS:\n- Está ESTRICTAMENTE PROHIBIDO seleccionar noticias que traten sobre los mismos temas que acabamos de publicar.\n- Temas/Títulos ya publicados recientemente: {recent_titles}\n- Si un candidato habla de lo mismo (ej. 'Lionel Messi guía a Argentina...'), DESCÁRTALO INMEDIATAMENTE y elige una noticia sobre otro equipo o tema."
+    
+    if saturated_powers:
+        saturated_str = ", ".join(saturated_powers)
+        SATURATED_POWERS_RULE += f"\n⛔ REGLA DE EQUILIBRIO DE PORTADA (GATE ACTIVO): Las siguientes selecciones/potencias están SATURADAS en la web y queda ESTRICTAMENTE PROHIBIDO seleccionarlas en este ciclo: {saturated_str}. Debes elegir otra potencia o liga."
 
     OJEADOR_SYSTEM = f"""
 Eres 'El Ojeador', editor jefe de un portal deportivo panamericano con estrategia SEO avanzada.

@@ -2018,14 +2018,82 @@ add_action('init', function () {
     'single' => true,
     'type' => 'string',
   ]);
+  register_post_meta('post', 'ppelota_title_en', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_content_en', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_home', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_away', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_start_time', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_stadium', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_score_home', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_score_away', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+  register_post_meta('post', 'ppelota_match_status', [
+    'show_in_rest' => true,
+    'single' => true,
+    'type' => 'string',
+  ]);
+});
+
+// Registrar el query var 'lang'
+add_filter('query_vars', function ($vars) {
+  $vars[] = 'lang';
+  return $vars;
+});
+
+// Modificar el título del documento en la pestaña si lang=en está activo
+add_filter('document_title_parts', function ($title_parts) {
+  if (is_single() && get_query_var('lang') === 'en') {
+    $title_en = get_post_meta(get_the_ID(), 'ppelota_title_en', true);
+    if ($title_en) {
+      $title_parts['title'] = $title_en;
+    }
+  }
+  return $title_parts;
 });
 
 // Inyectar etiquetas meta y JSON-LD de forma invisible en la cabecera HTML (SEO/GEO)
 add_action('wp_head', function () {
   if (is_single()) {
     $post_id = get_the_ID();
-    $title = get_the_title();
+    $is_en = (get_query_var('lang') === 'en');
+    
+    $title = $is_en ? (get_post_meta($post_id, 'ppelota_title_en', true) ?: get_the_title()) : get_the_title();
     $url = get_permalink();
+    if ($is_en) {
+      $url = add_query_arg('lang', 'en', $url);
+    }
+    
     $date_pub = get_the_date('c');
     $date_mod = get_the_modified_date('c');
     $img_url = get_the_post_thumbnail_url($post_id, 'large');
@@ -2036,6 +2104,12 @@ add_action('wp_head', function () {
     if (empty($writer_name)) {
       $writer_name = 'Redacción Pasión y Pelota';
     }
+    
+    // Etiquetas hreflang de SEO Multilingüe
+    $es_url = get_permalink($post_id);
+    $en_url = add_query_arg('lang', 'en', $es_url);
+    echo '<link rel="alternate" hreflang="es" href="' . esc_url($es_url) . '">' . "\n";
+    echo '<link rel="alternate" hreflang="en" href="' . esc_url($en_url) . '">' . "\n";
     
     if ($seo_desc) {
       echo '<meta name="description" content="' . esc_attr($seo_desc) . '">' . "\n";
@@ -2081,9 +2155,60 @@ add_action('wp_head', function () {
       $json_ld['image'] = [$img_url];
     }
     
-    echo "\n" . '<script type="application/ld+json">' . "\n";
-    echo json_encode($json_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    echo "\n" . '</script>' . "\n";
+    // Obtener datos del partido para el esquema de evento deportivo
+    $m_home = get_post_meta($post_id, 'ppelota_match_home', true);
+    $m_away = get_post_meta($post_id, 'ppelota_match_away', true);
+    if ($m_home && $m_away) {
+      $m_start = get_post_meta($post_id, 'ppelota_match_start_time', true);
+      $m_stadium = get_post_meta($post_id, 'ppelota_match_stadium', true) ?: 'MetLife Stadium';
+      $m_score_home = get_post_meta($post_id, 'ppelota_match_score_home', true);
+      $m_score_away = get_post_meta($post_id, 'ppelota_match_score_away', true);
+      $m_status = get_post_meta($post_id, 'ppelota_match_status', true) ?: 'scheduled';
+      
+      $sports_ld = [
+        '@context' => 'https://schema.org',
+        '@type' => 'SportsEvent',
+        'name' => "$m_home vs $m_away",
+        'startDate' => $m_start ?: $date_pub,
+        'location' => [
+          '@type' => 'Place',
+          'name' => $m_stadium,
+          'address' => [
+            '@type' => 'PostalAddress',
+            'addressLocality' => 'East Rutherford',
+            'addressRegion' => 'NJ',
+            'addressCountry' => 'US'
+          ]
+        ],
+        'competitor' => [
+          [
+            '@type' => 'SportsTeam',
+            'name' => $m_home
+          ],
+          [
+            '@type' => 'SportsTeam',
+            'name' => $m_away
+          ]
+        ]
+      ];
+      
+      if ($m_score_home !== '' && $m_score_away !== '') {
+        $sports_ld['sportEventReport'] = [
+          '@type' => 'Report',
+          'headline' => $title,
+          'url' => $url
+        ];
+      }
+      
+      $schemas = [$json_ld, $sports_ld];
+      echo "\n" . '<script type="application/ld+json">' . "\n";
+      echo json_encode($schemas, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+      echo "\n" . '</script>' . "\n";
+    } else {
+      echo "\n" . '<script type="application/ld+json">' . "\n";
+      echo json_encode($json_ld, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+      echo "\n" . '</script>' . "\n";
+    }
   }
 });
 
@@ -3650,11 +3775,14 @@ get_header();?>
 <?php while(have_posts()):the_post();
 $c=get_the_category();$cn=$c?$c[0]->name:'';$cl=$c?get_category_link($c[0]->term_id):'';
 $tags=get_the_tags();
+$is_en = (get_query_var('lang') === 'en');
+$post_title = $is_en ? (get_post_meta(get_the_ID(), 'ppelota_title_en', true) ?: get_the_title()) : get_the_title();
+$post_content = $is_en ? (get_post_meta(get_the_ID(), 'ppelota_content_en', true) ?: get_the_content()) : get_the_content();
 ?>
 <div class="single-header">
   <?php if($cn):?><a href="<?php echo esc_url($cl);?>" class="volanta" style="margin-bottom:0;"><?php echo esc_html($cn);?></a><?php endif;?>
   <h1 class="single-title">
-    <?php the_title();?>
+    <?php echo esc_html($post_title);?>
     <?php 
       $raw_title = get_post_field('post_title', get_the_ID(), 'raw');
       $pos_hash = false;
@@ -3696,7 +3824,37 @@ if ($ad_article):
     <?php echo $ad_article; ?>
   </div>
 <?php endif; ?>
-<div class="post-body"><?php the_content();?></div>
+<div class="post-body"><?php 
+  $post_content = apply_filters('the_content', $post_content);
+  
+  // Inyectar el bloque de recomendados "También te puede interesar" después del segundo párrafo
+  $paragraphs = explode('</p>', $post_content);
+  if (count($paragraphs) > 2) {
+    $rc = wp_get_post_categories(get_the_ID());
+    if ($rc) {
+      $rel = get_posts(['category__in' => $rc, 'exclude' => [get_the_ID()], 'numberposts' => 1, 'category__not_in' => [303]]);
+      if ($rel) {
+        $r_post = $rel[0];
+        $r_link = esc_url(get_permalink($r_post->ID));
+        if ($is_en) {
+          $r_link = add_query_arg('lang', 'en', $r_link);
+          $r_title = esc_html(get_post_meta($r_post->ID, 'ppelota_title_en', true) ?: $r_post->post_title);
+          $label_text = "You might also like";
+        } else {
+          $r_title = esc_html($r_post->post_title);
+          $label_text = "También te puede interesar";
+        }
+        $inline_box = '
+        <div class="inline-related-post" style="border-left: 4px solid #ffcc00; background: rgba(255, 204, 0, 0.05); padding: 15px; margin: 25px 0; border-radius: 0 8px 8px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+          <span style="font-size: 0.8em; font-weight: bold; color: #ffcc00; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;">' . $label_text . '</span>
+          <a href="' . $r_link . '" style="font-weight: 700; text-decoration: none; color: #fff; font-size: 1.1em; transition: color 0.2s;">' . $r_title . ' ➔</a>
+        </div>';
+        $paragraphs[1] .= $inline_box;
+      }
+    }
+  }
+  echo implode('</p>', $paragraphs);
+?></div>
 <?php if($tags):?>
 <div class="tags-wrap">
   <span class="tag-label">🏷️ Tags:</span>

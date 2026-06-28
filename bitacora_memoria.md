@@ -451,3 +451,14 @@ usar para noticias de Scaloni, Dibu, Lautaro, De Paul, Enzo, no solo Messi)
 4. **Lógica de Prevención a Futuro (Cero Alucinación):**
    - Modificamos `main_standalone.py` para extraer dinámicamente la tabla de posiciones de mejores terceros del Mundial (`3er puesto`) de la API de Promiedos y enviarla como `third_place_json` al Agente Documentalista.
    - Actualizamos las instrucciones en `DOCUMENTALISTA_WORLD_CUP_SYSTEM` en `main_standalone.py` para obligar al modelo a verificar la tabla de mejores terceros antes de emitir cualquier dictamen de eliminación sobre un equipo posicionado en 3er lugar de su grupo, garantizando un análisis 100% verídico acorde al reglamento de 48 equipos de la FIFA.
+
+---
+
+### 🚀 SOLUCIÓN DE DUPLICADOS DE IMÁGENES Y NOTAS & ACTIVACIÓN DE EQUILIBRIO DE PORTADA (28/06/2026 00:45 GMT-3)
+**Archivos modificados:** `main_standalone.py`, `tools/wordpress.py`, `used_images.json`, `database.json`
+
+Se implementó una arquitectura de sincronización robusta para erradicar las discrepancias entre la ejecución local y en la nube (GitHub Actions):
+1. **Sincronización Bidireccional desde WordPress:** Al inicio del pipeline, el bot realiza una consulta `GET /posts?per_page=100&_embed=wp:featuredmedia` para descargar el listado real de noticias publicadas hoy y sus fotos. Esto reconstruye dinámicamente `worldcup_coverage`, `covered_teams_today` y detecta las imágenes ya usadas en WordPress, superando cualquier desincronización de los archivos JSON locales.
+2. **Filtrado de Fotos Scrapeadas por Hash:** Al subir imágenes externas (TyC Sports, Cadena 3), se les asigna un nombre físico `img_{hash_md5}.jpg`. La consulta inicial a WordPress lee estos hashes de las URLs multimedia destacadas para evitar reutilizar la misma foto en ejecuciones posteriores, forzando la generación por IA en caso de saturación.
+3. **Equilibrio de Potencias Activo:** Se habilitó el método `get_recent_titles` en `tools/wordpress.py` y se inyectó la llamada a `get_saturated_powers` en `main_standalone.py` para bloquear de forma determinística la selección de candidatos que pertenezcan a equipos saturados (>=4 notas recientes) antes del análisis del Ojeador.
+4. **Saneamiento de Duplicados Históricos:** Se detectaron y movieron a borrador (`draft`) las 9 notas duplicadas de Inglaterra vs Panamá 2-0 y sus respectivos clones en X.

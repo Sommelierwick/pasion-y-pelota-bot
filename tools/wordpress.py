@@ -40,7 +40,15 @@ class WordPressPublisher:
         # --- REGLA 4: Anti-duplicado en el gate final ---
         import json
         import os
+        import hashlib
         USED_IMAGES_FILE = "used_images.json"
+        
+        is_external = image_url.startswith(("http://", "https://"))
+        url_hash = None
+        if is_external:
+            url_hash = hashlib.md5(image_url.encode('utf-8')).hexdigest()
+            ext = os.path.splitext(filename)[1] or ".jpg"
+            filename = f"img_{url_hash}{ext}"
         
         try:
             used = set()
@@ -48,7 +56,10 @@ class WordPressPublisher:
                 with open(USED_IMAGES_FILE, "r", encoding="utf-8") as f:
                     used = set(json.load(f))
             if image_url in used:
-                logging.warning(f"❌ Anti-duplicado: La imagen {image_url} ya fue usada. Rechazando subida para evitar duplicados.")
+                logging.warning(f"❌ Anti-duplicado (URL): La imagen {image_url} ya fue usada. Rechazando subida.")
+                return None
+            if url_hash and (url_hash in used or f"img_{url_hash}" in used):
+                logging.warning(f"❌ Anti-duplicado (hash): La imagen con hash {url_hash} ya fue usada. Rechazando subida.")
                 return None
         except Exception as e:
             logging.warning(f"Error al leer {USED_IMAGES_FILE}: {e}")
@@ -217,7 +228,7 @@ class WordPressPublisher:
                 
         return tag_ids
 
-    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, seo_focuskw: Optional[str] = None, writer: Optional[str] = None, date: Optional[str] = None) -> Optional[dict]:
+    def publish_post(self, title: str, content: str, league_category = "Noticias", tags: List[str] = None, status: str = "publish", featured_image_id: Optional[int] = None, seo_desc: Optional[str] = None, seo_focuskw: Optional[str] = None, writer: Optional[str] = None, date: Optional[str] = None, match_data: Optional[dict] = None) -> Optional[dict]:
         """
         Publica una entrada en WordPress.
         
@@ -259,10 +270,12 @@ class WordPressPublisher:
         elif isinstance(league_category, list):
             is_social_share = any(str(c).strip().lower() in ["social share", "social-share", "303"] for c in league_category)
             
+        title_en = None
+        content_en_html = None
         if config.ENABLE_AUDIO_NARRATION and status == "publish" and not is_social_share:
             try:
                 from tools.audio_generator import generate_and_upload_audios
-                url_es, url_en = generate_and_upload_audios(self, title, content)
+                url_es, url_en, title_en, content_en_html = generate_and_upload_audios(self, title, content)
                 if url_es and url_en:
                     # Inyectar el HTML del reproductor al principio del contenido
                     player_html = f"""<!-- wp:html -->
@@ -320,6 +333,16 @@ class WordPressPublisher:
         document.getElementById('pyp-btn-es').style.background = '#222'; document.getElementById('pyp-btn-es').style.color = '#fff'; document.getElementById('pyp-btn-es').style.borderColor = '#ffcc00'; document.getElementById('pyp-btn-es').innerHTML = '<span>{config.FLAG_ES}</span> Escuchar (ES)';
         document.getElementById('pyp-btn-en').style.background = '#222'; document.getElementById('pyp-btn-en').style.color = '#ccc'; document.getElementById('pyp-btn-en').style.borderColor = '#444'; document.getElementById('pyp-btn-en').innerHTML = '<span>{config.FLAG_EN}</span> Listen (EN)';
       }}
+      document.addEventListener("DOMContentLoaded", function() {{
+        if (window.location.search.indexOf("lang=en") !== -1) {{
+          var btnEs = document.getElementById('pyp-btn-es');
+          var btnEn = document.getElementById('pyp-btn-en');
+          if (btnEs && btnEn) {{
+            btnEn.style.background = '#ffcc00'; btnEn.style.color = '#000'; btnEn.style.borderColor = '#ffcc00'; btnEn.innerHTML = '<span>{config.FLAG_EN}</span> <b>Listen (EN)</b>';
+            btnEs.style.background = '#222'; btnEs.style.color = '#fff'; btnEs.style.borderColor = '#ffcc00'; btnEs.innerHTML = '<span>{config.FLAG_ES}</span> Escuchar (ES)';
+          }}
+        }}
+      }});
     </script>
   </div>
 </div>
@@ -373,6 +396,20 @@ class WordPressPublisher:
             post_payload["meta"]["_yoast_wpseo_focuskw"] = seo_focuskw
         if writer:
             post_payload["meta"]["ppelota_writer"] = writer
+            
+        if title_en:
+            post_payload["meta"]["ppelota_title_en"] = title_en
+        if content_en_html:
+            post_payload["meta"]["ppelota_content_en"] = content_en_html
+            
+        if match_data:
+            post_payload["meta"]["ppelota_match_home"] = match_data.get("home", "")
+            post_payload["meta"]["ppelota_match_away"] = match_data.get("away", "")
+            post_payload["meta"]["ppelota_match_start_time"] = match_data.get("start_time", "")
+            post_payload["meta"]["ppelota_match_stadium"] = match_data.get("stadium", "")
+            post_payload["meta"]["ppelota_match_score_home"] = str(match_data.get("score_home", ""))
+            post_payload["meta"]["ppelota_match_score_away"] = str(match_data.get("score_away", ""))
+            post_payload["meta"]["ppelota_match_status"] = match_data.get("status", "")
             
         # Agregar imagen destacada si se proporcionó
         if featured_image_id:
@@ -563,6 +600,49 @@ class WordPressPublisher:
         except Exception as e:
             logging.error(f"Excepción al actualizar entrada ID {post_id} en WordPress: {e}")
             return False
+
+    def get_recent_titles(self, limit: int = 15) -> list:
+        """Devuelve los títulos de las últimas publicaciones para análisis de saturación."""
+        url = f"{self.url}/posts?per_page={limit}&_fields=id,title"
+        try:
+            response = requests.get(url, headers=self._get_headers(), auth=self.auth, verify=False, timeout=15)
+            if response.status_code == 200:
+                posts = response.json()
+                return [p.get("title", {}).get("rendered", "") for p in posts]
+        except Exception as e:
+            logging.error(f"Error fetching recent titles: {e}")
+        return []
+
+    def get_recent_posts_and_media(self, limit: int = 100) -> dict:
+        """
+        Recupera las últimas publicaciones de WordPress junto con su multimedia incrustada.
+        Permite reconstruir el estado de cobertura de partidos y de imágenes usadas.
+        """
+        url = f"{self.url}/posts?per_page={limit}&_embed=wp:featuredmedia"
+        result = {
+            "posts": [],
+            "image_hashes": []
+        }
+        try:
+            response = requests.get(url, headers=self._get_headers(), auth=self.auth, verify=False, timeout=20)
+            if response.status_code == 200:
+                posts = response.json()
+                result["posts"] = posts
+                import re
+                for p in posts:
+                    embedded = p.get("_embedded", {})
+                    featured_media_list = embedded.get("wp:featuredmedia", [])
+                    if featured_media_list and len(featured_media_list) > 0:
+                        media_url = featured_media_list[0].get("source_url")
+                        if media_url:
+                            # Buscar patrón img_<hash_md5>
+                            match = re.search(r'img_([a-f0-9]{32})', media_url)
+                            if match:
+                                result["image_hashes"].append(match.group(1))
+        except Exception as e:
+            logging.error(f"Error in get_recent_posts_and_media: {e}")
+        return result
+
 
 # Instancia para pruebas directas si se ejecuta este archivo
 if __name__ == "__main__":

@@ -294,12 +294,12 @@ def upload_audio_to_wp(wp_publisher, file_bytes: bytes, filename: str) -> Option
         
     return None
 
-def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str) -> Tuple[Optional[str], Optional[str]]:
+def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
     """Traduce la nota, genera los audios en ambos idiomas y los sube a WordPress.
-    Retorna una tupla (url_audio_es, url_audio_en)."""
+    Retorna una tupla (url_audio_es, url_audio_en, title_en, content_en_html)."""
     if not config.ENABLE_AUDIO_NARRATION:
         logger.info("Audio narración desactivada en la configuración.")
-        return None, None
+        return None, None, None, None
         
     logger.info("Iniciando flujo de generación de audio para el post...")
     
@@ -309,6 +309,11 @@ def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str
     if not content_en_html:
         logger.warning("La traducción falló. Se usará el contenido en español como base para evitar fallas críticas.")
         content_en_html = content_es_html
+        
+    logger.info("Traduciendo título a inglés...")
+    title_en = translate_to_english(title_es)
+    if not title_en:
+        title_en = title_es
         
     # 2. Limpiar textos para lectura por voz
     text_es_clean = clean_html_for_speech(content_es_html)
@@ -346,4 +351,4 @@ def generate_and_upload_audios(wp_publisher, title_es: str, content_es_html: str
     url_es = upload_audio_to_wp(wp_publisher, audio_es_bytes, filename_es)
     url_en = upload_audio_to_wp(wp_publisher, audio_en_bytes, filename_en)
     
-    return url_es, url_en
+    return url_es, url_en, title_en, content_en_html
