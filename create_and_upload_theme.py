@@ -2937,9 +2937,26 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
           $a_name = $game['away'];
           
           if ((stripos($h_name, 'definir') !== false || trim($h_name) === '') && !empty($proj_brackets) && isset($proj_brackets[$proj_index])) {
-              $h_name = $proj_brackets[$proj_index]['home'];
-              $a_name = $proj_brackets[$proj_index]['away'];
+              $sim_h = $proj_brackets[$proj_index]['home'];
+              $sim_a = $proj_brackets[$proj_index]['away'];
               $proj_index++;
+              
+              // Evitar duplicados si el partido simulado ya se encuentra confirmado en el listado
+              $is_dup = false;
+              foreach ($today_matches as $other_game) {
+                  if (stripos($other_game['home'], 'definir') === false && stripos($other_game['away'], 'definir') === false) {
+                      if (($other_game['home'] === $sim_h && $other_game['away'] === $sim_a) || ($other_game['home'] === $sim_a && $other_game['away'] === $sim_h)) {
+                          $is_dup = true;
+                          break;
+                      }
+                  }
+              }
+              if ($is_dup) {
+                  continue;
+              }
+              
+              $h_name = $sim_h;
+              $a_name = $sim_a;
               $status_lbl .= ' (Simulado)';
           }
       ?>

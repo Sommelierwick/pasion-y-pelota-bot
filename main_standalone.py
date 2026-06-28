@@ -546,7 +546,7 @@ def run_worldcup_coverage_engine(db, teams_covered_this_cycle):
         logging.info(f"Fecha de hoy en Argentina para priorización: {today_arg}")
         
         # Priorización de partidos del Mundial (Solución a la inanición)
-        priority_teams = ["Argentina", "Brasil", "España", "Espana", "Francia", "Inglaterra", "Uruguay", "México", "Mexico", "Alemania", "Portugal", "Bélgica", "Belgica", "Colombia", "Ecuador", "Estados Unidos"]
+        priority_teams = ["Argentina", "Brasil", "España", "Espana", "Francia", "Inglaterra", "Uruguay", "México", "Mexico", "Alemania", "Portugal", "Bélgica", "Belgica", "Colombia", "Estados Unidos"]
         
         def get_game_priority(game):
             g_home = game.get("home", "Local")

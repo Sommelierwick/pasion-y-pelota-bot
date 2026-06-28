@@ -1267,7 +1267,9 @@
     "/Users/cristianbruno/Downloads/PAGINA WEB FUTBOL/temp_images/ai_img_439035db.jpg",
     "https://media.tycsports.com/files/2026/06/27/963659/portugal-colmbia_862x485.webp",
     "/Users/cristianbruno/Downloads/PAGINA WEB FUTBOL/temp_images/ai_img_9a652586.jpg",
-    "https://media.tycsports.com/files/2026/06/27/963658/congo_862x485.webp"
+    "https://media.tycsports.com/files/2026/06/27/963658/congo_862x485.webp",
+    "https://media.tycsports.com/files/2026/06/27/963670/jesse-marsch-optimista-para-los-16vos-del-mundial_862x485.webp",
+    "https://media.tycsports.com/files/2026/06/27/963791/argentina-jordania_862x485.webp"
   ],
   "worldcup_coverage": {
     "Ecuador_vs_Alemania": [
@@ -1300,11 +1302,19 @@
     ],
     "Argelia_vs_Austria": [
       "durante"
+    ],
+    "Sudáfrica_vs_Canadá": [
+      "previa"
     ]
   },
   "jacinto_perplejo_last_hash": "d42add909e34660fc87cb0730705ad4b",
   "covered_teams_today": {
     "date": "2026-06-28",
-    "teams": []
+    "teams": [
+      "Sudáfrica",
+      "Canadá",
+      "Jordania",
+      "Argentina"
+    ]
   }
 }
