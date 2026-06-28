@@ -295,6 +295,7 @@ def fetch_mundial_complete_data_static() -> dict:
             
             # 2. Parsear games (Partidos de TODAS las fechas de grupos)
             games_list = []
+            seen_match_keys = set()
             games_data = body_data.get("games", {})
             filters = games_data.get("filters", [])
             for f in filters:
@@ -306,6 +307,13 @@ def fetch_mundial_complete_data_static() -> dict:
                     
                     home = teams[0].get("name") if len(teams) > 0 else "Local"
                     away = teams[1].get("name") if len(teams) > 1 else "Visita"
+                    
+                    # Evitar duplicar el mismo partido que venga en múltiples filtros
+                    match_key = f"{home.strip()}_{away.strip()}"
+                    if match_key in seen_match_keys:
+                        continue
+                    seen_match_keys.add(match_key)
+                    
                     home_goals = scores[0] if len(scores) > 0 else "-"
                     away_goals = scores[1] if len(scores) > 1 else "-"
                     
