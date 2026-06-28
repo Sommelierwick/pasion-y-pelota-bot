@@ -2872,18 +2872,37 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
         $dt = new DateTime('now', $tz);
         $today_str = $dt->format('d-m-Y');
         
-        // 1. Intentar buscar partidos de hoy o que estén en vivo
+        $yesterday_dt = clone $dt;
+        $yesterday_dt->modify('-1 day');
+        $yesterday_str = $yesterday_dt->format('d-m-Y');
+        
+        // Verificar si ayer hubo partidos y al menos uno sigue activo (no finalizado y en vivo)
+        $yesterday_has_active = false;
+        foreach ($m_data['games'] as $game) {
+            $game_date = substr($game['start_time'], 0, 10);
+            if ($game_date === $yesterday_str) {
+                $st = strtolower($game['status']);
+                $is_finished = (strpos($st, 'finalizado') !== false || strpos($st, 'final') !== false);
+                $is_live = (strpos($st, 'vivo') !== false || strpos($st, 'tiempo') !== false || strpos($st, 'entretiempo') !== false || strpos($st, '1t') !== false || strpos($st, '2t') !== false);
+                if ($is_live && !$is_finished) {
+                    $yesterday_has_active = true;
+                    break;
+                }
+            }
+        }
+        
+        // La fecha objetivo a mostrar: si ayer todavía hay partidos activos, mostramos ayer. Si no, hoy.
+        $target_date = $yesterday_has_active ? $yesterday_str : $today_str;
+        
         foreach ($m_data['games'] as $game) {
           $game_date = substr($game['start_time'], 0, 10);
-          $st = strtolower($game['status']);
-          $is_live = (strpos($st, 'vivo') !== false || strpos($st, 'tiempo') !== false || strpos($st, 'entretiempo') !== false || strpos($st, '1t') !== false || strpos($st, '2t') !== false);
-          if ($game_date === $today_str || $is_live) {
+          if ($game_date === $target_date) {
             $today_matches[] = $game;
           }
         }
         
-        // 2. Si no hay partidos hoy, buscar el próximo día con partidos
-        if (empty($today_matches)) {
+        // Si el objetivo es hoy pero no hay partidos hoy, buscamos el próximo día con partidos
+        if (empty($today_matches) && $target_date === $today_str) {
             $future_dates = [];
             foreach ($m_data['games'] as $game) {
                 $game_date_str = substr($game['start_time'], 0, 10);
@@ -2893,7 +2912,6 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
                 }
             }
             if (!empty($future_dates)) {
-                // Ordenar y agarrar el más cercano
                 usort($future_dates, function($a, $b) use ($tz) {
                     $da = DateTime::createFromFormat('d-m-Y', $a, $tz);
                     $db = DateTime::createFromFormat('d-m-Y', $b, $tz);
@@ -2909,6 +2927,8 @@ open(f"{THEME_DIR}/front-page.php","w",encoding="utf-8").write("""\
                 
                 $widget_title = "Mundial 2026: Próximos Partidos";
             }
+        } else {
+            $widget_title = "Mundial 2026: Partidos de Hoy";
         }
       }
       ?>
